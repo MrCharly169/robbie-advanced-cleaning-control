@@ -1,0 +1,18 @@
+{
+  "domain": "robbie_advanced_cc",
+  "name": "Robbie Advanced Cleaning Control",
+  "version": "2026.8.0b0",
+  "config_flow": true,
+  "integration_type": "hub",
+  "iot_class": "calculated",
+  "documentation": "https://github.com/MrCharly169/robbie-advanced-cleaning-control",
+  "issue_tracker": "https://github.com/MrCharly169/robbie-advanced-cleaning-control/issues",
+  "dependencies": [
+    "http",
+    "persistent_notification"
+  ],
+  "requirements": [],
+  "codeowners": [
+    "@MrCharly169"
+  ]
+}

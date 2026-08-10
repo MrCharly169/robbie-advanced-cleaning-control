@@ -1,0 +1,65 @@
+{
+  "title": "Robbie Advanced Cleaning Control",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Create a cleaning planner",
+        "description": "Select the vacuum entities and optional Home Assistant bindings. Missions are managed by the Advanced Cleaning Control card or services.",
+        "data": {
+          "name": "Planner name",
+          "vacuums": "Vacuum cleaners",
+          "vacation_entity": "Vacation mode",
+          "notification_script": "Central notification router",
+          "notification_route": "Notification route helper",
+          "todo_entity": "Household to-do list",
+          "dashboard_path": "Cleaning dashboard path"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "These vacuum cleaners are already managed by a planner."
+    },
+    "error": {
+      "no_vacuums": "Select at least one vacuum cleaner."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "External bindings",
+        "description": "Update Home Assistant entities used by the planner. Existing missions are retained.",
+        "data": {
+          "name": "Planner name",
+          "vacuums": "Vacuum cleaners",
+          "vacation_entity": "Vacation mode",
+          "notification_script": "Central notification router",
+          "notification_route": "Notification route helper",
+          "todo_entity": "Household to-do list",
+          "dashboard_path": "Cleaning dashboard path"
+        }
+      }
+    },
+    "error": {
+      "no_vacuums": "Select at least one vacuum cleaner."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "planner_status": {"name": "Planner status"},
+      "next_mission": {"name": "Next mission"},
+      "last_decision": {"name": "Last decision"},
+      "maintenance": {"name": "Maintenance"}
+    },
+    "binary_sensor": {
+      "planner_ready": {"name": "Planner ready"}
+    },
+    "switch": {
+      "planner_enabled": {"name": "Planner enabled"}
+    },
+    "button": {
+      "run_next": {"name": "Run next mission"},
+      "skip_next": {"name": "Skip next mission"},
+      "postpone_next": {"name": "Postpone next mission"}
+    }
+  }
+}

@@ -1,0 +1,39 @@
+# Replace YOUR_CONFIG_ENTRY_ID if these calls are used from Developer Tools.
+- action: robbie_advanced_cc.add_mission
+  data:
+    entry_id: YOUR_CONFIG_ENTRY_ID
+    mission:
+      id: wednesday_standard
+      name: Wednesday standard clean
+      vacuum_entity_id: vacuum.valetudo_robbie_haus1_et1
+      weekdays: [wed]
+      start_time: "07:30"
+      profile: {mode: vacuum, fan: medium, passes: 1}
+      guards: {vacation: block, vacuum_unavailable: postpone}
+      announce_before_minutes: 1440
+
+- action: robbie_advanced_cc.add_mission
+  data:
+    entry_id: YOUR_CONFIG_ENTRY_ID
+    mission:
+      id: friday_quiet
+      name: Friday quiet clean
+      vacuum_entity_id: vacuum.valetudo_robbie_haus1_et1
+      weekdays: [fri]
+      start_time: "05:00"
+      profile: {mode: vacuum, fan: low, passes: 1}
+      guards: {vacation: block, vacuum_unavailable: postpone}
+      announce_before_minutes: 1440
+
+- action: robbie_advanced_cc.add_mission
+  data:
+    entry_id: YOUR_CONFIG_ENTRY_ID
+    mission:
+      id: sunday_deep_clean
+      name: Sunday vacuum and mop
+      vacuum_entity_id: vacuum.valetudo_robbie_haus1_et1
+      weekdays: [sun]
+      start_time: "05:00"
+      profile: {mode: vacuum_and_mop, fan: low, water: medium, passes: 1}
+      guards: {vacation: block, mop_missing: block, vacuum_unavailable: postpone}
+      announce_before_minutes: 1440

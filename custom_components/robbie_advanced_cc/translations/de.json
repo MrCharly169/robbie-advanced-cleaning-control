@@ -1,0 +1,55 @@
+{
+  "title": "Robbie Advanced Cleaning Control",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Reinigungsplaner erstellen",
+        "description": "Wähle die Saugroboter und optionale Home-Assistant-Anbindungen. Missionen werden über die Advanced-Cleaning-Control-Card oder Dienste verwaltet.",
+        "data": {
+          "name": "Name des Planers",
+          "vacuums": "Saugroboter",
+          "vacation_entity": "Urlaubsmodus",
+          "notification_script": "Zentraler Benachrichtigungsrouter",
+          "notification_route": "Helper der Benachrichtigungsroute",
+          "todo_entity": "Haushalts-Aufgabenliste",
+          "dashboard_path": "Pfad des Reinigungs-Dashboards"
+        }
+      }
+    },
+    "abort": {"already_configured": "Diese Saugroboter werden bereits von einem Planer verwaltet."},
+    "error": {"no_vacuums": "Wähle mindestens einen Saugroboter aus."}
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Externe Anbindungen",
+        "description": "Aktualisiere die vom Planer verwendeten Home-Assistant-Entitäten. Bestehende Missionen bleiben erhalten.",
+        "data": {
+          "name": "Name des Planers",
+          "vacuums": "Saugroboter",
+          "vacation_entity": "Urlaubsmodus",
+          "notification_script": "Zentraler Benachrichtigungsrouter",
+          "notification_route": "Helper der Benachrichtigungsroute",
+          "todo_entity": "Haushalts-Aufgabenliste",
+          "dashboard_path": "Pfad des Reinigungs-Dashboards"
+        }
+      }
+    },
+    "error": {"no_vacuums": "Wähle mindestens einen Saugroboter aus."}
+  },
+  "entity": {
+    "sensor": {
+      "planner_status": {"name": "Planerstatus"},
+      "next_mission": {"name": "Nächste Mission"},
+      "last_decision": {"name": "Letzte Entscheidung"},
+      "maintenance": {"name": "Wartung"}
+    },
+    "binary_sensor": {"planner_ready": {"name": "Planer bereit"}},
+    "switch": {"planner_enabled": {"name": "Planer aktiviert"}},
+    "button": {
+      "run_next": {"name": "Nächste Mission starten"},
+      "skip_next": {"name": "Nächste Mission überspringen"},
+      "postpone_next": {"name": "Nächste Mission verschieben"}
+    }
+  }
+}

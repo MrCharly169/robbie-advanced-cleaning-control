@@ -1,0 +1,43 @@
+name: Validate
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install test dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-test.txt
+      - name: Require changelog for production changes
+        if: github.event_name == 'pull_request'
+        run: python scripts/check_pr_changelog.py "origin/${{ github.base_ref }}"
+      - name: Python tests
+        run: python -m unittest discover -s tests -v
+      - name: Source syntax
+        run: python scripts/check_source_syntax.py
+      - name: Card runtime
+        run: node tests/test_card_runtime.js
+      - name: Validate release structure
+        run: python scripts/build_release.py --check
+      - name: Build installable archive
+        run: python scripts/build_release.py --output dist/robbie_advanced_cc.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: robbie-advanced-cc-${{ github.sha }}
+          path: dist/robbie_advanced_cc.zip

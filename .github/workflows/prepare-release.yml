@@ -1,0 +1,88 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel
+        required: true
+        type: choice
+        options: [beta, stable]
+      version:
+        description: Version without leading v
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: robbie-advanced-cc-prepare-${{ inputs.channel }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.channel == 'stable' && 'main' || 'develop' }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: python -m pip install --disable-pip-version-check -r requirements-test.txt
+      - name: Resolve metadata
+        id: metadata
+        shell: bash
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$CHANNEL" == "beta" ]]; then TARGET="develop"; else TARGET="main"; fi
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "branch=release/v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+      - name: Create release branch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "${{ steps.metadata.outputs.branch }}"
+          if [[ "${{ inputs.channel }}" == "stable" ]]; then
+            git fetch origin develop
+            git merge --no-ff --no-edit origin/develop
+          fi
+      - name: Prepare manifest and changelog
+        run: >-
+          python scripts/release_changelog.py prepare
+          --channel "${{ inputs.channel }}"
+          --source-branch develop
+          --target-branch "${{ steps.metadata.outputs.target }}"
+          --version "${{ inputs.version }}"
+          --date "${{ steps.metadata.outputs.date }}"
+      - run: python -m unittest discover -s tests -v
+      - run: python scripts/check_source_syntax.py
+      - run: node tests/test_card_runtime.js
+      - run: python scripts/build_release.py --check --tag "v${{ inputs.version }}"
+      - name: Commit and push preparation
+        shell: bash
+        run: |
+          git add custom_components/robbie_advanced_cc/manifest.json CHANGELOG.md
+          git commit -m "Prepare Robbie Advanced CC v${{ inputs.version }}"
+          git push --set-upstream origin "${{ steps.metadata.outputs.branch }}"
+      - name: Open draft pull request
+        shell: bash
+        run: |
+          gh pr create \
+            --base "${{ steps.metadata.outputs.target }}" \
+            --head "${{ steps.metadata.outputs.branch }}" \
+            --title "Prepare Robbie Advanced CC v${{ inputs.version }}" \
+            --body "Release metadata only. Review version, changelog, tests, documentation and migration impact before merging." \
+            --draft

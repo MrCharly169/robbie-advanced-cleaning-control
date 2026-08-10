@@ -1,0 +1,31 @@
+name: Home Assistant smoke lab
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "custom_components/**"
+      - "e2e/ha/**"
+      - "scripts/ha_e2e/**"
+      - ".github/workflows/ha-e2e.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  stable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Boot disposable Home Assistant
+        run: scripts/ha_e2e/run_lab.sh
+
+  beta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Boot disposable Home Assistant beta
+        env:
+          HA_E2E_IMAGE: ghcr.io/home-assistant/home-assistant:beta
+        run: scripts/ha_e2e/run_lab.sh

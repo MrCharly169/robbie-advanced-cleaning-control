@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - custom_components/robbie_advanced_cc/manifest.json
+  workflow_dispatch:
+    inputs:
+      confirm_version:
+        description: Exact manifest version without v
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: robbie-advanced-cc-release
+  cancel-in-progress: false
+
+jobs:
+  ha-e2e:
+    uses: ./.github/workflows/ha-e2e.yml
+
+  release:
+    needs: ha-e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: python -m pip install --disable-pip-version-check -r requirements-test.txt
+      - name: Resolve channel
+        id: metadata
+        shell: bash
+        run: |
+          VERSION="$(python -c 'import json; print(json.load(open("custom_components/robbie_advanced_cc/manifest.json"))["version"])')"
+          if [[ "${{ github.ref_name }}" == "develop" && "$VERSION" =~ b[0-9]+$ ]]; then
+            CHANNEL="beta"
+          elif [[ "${{ github.ref_name }}" == "main" && ! "$VERSION" =~ b[0-9]+$ ]]; then
+            CHANNEL="stable"
+          else
+            echo "::notice::Manifest synchronization is not a publishable branch channel."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+      - name: Validate release channel
+        if: steps.metadata.outputs.publish == 'true'
+        env:
+          CONFIRM: ${{ github.event_name == 'push' && steps.metadata.outputs.version || inputs.confirm_version }}
+        run: >-
+          python scripts/validate_release_channel.py
+          --channel "${{ steps.metadata.outputs.channel }}"
+          --branch "${{ github.ref_name }}"
+          --confirm-version "$CONFIRM"
+      - if: steps.metadata.outputs.publish == 'true'
+        run: python -m unittest discover -s tests -v
+      - if: steps.metadata.outputs.publish == 'true'
+        run: python scripts/check_source_syntax.py
+      - if: steps.metadata.outputs.publish == 'true'
+        run: node tests/test_card_runtime.js
+      - name: Build archive and notes
+        if: steps.metadata.outputs.publish == 'true'
+        run: |
+          python scripts/build_release.py --tag "${{ steps.metadata.outputs.tag }}" --output "dist/robbie-advanced-cc-${{ steps.metadata.outputs.tag }}.zip"
+          python scripts/release_changelog.py notes --version "${{ steps.metadata.outputs.version }}" --output dist/release-notes.md
+      - name: Reject mutable tags
+        if: steps.metadata.outputs.publish == 'true'
+        shell: bash
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/${{ steps.metadata.outputs.tag }}"; then
+            echo "::error::Release tag already exists."
+            exit 1
+          fi
+      - name: Publish immutable release
+        if: steps.metadata.outputs.publish == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.metadata.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Robbie Advanced Cleaning Control ${{ steps.metadata.outputs.tag }}
+          prerelease: ${{ steps.metadata.outputs.channel == 'beta' }}
+          make_latest: ${{ steps.metadata.outputs.channel == 'stable' }}
+          body_path: dist/release-notes.md
+          fail_on_unmatched_files: true
+          files: dist/robbie-advanced-cc-${{ steps.metadata.outputs.tag }}.zip

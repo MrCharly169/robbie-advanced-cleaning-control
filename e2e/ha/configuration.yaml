@@ -1,0 +1,52 @@
+default_config:
+
+homeassistant:
+  name: Robbie Advanced CC Lab
+  unit_system: metric
+  time_zone: Europe/Luxembourg
+
+logger:
+  default: warning
+  logs:
+    custom_components.robbie_advanced_cc: debug
+
+robbie_advanced_cc:
+
+input_boolean:
+  vacation_mode:
+    name: Vacation Mode
+
+input_text:
+  notify_route_test:
+    name: Notification Route Test
+    initial: persistent_notification.create
+
+input_select:
+  fixture_vacuum_state:
+    name: Fixture vacuum state
+    options: [docked, cleaning, paused, returning, error]
+    initial: docked
+
+template:
+  - vacuum:
+      - name: Valetudo Fixture Robot
+        unique_id: valetudo_fixture_robot
+        state: "{{ states('input_select.fixture_vacuum_state') }}"
+        start:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.fixture_vacuum_state
+            data:
+              option: cleaning
+        pause:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.fixture_vacuum_state
+            data:
+              option: paused
+        return_to_base:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.fixture_vacuum_state
+            data:
+              option: returning

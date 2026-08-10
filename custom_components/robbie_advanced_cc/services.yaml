@@ -1,0 +1,60 @@
+add_mission:
+  name: Add or update mission
+  description: Persist a vendor-neutral cleaning mission.
+  fields:
+    entry_id:
+      name: Config entry ID
+      required: true
+      selector:
+        text:
+    mission:
+      name: Mission
+      required: true
+      selector:
+        object:
+remove_mission:
+  name: Remove mission
+  fields:
+    entry_id:
+      required: true
+      selector:
+        text:
+    mission_id:
+      required: true
+      selector:
+        text:
+run_next:
+  name: Run mission
+  description: Run the next mission or the supplied mission ID.
+  fields:
+    entry_id:
+      required: true
+      selector:
+        text:
+    mission_id:
+      selector:
+        text:
+skip_next:
+  name: Skip next mission
+  fields:
+    entry_id:
+      required: true
+      selector:
+        text:
+postpone_next:
+  name: Postpone next mission
+  fields:
+    entry_id:
+      required: true
+      selector:
+        text:
+    mission_id:
+      selector:
+        text:
+    minutes:
+      default: 60
+      selector:
+        number:
+          min: 1
+          max: 1440
+          unit_of_measurement: min

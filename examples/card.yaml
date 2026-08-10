@@ -1,0 +1,2 @@
+type: custom:robbie-advanced-cleaning-card
+status_entity: sensor.cleaning_planner_planner_status

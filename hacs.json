@@ -1,0 +1,7 @@
+{
+  "name": "Robbie Advanced Cleaning Control",
+  "content_in_root": false,
+  "render_readme": true,
+  "hide_default_branch": true,
+  "homeassistant": "2026.6.0"
+}
