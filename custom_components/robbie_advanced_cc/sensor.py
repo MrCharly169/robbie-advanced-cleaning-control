@@ -62,7 +62,10 @@ class NextMissionSensor(PlannerEntity, SensorEntity):
     def extra_state_attributes(self):
         item = self.planner.next_mission()
         if not item:
-            return {"mission": None}
+            return {
+                "entry_id": self.planner.entry.entry_id,
+                "mission": None,
+            }
         mission, occurrence = item
         return {
             "entry_id": self.planner.entry.entry_id,
@@ -91,6 +94,7 @@ class LastDecisionSensor(PlannerEntity, SensorEntity):
     def extra_state_attributes(self):
         decision = self.planner.last_decision
         return {
+            "entry_id": self.planner.entry.entry_id,
             "allowed": decision.allowed if decision else None,
             "resolution": decision.resolution if decision else None,
         }
@@ -126,4 +130,7 @@ class MaintenanceSensor(PlannerEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        return {"items": self._items()}
+        return {
+            "entry_id": self.planner.entry.entry_id,
+            "items": self._items(),
+        }

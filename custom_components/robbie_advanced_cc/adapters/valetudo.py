@@ -1,6 +1,8 @@
 """Valetudo capability enhancer built on MQTT-discovered HA entities."""
 from __future__ import annotations
 
+from dataclasses import replace
+
 from ..models import CleaningMission
 from .generic import GenericVacuumAdapter
 
@@ -56,7 +58,14 @@ class ValetudoVacuumAdapter(GenericVacuumAdapter):
         await self._async_select("mode", mission.profile.mode)
         await self._async_select("fan", mission.profile.fan)
         await self._async_select("water", mission.profile.water)
-        await super().async_start_mission(mission)
+        # A Valetudo fan select is the authoritative control. Do not repeat the
+        # same setting through vacuum.set_fan_speed when both are exposed.
+        generic_mission = mission
+        if self._sibling("select", "fan") and mission.profile.fan is not None:
+            generic_mission = replace(
+                mission, profile=replace(mission.profile, fan=None)
+            )
+        await super().async_start_mission(generic_mission)
 
     def mop_attached(self) -> bool | None:
         entity_id = self._sibling("binary_sensor", "mop_attachment")

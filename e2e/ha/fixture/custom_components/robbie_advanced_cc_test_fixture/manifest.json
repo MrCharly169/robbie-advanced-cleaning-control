@@ -1,0 +1,8 @@
+{
+  "domain": "robbie_advanced_cc_test_fixture",
+  "name": "Robbie Advanced CC E2E Fixture",
+  "version": "1.0.0",
+  "iot_class": "local_push",
+  "requirements": [],
+  "codeowners": []
+}

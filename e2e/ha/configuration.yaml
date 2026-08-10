@@ -1,9 +1,30 @@
-default_config:
-
 homeassistant:
   name: Robbie Advanced CC Lab
+  latitude: 49.6116
+  longitude: 6.1319
+  elevation: 300
   unit_system: metric
   time_zone: Europe/Luxembourg
+  currency: EUR
+  # Disposable loopback-only lab: allow the Docker host to bypass the login
+  # form while retaining the normal Home Assistant password provider.
+  auth_providers:
+    - type: trusted_networks
+      trusted_networks:
+        - 127.0.0.1
+        - 172.16.0.0/12
+      allow_bypass_login: true
+    - type: homeassistant
+
+api:
+frontend:
+http:
+
+lovelace:
+  mode: yaml
+  resources:
+    - url: /robbie_advanced_cc/cleaning-control.js?lab=2026.8.2
+      type: module
 
 logger:
   default: warning
@@ -11,6 +32,20 @@ logger:
     custom_components.robbie_advanced_cc: debug
 
 robbie_advanced_cc:
+
+robbie_advanced_cc_test_fixture:
+
+vacuum:
+  - platform: robbie_advanced_cc_test_fixture
+
+select:
+  - platform: robbie_advanced_cc_test_fixture
+
+binary_sensor:
+  - platform: robbie_advanced_cc_test_fixture
+
+sensor:
+  - platform: robbie_advanced_cc_test_fixture
 
 input_boolean:
   vacation_mode:
@@ -20,33 +55,3 @@ input_text:
   notify_route_test:
     name: Notification Route Test
     initial: persistent_notification.create
-
-input_select:
-  fixture_vacuum_state:
-    name: Fixture vacuum state
-    options: [docked, cleaning, paused, returning, error]
-    initial: docked
-
-template:
-  - vacuum:
-      - name: Valetudo Fixture Robot
-        unique_id: valetudo_fixture_robot
-        state: "{{ states('input_select.fixture_vacuum_state') }}"
-        start:
-          - action: input_select.select_option
-            target:
-              entity_id: input_select.fixture_vacuum_state
-            data:
-              option: cleaning
-        pause:
-          - action: input_select.select_option
-            target:
-              entity_id: input_select.fixture_vacuum_state
-            data:
-              option: paused
-        return_to_base:
-          - action: input_select.select_option
-            target:
-              entity_id: input_select.fixture_vacuum_state
-            data:
-              option: returning

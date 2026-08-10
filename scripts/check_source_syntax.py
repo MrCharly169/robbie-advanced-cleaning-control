@@ -10,7 +10,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE_ROOTS = {".github", "custom_components", "scripts", "tests"}
+SOURCE_ROOTS = {".github", "custom_components", "e2e", "scripts", "tests"}
 
 
 def repository_files() -> list[Path]:

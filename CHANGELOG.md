@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+
+- Full HA 2026.8.1 Docker lifecycle lab with Valetudo and generic/cloud fixtures.
+- Real config/options flow, mission, guard, Card and restart-persistence coverage.
+
+### Fixed
+
+- Avoid duplicate Valetudo fan commands when the sibling fan select is present.
+- Expose config-entry ownership on all planner sensors for reliable Card discovery.
+- Consume the HA frontend `hassApi` context for Card service actions.
+- Wait for config-entry and vacuum area-mapping storage before restart tests.
 
 ## 2026.8.0b0 - 2026-08-10
 

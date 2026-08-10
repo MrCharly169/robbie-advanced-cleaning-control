@@ -62,8 +62,30 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     this._render();
   }
 
+  connectedCallback() {
+    const request = new Event("context-request", {
+      bubbles: true,
+      composed: true,
+    });
+    Object.assign(request, {
+      context: "hassApi",
+      contextTarget: this,
+      subscribe: false,
+      callback: (api) => {
+        this._callService = typeof api?.callService === "function"
+          ? api.callService.bind(api)
+          : undefined;
+      },
+    });
+    this.dispatchEvent(request);
+  }
+
   set hass(value) {
     this._hass = value;
+    // Legacy fallback for HA frontends that still pass API methods directly.
+    if (!this._callService && typeof value?.callService === "function") {
+      this._callService = value.callService.bind(value);
+    }
     this._render();
   }
 
@@ -94,7 +116,8 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     const status = this._entity(this._config?.status_entity);
     const entryId = this._config?.entry_id || status?.attributes?.entry_id;
     if (!entryId) return;
-    await this._hass.callService(DOMAIN, service, { entry_id: entryId, ...data });
+    if (!this._callService) return;
+    await this._callService(DOMAIN, service, { entry_id: entryId, ...data });
   }
 
   _render() {

@@ -1,0 +1,8 @@
+title: Robbie Advanced CC Lab
+views:
+  - title: Cleaning Control
+    path: cleaning
+    icon: mdi:robot-vacuum
+    cards:
+      - type: custom:robbie-advanced-cleaning-card
+        status_entity: sensor.robbie_e2e_planner_planner_status

@@ -63,6 +63,19 @@ The adapter is selected automatically per vacuum. A Valetudo device continues
 to communicate through Valetudo's MQTT discovery; this integration adds
 planning rather than duplicating the device connection.
 
+## Disposable Home Assistant lab
+
+With Docker Desktop running on Windows, build and verify a fresh isolated lab:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\ha_e2e\run_lab.ps1 -Fresh
+```
+
+The tested HA 2026.8.1 instance remains available only on
+`http://127.0.0.1:18123/lovelace/cleaning`. It contains deterministic Valetudo
+and cloud fixtures and never connects to a production HA, MQTT broker or
+vendor cloud. See `docs/DEVELOPMENT.md` for lifecycle and control commands.
+
 ## Card
 
 ```yaml

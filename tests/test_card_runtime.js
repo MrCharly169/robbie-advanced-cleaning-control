@@ -3,15 +3,22 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 
 class Element {
-  constructor() { this.shadowRoot = null; }
+  constructor() { this.shadowRoot = null; this.handlers = {}; }
   attachShadow() {
+    const owner = this;
     this.shadowRoot = {
       innerHTML: "",
-      querySelector() { return null; },
+      querySelector(selector) {
+        return {
+          addEventListener(type, callback) {
+            owner.handlers[`${selector}:${type}`] = callback;
+          },
+        };
+      },
     };
     return this.shadowRoot;
   }
-  dispatchEvent() {}
+  dispatchEvent(event) { this.lastEvent = event; }
 }
 
 const registry = new Map();
@@ -24,6 +31,9 @@ const sandbox = {
   window: {},
   document: { createElement: () => new Element() },
   CustomEvent: class {},
+  Event: class {
+    constructor(type, options) { this.type = type; Object.assign(this, options); }
+  },
   Intl,
   Date,
   console,
@@ -40,7 +50,14 @@ assert.ok(registry.has("robbie-advanced-cleaning-card-editor"));
 assert.equal(sandbox.window.customCards.length, 1);
 
 const Card = registry.get("robbie-advanced-cleaning-card");
+const serviceCalls = [];
 const card = new Card();
+card.connectedCallback();
+assert.equal(card.lastEvent.type, "context-request");
+assert.equal(card.lastEvent.context, "hassApi");
+card.lastEvent.callback({
+  callService: async (domain, service, data) => serviceCalls.push({ domain, service, data }),
+});
 card.setConfig({ status_entity: "sensor.planner_status" });
 card.hass = {
   language: "de-DE",
@@ -65,12 +82,17 @@ card.hass = {
     },
     "vacuum.robot": { state: "docked", attributes: { friendly_name: "Robbie" } },
   },
-  callService: async () => {},
 };
 assert.match(card.shadowRoot.innerHTML, /Reinigungssteuerung/);
 assert.match(card.shadowRoot.innerHTML, /Sunday clean/);
 assert.match(card.shadowRoot.innerHTML, /kitchen/);
 assert.equal(card.getCardSize(), 5);
+card.handlers['[data-action="postpone"]:click']();
+assert.equal(JSON.stringify(serviceCalls), JSON.stringify([{
+  domain: "robbie_advanced_cc",
+  service: "postpone_next",
+  data: { entry_id: "entry-1", minutes: 60 },
+}]));
 
 const second = new Card();
 second.setConfig({ status_entity: "sensor.planner_status" });

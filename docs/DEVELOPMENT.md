@@ -17,12 +17,17 @@ The fast suite contains no production Home Assistant URL or credentials.
 For a persistent Windows development instance with Docker Desktop:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1 start
-powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1 logs
+powershell -ExecutionPolicy Bypass -File .\scripts\ha_e2e\run_lab.ps1 -Fresh
 ```
 
-Open `http://127.0.0.1:8123`. The configuration below `.dev/` is disposable
-and ignored. Stop it with `scripts/dev.ps1 stop`.
+The command creates and tests a fresh HA 2026.8.1 instance, then leaves it
+running at `http://127.0.0.1:18123/lovelace/cleaning`. The loopback-only lab
+allows trusted-network browser access and also creates the disposable login
+`e2e-owner` / `e2e-only-disposable-password`.
+
+Use `scripts/dev.ps1 logs`, `scripts/dev.ps1 restart`, and
+`scripts/dev.ps1 stop` for the running instance. Everything below `.dev/` and
+`artifacts/ha-e2e/` is disposable and ignored by Git.
 
 ## Source of truth
 
@@ -38,11 +43,13 @@ Assistant container. The lab must use virtual vacuum and Valetudo-like fixture
 entities, a loopback-only port and a temporary HA configuration. It must never
 contact production Home Assistant, a production MQTT broker or vendor cloud.
 
-The checked-in smoke lab currently proves clean startup on stable and beta HA.
-The release roadmap extends it with config flow, mission CRUD,
-restart persistence, adapter capability changes, entity-ID stability, unload,
-reload, deletion and reinstall. Card changes additionally require a real HA
-browser run at desktop and mobile widths.
+The checked-in lab drives real HA onboarding, config flow and options flow. It
+then verifies Valetudo and generic/cloud area cleaning, profile translation,
+Mop and Vacation guards, mission CRUD, Skip/Postpone, maintenance discovery,
+Card delivery and config-entry/mission/area-mapping persistence across an HA
+restart. The CI shell runner executes the same lifecycle against stable and
+beta images. Card layout or interaction changes additionally require a real HA
+browser run.
 
 ## Releases
 

@@ -1,12 +1,13 @@
 services:
   homeassistant:
-    image: ${HA_DEV_IMAGE:-ghcr.io/home-assistant/home-assistant:stable}
+    image: ${HA_DEV_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.8.1}
     container_name: robbie-advanced-cc-dev
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${HA_DEV_PORT:-8123}:8123"
+      - "127.0.0.1:${HA_DEV_PORT:-18123}:8123"
     volumes:
       - ./.dev/ha-config:/config
       - ./custom_components/robbie_advanced_cc:/config/custom_components/robbie_advanced_cc:ro
+      - ./e2e/ha/fixture/custom_components/robbie_advanced_cc_test_fixture:/config/custom_components/robbie_advanced_cc_test_fixture:ro
     environment:
       TZ: Europe/Luxembourg

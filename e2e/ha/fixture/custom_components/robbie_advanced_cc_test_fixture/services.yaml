@@ -1,0 +1,31 @@
+set_state:
+  name: Set fixture state
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+    state:
+      selector:
+        text:
+    attributes:
+      selector:
+        object:
+    available:
+      default: true
+      selector:
+        boolean:
+reset_calls:
+  name: Reset recorded fixture calls
+map_areas:
+  name: Map Home Assistant areas to fixture segments
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: vacuum
+    mapping:
+      required: true
+      selector:
+        object:
