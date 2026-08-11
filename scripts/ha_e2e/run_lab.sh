@@ -61,4 +61,3 @@ printf '%s\n' "$LOGS"
 if grep -Eiq "Setup failed for custom integration 'robbie_advanced_cc'|Error setting up entry .*robbie_advanced_cc|Failed to load services.yaml for integration: robbie_advanced_cc|Unable to install package" <<<"$LOGS"; then
   exit 1
 fi
-grep -q "Home Assistant initialized" <<<"$LOGS"

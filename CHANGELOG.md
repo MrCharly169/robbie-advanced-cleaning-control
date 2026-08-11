@@ -21,6 +21,7 @@
 ### Fixed
 
 - Let the Linux HA smoke lab clean up root-owned container files without turning successful tests red.
+- Rely on successful HA API bootstrap/restart checks instead of a removed Home Assistant log phrase.
 - Avoid duplicate Valetudo fan commands when the sibling fan select is present.
 - Expose config-entry ownership on all planner sensors for reliable Card discovery.
 - Consume the HA frontend `hassApi` context for Card service actions.
