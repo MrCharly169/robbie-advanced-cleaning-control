@@ -37,7 +37,13 @@ not override planner decisions.
 `idle -> announced -> preparing -> running -> completed`
 
 Terminal or alternative states are `skipped`, `postponed`, `blocked` and
-`failed`. Skip-once is consumed atomically by exactly one mission occurrence.
+`failed`. `waiting` retains a due mission until configured presence entities
+all report an empty home. Skip-once is consumed atomically by exactly one
+mission occurrence.
+
+Weekly recurrence remains the portable default. A mission may instead bind to
+an existing `schedule.*` helper; its off-to-on transition becomes the start
+signal while the helper's `next_event` attribute supplies the next badge time.
 
 ## Adapters
 
@@ -52,6 +58,6 @@ direct cloud client.
 
 ## External bindings
 
-Vacation, notification routing, dashboard paths and to-do lists are config-entry
-options. They remain user-owned entities. Removing this integration must not
-remove or rename them.
+Presence, Home zone, vacation, Schedule, notification routing, dashboard paths,
+and to-do lists are config-entry options. They remain user-owned entities.
+Removing this integration must not remove or rename them.

@@ -2,54 +2,13 @@
   "title": "Robbie Advanced Cleaning Control",
   "config": {
     "step": {
-      "user": {
-        "title": "Reinigungsplaner erstellen",
-        "description": "Wähle die Saugroboter und optionale Home-Assistant-Anbindungen. Missionen werden über die Advanced-Cleaning-Control-Card oder Dienste verwaltet.",
-        "data": {
-          "name": "Name des Planers",
-          "vacuums": "Saugroboter",
-          "vacation_entity": "Urlaubsmodus",
-          "notification_script": "Zentraler Benachrichtigungsrouter",
-          "notification_route": "Helper der Benachrichtigungsroute",
-          "todo_entity": "Haushalts-Aufgabenliste",
-          "dashboard_path": "Pfad des Reinigungs-Dashboards"
-        }
-      }
+      "user": {"title": "Schritt 1 von 4 · Roboter", "description": "Erstelle einen Planer für eine Wohnung, Etage oder Roboterflotte.", "data": {"name": "Name des Planers", "vacuums": "Saugroboter"}},
+      "presence": {"title": "Schritt 2 von 4 · Bedingungen", "description": "Wähle Personen, Tracker, Anwesenheitssensoren oder die Home-Zone. Eine wartende Mission startet automatisch, sobald alle gewählten Entitäten melden, dass niemand zu Hause ist.", "data": {"presence_entities": "Anwesenheits- / Home-Entitäten", "vacation_entity": "Urlaubsmodus"}},
+      "schedule": {"title": "Schritt 3 von 4 · Erster Zeitplan", "description": "Lege jetzt eine erste Wochenmission an. Ein optionaler Home-Assistant-Zeitplan ersetzt Wochentage und Uhrzeit und startet die Mission beim Einschalten.", "data": {"create_starter_mission": "Erste Mission anlegen", "mission_name": "Name der Mission", "vacuum_entity_id": "Saugroboter", "weekdays": "Wochentage", "start_time": "Startzeit", "schedule_entity_id": "Home-Assistant-Zeitplan (optional)", "people_home": "Wenn jemand zu Hause ist (wait / allow / skip)"}},
+      "services": {"title": "Schritt 4 von 4 · Verbindungen", "description": "Optionale Verknüpfungen stimmen Benachrichtigungen, Haushaltsaufgaben und Navigation mit deiner bestehenden Home-Assistant-Installation ab.", "data": {"notification_script": "Zentraler Benachrichtigungsrouter", "notification_route": "Helper der Benachrichtigungsroute", "todo_entity": "Haushalts-Aufgabenliste", "dashboard_path": "Pfad des Cleaning-Control-Dashboards"}}
     },
-    "abort": {"already_configured": "Diese Saugroboter werden bereits von einem Planer verwaltet."},
-    "error": {"no_vacuums": "Wähle mindestens einen Saugroboter aus."}
+    "abort": {"already_configured": "Diese Saugroboter werden bereits von einem Planer verwaltet."}, "error": {"no_vacuums": "Wähle mindestens einen Saugroboter aus."}
   },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Externe Anbindungen",
-        "description": "Aktualisiere die vom Planer verwendeten Home-Assistant-Entitäten. Bestehende Missionen bleiben erhalten.",
-        "data": {
-          "name": "Name des Planers",
-          "vacuums": "Saugroboter",
-          "vacation_entity": "Urlaubsmodus",
-          "notification_script": "Zentraler Benachrichtigungsrouter",
-          "notification_route": "Helper der Benachrichtigungsroute",
-          "todo_entity": "Haushalts-Aufgabenliste",
-          "dashboard_path": "Pfad des Reinigungs-Dashboards"
-        }
-      }
-    },
-    "error": {"no_vacuums": "Wähle mindestens einen Saugroboter aus."}
-  },
-  "entity": {
-    "sensor": {
-      "planner_status": {"name": "Planerstatus"},
-      "next_mission": {"name": "Nächste Mission"},
-      "last_decision": {"name": "Letzte Entscheidung"},
-      "maintenance": {"name": "Wartung"}
-    },
-    "binary_sensor": {"planner_ready": {"name": "Planer bereit"}},
-    "switch": {"planner_enabled": {"name": "Planer aktiviert"}},
-    "button": {
-      "run_next": {"name": "Nächste Mission starten"},
-      "skip_next": {"name": "Nächste Mission überspringen"},
-      "postpone_next": {"name": "Nächste Mission verschieben"}
-    }
-  }
+  "options": {"step": {"init": {"title": "Verbindungen des Planers", "description": "Aktualisiere Roboter, Bedingungen, Benachrichtigungen und Navigation. Bestehende Missionen bleiben erhalten.", "data": {"name": "Name des Planers", "vacuums": "Saugroboter", "presence_entities": "Anwesenheits- / Home-Entitäten", "vacation_entity": "Urlaubsmodus", "notification_script": "Zentraler Benachrichtigungsrouter", "notification_route": "Helper der Benachrichtigungsroute", "todo_entity": "Haushalts-Aufgabenliste", "dashboard_path": "Pfad des Cleaning-Control-Dashboards"}}}, "error": {"no_vacuums": "Wähle mindestens einen Saugroboter aus."}},
+  "entity": {"sensor": {"planner_status": {"name": "Planerstatus"}, "next_mission": {"name": "Nächste Mission"}, "last_decision": {"name": "Letzte Entscheidung"}, "maintenance": {"name": "Wartung"}}, "binary_sensor": {"planner_ready": {"name": "Planer bereit"}}, "switch": {"planner_enabled": {"name": "Planer aktiviert"}}, "button": {"run_next": {"name": "Nächste Mission starten"}, "skip_next": {"name": "Nächste Mission überspringen"}, "postpone_next": {"name": "Nächste Mission verschieben"}}}
 }

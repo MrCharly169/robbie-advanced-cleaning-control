@@ -28,7 +28,10 @@ const sandbox = {
     define(name, constructor) { registry.set(name, constructor); },
     get(name) { return registry.get(name); },
   },
-  window: {},
+  window: {
+    history: { pushState(_state, _title, path) { sandbox.navigatedTo = path; } },
+    dispatchEvent(event) { sandbox.windowEvent = event; },
+  },
   document: { createElement: () => new Element() },
   CustomEvent: class {},
   Event: class {
@@ -47,7 +50,9 @@ vm.runInContext(source, sandbox);
 
 assert.ok(registry.has("robbie-advanced-cleaning-card"));
 assert.ok(registry.has("robbie-advanced-cleaning-card-editor"));
+assert.ok(registry.has("robbie-vacuum-badge"));
 assert.equal(sandbox.window.customCards.length, 1);
+assert.equal(sandbox.window.customBadges.length, 1);
 
 const Card = registry.get("robbie-advanced-cleaning-card");
 const serviceCalls = [];
@@ -64,7 +69,12 @@ card.hass = {
   states: {
     "sensor.planner_status": {
       state: "idle",
-      attributes: { entry_id: "entry-1" },
+      attributes: {
+        entry_id: "entry-1",
+        managed_vacuums: ["vacuum.robot"],
+        waiting_vacuums: [],
+        next_runs: {"vacuum.robot": {mission: "Sunday clean", scheduled: "2026-08-16T05:00:00+02:00"}},
+      },
     },
     "sensor.next_mission": {
       state: "2026-08-16T05:00:00+02:00",
@@ -99,5 +109,20 @@ second.setConfig({ status_entity: "sensor.planner_status" });
 second.hass = { ...card._hass, language: "en" };
 assert.match(second.shadowRoot.innerHTML, /Cleaning Control/);
 assert.equal(sandbox.window.customCards.length, 1);
+
+const Badge = registry.get("robbie-vacuum-badge");
+const badge = new Badge();
+badge.setConfig({
+  vacuum_entity: "vacuum.robot",
+  status_entity: "sensor.planner_status",
+  navigation_path: "/lovelace/cleaning",
+});
+badge.hass = card._hass;
+assert.match(badge.shadowRoot.innerHTML, /In Station/);
+assert.match(badge.shadowRoot.innerHTML, /Nächster Start/);
+assert.match(badge.shadowRoot.innerHTML, /home-import-outline/);
+badge.handlers["button:click"]();
+assert.equal(sandbox.navigatedTo, "/lovelace/cleaning");
+assert.equal(sandbox.windowEvent.constructor.name, "CustomEvent");
 
 console.log("Card runtime contract passed");

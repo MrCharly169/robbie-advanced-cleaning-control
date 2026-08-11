@@ -68,16 +68,21 @@ class MissionModelTests(unittest.TestCase):
                 self.assertEqual(models.decide_mission(mission, context).reason, reason)
 
     def test_presence_guard_is_explicit(self):
-        mission = self.mission(guards={"people_home": "postpone"})
+        mission = self.mission(guards={"people_home": "wait"})
         decision = models.decide_mission(
             mission, models.PlannerContext(mop_attached=True, people_home=True)
         )
         self.assertFalse(decision.allowed)
-        self.assertEqual(decision.resolution, "postpone")
+        self.assertEqual(decision.resolution, "wait")
         self.assertEqual(decision.reason, "people_home")
 
     def test_round_trip_retains_portable_contract(self):
         mission = self.mission(areas=["kitchen", "bathroom"])
+        self.assertEqual(models.CleaningMission.from_dict(mission.as_dict()), mission)
+
+    def test_schedule_helper_binding_survives_round_trip(self):
+        mission = self.mission(schedule_entity_id="schedule.cleaning")
+        self.assertEqual(mission.schedule_entity_id, "schedule.cleaning")
         self.assertEqual(models.CleaningMission.from_dict(mission.as_dict()), mission)
 
 

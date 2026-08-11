@@ -3,6 +3,15 @@ views:
   - title: Cleaning Control
     path: cleaning
     icon: mdi:robot-vacuum
+    badges:
+      - type: custom:robbie-vacuum-badge
+        vacuum_entity: vacuum.valetudo_fixture_robot
+        status_entity: sensor.robbie_e2e_planner_planner_status
+        navigation_path: /lovelace/cleaning
+      - type: custom:robbie-vacuum-badge
+        vacuum_entity: vacuum.cloud_fixture_robot
+        status_entity: sensor.robbie_e2e_planner_planner_status
+        navigation_path: /lovelace/cleaning
     cards:
       - type: custom:robbie-advanced-cleaning-card
         status_entity: sensor.robbie_e2e_planner_planner_status

@@ -23,7 +23,7 @@ http:
 lovelace:
   mode: yaml
   resources:
-    - url: /robbie_advanced_cc/cleaning-control.js?lab=2026.8.2
+    - url: /robbie_advanced_cc/cleaning-control.js?lab=2026.8.3
       type: module
 
 logger:
@@ -50,6 +50,10 @@ sensor:
 input_boolean:
   vacation_mode:
     name: Vacation Mode
+  someone_home:
+    name: Somebody Home
+  schedule_trigger:
+    name: Schedule Trigger Fixture
 
 input_text:
   notify_route_test:

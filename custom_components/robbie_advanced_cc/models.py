@@ -65,6 +65,7 @@ class CleaningMission:
     vacuum_entity_id: str
     weekdays: tuple[str, ...]
     start_time: str
+    schedule_entity_id: str | None = None
     areas: tuple[str, ...] = ()
     profile: CleaningProfile = field(default_factory=CleaningProfile)
     guards: MissionGuards = field(default_factory=MissionGuards)
@@ -84,6 +85,11 @@ class CleaningMission:
             vacuum_entity_id=str(raw["vacuum_entity_id"]),
             weekdays=weekdays,
             start_time=start_time,
+            schedule_entity_id=(
+                str(raw["schedule_entity_id"])
+                if raw.get("schedule_entity_id")
+                else None
+            ),
             areas=tuple(str(area) for area in raw.get("areas", ())),
             profile=CleaningProfile.from_dict(raw.get("profile")),
             guards=MissionGuards.from_dict(raw.get("guards")),

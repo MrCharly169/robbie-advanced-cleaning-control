@@ -146,7 +146,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     const vacuum = this._entity(attrs.vacuum_entity_id);
     const mission = attrs.mission || t.noMission;
     const accent = ["failed", "blocked"].includes(status.state) ? "danger" :
-      status.state === "running" ? "active" : "calm";
+      status.state === "running" ? "active" : status.state === "waiting" ? "waiting" : "calm";
 
     this.shadowRoot.innerHTML = `
       <ha-card class="${accent}">
@@ -182,7 +182,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     return `<style>
       :host{display:block;--racc-accent:var(--primary-color,#4f7cff)}
       ha-card{overflow:hidden;padding:20px;background:linear-gradient(145deg,color-mix(in srgb,var(--ha-card-background,var(--card-background-color)) 94%,var(--racc-accent)),var(--ha-card-background,var(--card-background-color)));border:1px solid color-mix(in srgb,var(--divider-color) 74%,var(--racc-accent));box-shadow:0 14px 36px rgba(20,28,48,.12)}
-      ha-card.active{--racc-accent:#27b784}ha-card.danger{--racc-accent:#ee5b64}
+      ha-card.active{--racc-accent:#27b784}ha-card.waiting{--racc-accent:#f2a93b}ha-card.danger{--racc-accent:#ee5b64}
       header{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center}
       .robot{width:50px;height:50px;border-radius:16px;display:grid;place-items:center;background:color-mix(in srgb,var(--racc-accent) 18%,transparent);color:var(--racc-accent)}
       .robot ha-icon{--mdc-icon-size:30px}.heading{display:flex;flex-direction:column;min-width:0}.heading strong{font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.eyebrow,.date,.facts span,.areas>span{font-size:12px;color:var(--secondary-text-color);letter-spacing:.03em}.state{padding:6px 10px;border-radius:999px;background:color-mix(in srgb,var(--racc-accent) 16%,transparent);color:var(--racc-accent);font-weight:700;font-size:12px;text-transform:uppercase}
@@ -208,13 +208,137 @@ class RobbieAdvancedCleaningCardEditor extends HTMLElement {
   }
 }
 
+const BADGE_COPY = {
+  en: {
+    sleeping: "Sleeping", docked: "Docked", cleaning: "Cleaning", returning: "Returning",
+    paused: "Paused", error: "Error", unavailable: "Unavailable", waiting: "Waiting for empty home",
+    idle: "Ready", next: "Next", none: "No run planned", whenEmpty: "Starts when home is empty",
+  },
+  de: {
+    sleeping: "Schläft", docked: "In Station", cleaning: "Reinigt", returning: "Rückfahrt",
+    paused: "Pausiert", error: "Fehler", unavailable: "Nicht verfügbar", waiting: "Wartet auf leeres Zuhause",
+    idle: "Bereit", next: "Nächster Start", none: "Kein Lauf geplant", whenEmpty: "Startet bei leerem Zuhause",
+  },
+};
+
+class RobbieVacuumBadge extends HTMLElement {
+  static getConfigElement() { return document.createElement("robbie-vacuum-badge-editor"); }
+
+  static getStubConfig(hass) {
+    const vacuum = Object.keys(hass?.states ?? {}).find((id) => id.startsWith("vacuum."));
+    const status = Object.keys(hass?.states ?? {}).find((id) =>
+      id.startsWith("sensor.") && hass.states[id]?.attributes?.managed_vacuums?.includes(vacuum));
+    return { vacuum_entity: vacuum, status_entity: status, navigation_path: "/lovelace/cleaning" };
+  }
+
+  setConfig(config) {
+    if (!config?.vacuum_entity) throw new Error("vacuum_entity is required");
+    this._config = { navigation_path: "/lovelace/cleaning", ...config };
+    this._render();
+  }
+
+  set hass(value) { this._hass = value; this._render(); }
+
+  _statusEntity() {
+    if (this._config?.status_entity) return this._hass?.states?.[this._config.status_entity];
+    return Object.values(this._hass?.states ?? {}).find((state) =>
+      state.entity_id?.startsWith("sensor.") && state.attributes?.managed_vacuums?.includes(this._config.vacuum_entity));
+  }
+
+  _navigate() {
+    const path = this._config?.navigation_path;
+    if (!path) return;
+    if (window.history?.pushState) window.history.pushState(null, "", path);
+    if (typeof window.dispatchEvent === "function") window.dispatchEvent(new CustomEvent("location-changed"));
+  }
+
+  _render() {
+    if (!this._config || !this._hass) return;
+    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    const lang = this._hass.language?.startsWith("de") ? "de" : "en";
+    const t = BADGE_COPY[lang];
+    const vacuum = this._hass.states?.[this._config.vacuum_entity];
+    const status = this._statusEntity();
+    const waiting = status?.attributes?.waiting_vacuums?.includes(this._config.vacuum_entity);
+    const raw = vacuum?.state ?? "unavailable";
+    const stateKey = waiting ? "waiting" : raw === "idle" ? "sleeping" : raw;
+    const label = t[stateKey] || stateKey;
+    const nextRun = status?.attributes?.next_runs?.[this._config.vacuum_entity];
+    let nextLabel = t.none;
+    if (nextRun?.scheduled) {
+      const value = new Date(nextRun.scheduled);
+      nextLabel = `${t.next}: ${new Intl.DateTimeFormat(this._hass.language || "en", {
+        weekday: "short", hour: "2-digit", minute: "2-digit",
+      }).format(value)}`;
+    }
+    if (waiting) nextLabel = t.whenEmpty;
+    const name = this._config.name || vacuum?.attributes?.friendly_name || this._config.vacuum_entity;
+    const active = ["cleaning", "returning"].includes(raw) ? "active" : waiting ? "waiting" :
+      ["error", "unavailable"].includes(raw) ? "danger" : "calm";
+    const station = raw === "docked" ? `<ha-icon class="station" icon="mdi:home-import-outline"></ha-icon>` : "";
+    this.shadowRoot.innerHTML = `
+      <button class="badge ${active}" type="button" title="${escapeHtml(nextRun?.mission || nextLabel)}">
+        <span class="icon"><ha-icon icon="mdi:robot-vacuum-variant"></ha-icon>${station}</span>
+        <span class="copy"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(label)} · ${escapeHtml(nextLabel)}</span></span>
+      </button>
+      <style>
+        :host{display:inline-flex;max-width:100%;--badge-color:var(--primary-color,#41bdf5)}
+        button{font:inherit;color:var(--primary-text-color);cursor:pointer}
+        .badge{display:flex;align-items:center;gap:9px;max-width:330px;min-height:42px;padding:6px 13px 6px 7px;border-radius:22px;border:1px solid color-mix(in srgb,var(--badge-color) 38%,var(--divider-color));background:color-mix(in srgb,var(--card-background-color) 92%,var(--badge-color));box-shadow:0 3px 12px rgba(20,28,48,.09)}
+        .badge.active{--badge-color:#20b89a}.badge.waiting{--badge-color:#f2a93b}.badge.danger{--badge-color:#ee5b64}
+        .icon{position:relative;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--badge-color) 20%,transparent);color:var(--badge-color)}
+        .icon>ha-icon{--mdc-icon-size:22px}.station{position:absolute;right:-5px;bottom:-3px;--mdc-icon-size:13px!important;padding:2px;border-radius:50%;background:var(--card-background-color);color:var(--secondary-text-color)}
+        .copy{display:flex;flex-direction:column;min-width:0;text-align:left;line-height:1.2}.copy strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.copy span{font-size:11px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      </style>`;
+    this.shadowRoot.querySelector("button")?.addEventListener("click", () => this._navigate());
+  }
+}
+
+class RobbieVacuumBadgeEditor extends HTMLElement {
+  setConfig(config) { this._config = { navigation_path: "/lovelace/cleaning", ...config }; this._render(); }
+  set hass(value) { this._hass = value; this._render(); }
+  _change(key, value) {
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config: { ...this._config, [key]: value } }, bubbles: true, composed: true,
+    }));
+  }
+  _render() {
+    if (!this._hass || !this._config) return;
+    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    const vacuums = Object.keys(this._hass.states).filter((id) => id.startsWith("vacuum."));
+    const statuses = Object.keys(this._hass.states).filter((id) =>
+      id.startsWith("sensor.") && Array.isArray(this._hass.states[id]?.attributes?.managed_vacuums));
+    const options = (items, selected) => items.map((id) =>
+      `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(id)}</option>`).join("");
+    this.shadowRoot.innerHTML = `
+      <label>Vacuum<select data-key="vacuum_entity">${options(vacuums, this._config.vacuum_entity)}</select></label>
+      <label>Planner status<select data-key="status_entity">${options(statuses, this._config.status_entity)}</select></label>
+      <label>Navigation path<input data-key="navigation_path" value="${escapeHtml(this._config.navigation_path)}"></label>
+      <style>:host{display:grid;gap:12px;padding:16px}label{display:grid;gap:6px}select,input{padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}</style>`;
+    this.shadowRoot.querySelectorAll?.("[data-key]").forEach((element) =>
+      element.addEventListener("change", (event) => this._change(event.target.dataset.key, event.target.value)));
+  }
+}
+
 if (!customElements.get("robbie-advanced-cleaning-card")) customElements.define("robbie-advanced-cleaning-card", RobbieAdvancedCleaningCard);
 if (!customElements.get("robbie-advanced-cleaning-card-editor")) customElements.define("robbie-advanced-cleaning-card-editor", RobbieAdvancedCleaningCardEditor);
+if (!customElements.get("robbie-vacuum-badge")) customElements.define("robbie-vacuum-badge", RobbieVacuumBadge);
+if (!customElements.get("robbie-vacuum-badge-editor")) customElements.define("robbie-vacuum-badge-editor", RobbieVacuumBadgeEditor);
 window.customCards = window.customCards || [];
 if (!window.customCards.some((card) => card.type === "robbie-advanced-cleaning-card")) {
   window.customCards.push({
     type: "robbie-advanced-cleaning-card",
     name: "Robbie Advanced Cleaning Control",
     description: "Vendor-neutral mission planning for Home Assistant vacuum cleaners",
+  });
+}
+window.customBadges = window.customBadges || [];
+if (!window.customBadges.some((badge) => badge.type === "robbie-vacuum-badge")) {
+  window.customBadges.push({
+    type: "robbie-vacuum-badge",
+    name: "Robbie Vacuum Status",
+    description: "Robot status, station state, waiting condition, and next run",
+    preview: true,
+    documentationURL: "https://github.com/MrCharly169/robbie-advanced-cleaning-control",
   });
 }

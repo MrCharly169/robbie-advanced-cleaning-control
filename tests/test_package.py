@@ -50,6 +50,7 @@ class PackageTests(unittest.TestCase):
                 names = set(archive.namelist())
         self.assertIn("custom_components/robbie_advanced_cc/manifest.json", names)
         self.assertIn("custom_components/robbie_advanced_cc/frontend/cleaning-control.js", names)
+        self.assertIn("custom_components/robbie_advanced_cc/brand/icon.png", names)
         self.assertIn("hacs.json", names)
 
     def test_release_channels_are_unambiguous(self):

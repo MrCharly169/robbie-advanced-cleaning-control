@@ -1,5 +1,9 @@
 # Robbie Advanced Cleaning Control
 
+<p align="center">
+  <img src="assets/robbie-advanced-cc-logo.png" width="220" alt="Robbie Advanced Cleaning Control logo">
+</p>
+
 Robbie Advanced Cleaning Control is a local-first, vendor-neutral mission
 planner for robot vacuum cleaners in Home Assistant. Valetudo receives enhanced
 capability discovery while cloud-connected robots remain behind their existing
@@ -51,10 +55,14 @@ Copy `custom_components/robbie_advanced_cc` into Home Assistant's
 
 ## Configuration
 
-One config entry manages one logical fleet. Select:
+The four-step setup assistant creates one logical planner per apartment, floor,
+or robot fleet. It asks for:
 
 - one or more existing `vacuum.*` entities;
+- optional `person.*`, `device_tracker.*`, occupancy, Home-zone, or helper
+  entities used to decide whether somebody is home;
 - an optional vacation `input_boolean`;
+- a first weekly mission or an existing Home Assistant `schedule.*` helper;
 - an optional central notification `script` and route `input_text`;
 - an optional `todo.*` entity;
 - the dashboard path opened by notifications.
@@ -95,6 +103,23 @@ The previous experimental resource remains a compatibility loader:
 
 New dashboards must use the canonical resource.
 
+## Per-robot badge
+
+The same JavaScript resource registers a compact dashboard badge for every
+robot. It shows cleaning, return, station, sleeping, waiting, error, and
+unavailable states together with that robot's next run. Clicking it opens the
+configured Cleaning Control path.
+
+```yaml
+badges:
+  - type: custom:robbie-vacuum-badge
+    vacuum_entity: vacuum.robbie
+    status_entity: sensor.cleaning_planner_planner_status
+    navigation_path: /lovelace/cleaning
+```
+
+The badge is also available in Home Assistant's graphical badge picker.
+
 ## Mission example
 
 Missions are persisted by the integration. The initial service API deliberately
@@ -121,8 +146,17 @@ data:
       vacation: block
       mop_missing: block
       vacuum_unavailable: postpone
-      people_home: allow
+      people_home: wait
     announce_before_minutes: 1440
+```
+
+`people_home: wait` keeps the occurrence pending and starts it as soon as all
+configured presence entities report an empty home. `allow` starts immediately;
+`skip` consumes that occurrence. To use a native Home Assistant Schedule helper
+instead of `weekdays` and `start_time`, add for example:
+
+```yaml
+    schedule_entity_id: schedule.robbie_weekly
 ```
 
 Additional examples, including the migrated MeyersHaff schedule, live under
