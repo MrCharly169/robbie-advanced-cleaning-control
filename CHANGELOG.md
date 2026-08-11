@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+
+## 2026.8.0b1 - 2026-08-12
+
 ### Added
 
 - Full HA 2026.8.1 Docker lifecycle lab with Valetudo and generic/cloud fixtures.
