@@ -23,7 +23,7 @@ http:
 lovelace:
   mode: yaml
   resources:
-    - url: /robbie_advanced_cc/cleaning-control.js?lab=2026.8.3
+    - url: /robbie_advanced_cc/cleaning-control.js?lab=2026.8.4
       type: module
 
 logger:

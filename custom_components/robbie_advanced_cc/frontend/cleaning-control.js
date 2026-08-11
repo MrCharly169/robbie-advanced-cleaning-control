@@ -265,30 +265,47 @@ class RobbieVacuumBadge extends HTMLElement {
     const label = t[stateKey] || stateKey;
     const nextRun = status?.attributes?.next_runs?.[this._config.vacuum_entity];
     let nextLabel = t.none;
+    let timeLabel = "—";
     if (nextRun?.scheduled) {
       const value = new Date(nextRun.scheduled);
       nextLabel = `${t.next}: ${new Intl.DateTimeFormat(this._hass.language || "en", {
         weekday: "short", hour: "2-digit", minute: "2-digit",
       }).format(value)}`;
+      timeLabel = new Intl.DateTimeFormat(this._hass.language || "en", {
+        hour: "2-digit", minute: "2-digit",
+      }).format(value);
     }
     if (waiting) nextLabel = t.whenEmpty;
     const name = this._config.name || vacuum?.attributes?.friendly_name || this._config.vacuum_entity;
     const active = ["cleaning", "returning"].includes(raw) ? "active" : waiting ? "waiting" :
       ["error", "unavailable"].includes(raw) ? "danger" : "calm";
     const station = raw === "docked" ? `<ha-icon class="station" icon="mdi:home-import-outline"></ha-icon>` : "";
+    const showTime = raw === "docked" && !waiting;
+    const stateIcon = waiting ? "mdi:account-clock-outline" : raw === "returning" ? "mdi:home-import-outline" :
+      raw === "paused" ? "mdi:pause" : raw === "error" ? "mdi:alert" : raw === "unavailable" ?
+        "mdi:help" : "mdi:robot-vacuum-variant";
+    const accessibleLabel = `${name}: ${label}. ${nextLabel}`;
     this.shadowRoot.innerHTML = `
-      <button class="badge ${active}" type="button" title="${escapeHtml(nextRun?.mission || nextLabel)}">
-        <span class="icon"><ha-icon icon="mdi:robot-vacuum-variant"></ha-icon>${station}</span>
-        <span class="copy"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(label)} · ${escapeHtml(nextLabel)}</span></span>
+      <button class="badge ${active} state-${escapeHtml(stateKey)}" type="button"
+        aria-label="${escapeHtml(accessibleLabel)}" title="${escapeHtml(accessibleLabel)}">
+        <ha-icon class="robot" icon="${stateIcon}"></ha-icon>
+        ${showTime ? `<span class="time">${escapeHtml(timeLabel)}</span>` : ""}
+        ${station}
+        <span class="state-dot" aria-hidden="true"></span>
       </button>
       <style>
-        :host{display:inline-flex;max-width:100%;--badge-color:var(--primary-color,#41bdf5)}
+        :host{display:inline-flex;width:54px;height:54px;--badge-color:var(--primary-color,#41bdf5)}
         button{font:inherit;color:var(--primary-text-color);cursor:pointer}
-        .badge{display:flex;align-items:center;gap:9px;max-width:330px;min-height:42px;padding:6px 13px 6px 7px;border-radius:22px;border:1px solid color-mix(in srgb,var(--badge-color) 38%,var(--divider-color));background:color-mix(in srgb,var(--card-background-color) 92%,var(--badge-color));box-shadow:0 3px 12px rgba(20,28,48,.09)}
+        .badge{position:relative;display:grid;place-items:center;width:50px;height:50px;padding:0;border-radius:50%;border:1px solid color-mix(in srgb,var(--badge-color) 48%,var(--divider-color));background:color-mix(in srgb,var(--card-background-color) 88%,var(--badge-color));box-shadow:0 2px 8px rgba(20,28,48,.14);transition:transform .16s ease,box-shadow .16s ease}
+        .badge:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(20,28,48,.18)}
         .badge.active{--badge-color:#20b89a}.badge.waiting{--badge-color:#f2a93b}.badge.danger{--badge-color:#ee5b64}
-        .icon{position:relative;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--badge-color) 20%,transparent);color:var(--badge-color)}
-        .icon>ha-icon{--mdc-icon-size:22px}.station{position:absolute;right:-5px;bottom:-3px;--mdc-icon-size:13px!important;padding:2px;border-radius:50%;background:var(--card-background-color);color:var(--secondary-text-color)}
-        .copy{display:flex;flex-direction:column;min-width:0;text-align:left;line-height:1.2}.copy strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.copy span{font-size:11px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .robot{--mdc-icon-size:24px;color:var(--badge-color);transform:translateY(-4px)}
+        .time{position:absolute;left:5px;right:5px;bottom:5px;text-align:center;font-size:8px;line-height:1;font-weight:750;font-variant-numeric:tabular-nums;color:var(--secondary-text-color);letter-spacing:-.02em}
+        .station{position:absolute;right:-3px;bottom:2px;--mdc-icon-size:12px;padding:2px;border-radius:50%;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--secondary-text-color)}
+        .state-dot{position:absolute;top:4px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--badge-color);box-shadow:0 0 0 2px var(--card-background-color)}
+        .state-cleaning .state-dot{animation:pulse 1.4s ease-in-out infinite}.state-cleaning .robot{transform:none}
+        .state-returning .robot,.state-paused .robot,.state-error .robot,.state-unavailable .robot,.state-waiting .robot{transform:none}
+        @keyframes pulse{50%{opacity:.35;transform:scale(.75)}}
       </style>`;
     this.shadowRoot.querySelector("button")?.addEventListener("click", () => this._navigate());
   }
