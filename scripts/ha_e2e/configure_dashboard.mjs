@@ -20,6 +20,11 @@ const status = states.find((item) =>
   item.entity_id.startsWith("sensor.") && item.attributes?.entry_id === state.entry_id
   && Array.isArray(item.attributes?.managed_vacuums));
 if (!status) throw new Error("Planner status entity was not found");
+const simulator = states.find((item) => item.entity_id === "input_select.badge_state_simulator");
+const simulatorStates = ["live", "docked", "idle", "cleaning", "returning", "paused", "waiting", "error", "unavailable"];
+if (!simulator || simulatorStates.some((value) => !simulator.attributes?.options?.includes(value))) {
+  throw new Error("Badge state simulator does not expose every supported badge state");
+}
 
 const wsUrl = `${baseUrl.replace(/^http/, "ws")}/api/websocket`;
 const socket = new WebSocket(wsUrl);
@@ -63,7 +68,7 @@ function call(type, payload = {}) {
 }
 
 await ready;
-const resourceUrl = "/robbie_advanced_cc/cleaning-control.js?lab=2026.8.6";
+const resourceUrl = "/robbie_advanced_cc/cleaning-control.js?lab=2026.8.7";
 const resources = await call("lovelace/resources/list");
 for (const resource of resources.filter((item) => item.url.startsWith("/robbie_advanced_cc/"))) {
   if (resource.url !== resourceUrl) await call("lovelace/resources/delete", { resource_id: resource.id });
@@ -79,16 +84,27 @@ const dashboard = {
     path: "cleaning",
     icon: "mdi:robot-vacuum",
     badges: [
-      { type: "custom:robbie-vacuum-badge", vacuum_entity: "vacuum.valetudo_fixture_robot", status_entity: status.entity_id, navigation_path: "/lovelace/cleaning" },
+      { type: "custom:robbie-vacuum-badge", vacuum_entity: "vacuum.valetudo_fixture_robot", status_entity: status.entity_id, state_override_entity: "input_select.badge_state_simulator", navigation_path: "/lovelace/cleaning" },
       { type: "custom:robbie-vacuum-badge", vacuum_entity: "vacuum.cloud_fixture_robot", status_entity: status.entity_id, navigation_path: "/lovelace/cleaning" },
     ],
-    cards: [{ type: "custom:robbie-advanced-cleaning-card", status_entity: status.entity_id, mode: cardMode }],
+    cards: [
+      { type: "custom:robbie-advanced-cleaning-card", status_entity: status.entity_id, mode: cardMode },
+      {
+        type: "entities",
+        title: "Badge Simulator · Lab only",
+        show_header_toggle: false,
+        entities: [{ entity: "input_select.badge_state_simulator", name: "Valetudo badge state" }],
+      },
+    ],
   }],
 };
 await call("lovelace/config/save", { config: dashboard });
 const saved = await call("lovelace/config");
 if (saved?.views?.[0]?.cards?.[0]?.type !== "custom:robbie-advanced-cleaning-card") {
   throw new Error("Editable Lovelace dashboard was not persisted");
+}
+if (saved?.views?.[0]?.badges?.[0]?.state_override_entity !== "input_select.badge_state_simulator") {
+  throw new Error("Badge state simulator was not persisted");
 }
 socket.close();
 console.log(`Editable Lovelace dashboard configured with ${status.entity_id}`);

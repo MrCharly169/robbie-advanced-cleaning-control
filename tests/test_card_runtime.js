@@ -98,6 +98,10 @@ card.hass = {
       state: "ready",
       attributes: { entry_id: "entry-1" },
     },
+    "input_select.badge_state_simulator": {
+      state: "live",
+      attributes: { friendly_name: "Badge State Simulator" },
+    },
     "vacuum.robot": { state: "docked", attributes: { friendly_name: "Robbie" } },
   },
 };
@@ -129,6 +133,7 @@ const badge = new Badge();
 badge.setConfig({
   vacuum_entity: "vacuum.robot",
   status_entity: "sensor.planner_status",
+  state_override_entity: "input_select.badge_state_simulator",
   navigation_path: "/lovelace/cleaning",
 });
 badge.hass = card._hass;
@@ -141,6 +146,30 @@ assert.match(badge.shadowRoot.innerHTML, /class="robot-symbol"/);
 assert.match(badge.shadowRoot.innerHTML, /class="state-marker"/);
 assert.match(badge.shadowRoot.innerHTML, /data-mode="docked"/);
 assert.match(badge.shadowRoot.innerHTML, /class="next-time"/);
+const simulatedStates = {
+  docked: "mdi:home",
+  idle: "mdi:power-sleep",
+  cleaning: "mdi:play",
+  returning: "mdi:home-import-outline",
+  paused: "mdi:pause",
+  waiting: "mdi:account-clock-outline",
+  error: "mdi:alert",
+  unavailable: "mdi:alert-circle-outline",
+};
+for (const [state, stateIcon] of Object.entries(simulatedStates)) {
+  badge.hass = {
+    ...card._hass,
+    states: {
+      ...card._hass.states,
+      "input_select.badge_state_simulator": {
+        state,
+        attributes: { friendly_name: "Badge State Simulator" },
+      },
+    },
+  };
+  assert.match(badge.shadowRoot.innerHTML, new RegExp(`data-mode="${state}"`));
+  assert.match(badge.shadowRoot.innerHTML, new RegExp(`icon="${stateIcon}"`));
+}
 let clickStopped = false;
 badge.handlers["ha-badge:click"]({ stopPropagation() { clickStopped = true; } });
 assert.equal(clickStopped, true);

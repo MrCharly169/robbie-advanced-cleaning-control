@@ -49,6 +49,22 @@ input_boolean:
   schedule_trigger:
     name: Schedule Trigger Fixture
 
+input_select:
+  badge_state_simulator:
+    name: Badge State Simulator
+    icon: mdi:test-tube
+    options:
+      - live
+      - docked
+      - idle
+      - cleaning
+      - returning
+      - paused
+      - waiting
+      - error
+      - unavailable
+    initial: live
+
 input_text:
   notify_route_test:
     name: Notification Route Test

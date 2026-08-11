@@ -86,6 +86,9 @@ class PackageTests(unittest.TestCase):
         self.assertIn('call("lovelace/config/save"', dashboard_setup)
         self.assertIn('const cardMode = args["card-mode"] === "advanced" ? "advanced" : "simple"', dashboard_setup)
         self.assertIn("mode: cardMode", dashboard_setup)
+        self.assertIn("input_select:\n  badge_state_simulator:", configuration)
+        self.assertIn('state_override_entity: "input_select.badge_state_simulator"', dashboard_setup)
+        self.assertIn("Badge Simulator · Lab only", dashboard_setup)
 
 
 if __name__ == "__main__":

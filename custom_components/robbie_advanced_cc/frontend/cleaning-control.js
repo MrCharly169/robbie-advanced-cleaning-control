@@ -341,11 +341,12 @@ class RobbieVacuumBadge extends HTMLElement {
     this._hass = hass;
     const vacuum = hass?.states?.[this._config.vacuum_entity];
     const status = this._status();
+    const override = this._stateOverride();
     let signature;
     try {
       signature = JSON.stringify([
         this._config, hass?.language || "en", vacuum?.state, vacuum?.attributes,
-        status?.state, status?.attributes,
+        status?.state, status?.attributes, override,
       ]);
     } catch (_error) {
       signature = `${this._config.vacuum_entity || ""}:${vacuum?.state || ""}:${vacuum?.last_changed || ""}`;
@@ -358,6 +359,11 @@ class RobbieVacuumBadge extends HTMLElement {
   _status() {
     if (this._config?.status_entity) return this._hass?.states?.[this._config.status_entity];
     return Object.values(this._hass?.states ?? {}).find((state) => state.attributes?.managed_vacuums?.includes(this._config.vacuum_entity));
+  }
+
+  _stateOverride() {
+    const value = this._hass?.states?.[this._config?.state_override_entity]?.state;
+    return ["docked", "idle", "cleaning", "returning", "paused", "waiting", "error", "unavailable"].includes(value) ? value : "";
   }
 
   _navigate() {
@@ -447,13 +453,13 @@ class RobbieVacuumBadge extends HTMLElement {
     const status = this._status();
     const waiting = status?.attributes?.waiting_vacuums?.includes(this._config.vacuum_entity);
     const raw = vacuum?.state || "unavailable";
-    const state = waiting ? "waiting" : raw;
+    const state = this._stateOverride() || (waiting ? "waiting" : raw);
     const nextRun = status?.attributes?.next_runs?.[this._config.vacuum_entity];
     const time = this._formatTime(nextRun?.scheduled);
     const name = this._config.name || vacuum?.attributes?.friendly_name || this._config.vacuum_entity;
     const label = L.states[state] || state;
     const tooltip = [name, label, time ? `${L.next} ${time}` : "", nextRun?.mission || ""].filter(Boolean).join(" · ");
-    const showTime = raw === "docked" && Boolean(time);
+    const showTime = state === "docked" && Boolean(time);
     this.shadowRoot.innerHTML = `
       <style>
         :host{display:block;width:var(--ha-badge-size,36px);height:var(--ha-badge-size,36px)}
@@ -466,7 +472,7 @@ class RobbieVacuumBadge extends HTMLElement {
       </style>
       <ha-badge type="button" icon-only data-mode="${escapeHtml(state)}" title="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}">
         <span slot="icon" class="badge-symbol">
-          <ha-icon class="robot-symbol" icon="mdi:robot-vacuum${raw === "docked" ? "-variant" : ""}"></ha-icon>
+          <ha-icon class="robot-symbol" icon="mdi:robot-vacuum${state === "docked" ? "-variant" : ""}"></ha-icon>
           ${showTime ? `<small class="next-time">${escapeHtml(time)}</small>` : ""}
           <span class="state-marker"><ha-icon icon="${escapeHtml(this._stateIcon(state))}"></ha-icon></span>
         </span>
@@ -484,10 +490,12 @@ class RobbieVacuumBadgeEditor extends HTMLElement {
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
     const vacuums = Object.keys(this._hass.states).filter((id) => id.startsWith("vacuum."));
     const statuses = Object.keys(this._hass.states).filter((id) => id.startsWith("sensor.") && Array.isArray(this._hass.states[id]?.attributes?.managed_vacuums));
+    const overrides = Object.keys(this._hass.states).filter((id) => id.startsWith("input_select.") || id.startsWith("select."));
     const options = (items, selected) => items.map((id) => `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(this._hass.states[id]?.attributes?.friendly_name || id)}</option>`).join("");
-    this.shadowRoot.innerHTML = `<div class="editor"><label>Vacuum<select data-vacuum>${options(vacuums, this._config.vacuum_entity)}</select></label><label>Planner status<select data-status>${options(statuses, this._config.status_entity)}</select></label><label>Navigation path<input data-path value="${escapeHtml(this._config.navigation_path)}"></label><small>Native 36 px Home Assistant badge with robot symbol, colored status marker and next docked run.</small></div><style>.editor{display:grid;gap:13px;padding:16px}label{display:grid;gap:6px}select,input{padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}small{opacity:.58}</style>`;
+    this.shadowRoot.innerHTML = `<div class="editor"><label>Vacuum<select data-vacuum>${options(vacuums, this._config.vacuum_entity)}</select></label><label>Planner status<select data-status>${options(statuses, this._config.status_entity)}</select></label><label>State override (optional)<select data-override><option value="">Live robot state</option>${options(overrides, this._config.state_override_entity)}</select></label><label>Navigation path<input data-path value="${escapeHtml(this._config.navigation_path)}"></label><small>Native 36 px Home Assistant badge with robot symbol, colored status marker and next docked run.</small></div><style>.editor{display:grid;gap:13px;padding:16px}label{display:grid;gap:6px}select,input{padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}small{opacity:.58}</style>`;
     this.shadowRoot.querySelector("[data-vacuum]")?.addEventListener("change", (event) => this._emit("vacuum_entity", event.target.value));
     this.shadowRoot.querySelector("[data-status]")?.addEventListener("change", (event) => this._emit("status_entity", event.target.value));
+    this.shadowRoot.querySelector("[data-override]")?.addEventListener("change", (event) => this._emit("state_override_entity", event.target.value || undefined));
     this.shadowRoot.querySelector("[data-path]")?.addEventListener("change", (event) => this._emit("navigation_path", event.target.value));
   }
 }
