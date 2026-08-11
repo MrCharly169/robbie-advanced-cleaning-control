@@ -20,6 +20,7 @@
 
 ### Fixed
 
+- Let the Linux HA smoke lab clean up root-owned container files without turning successful tests red.
 - Avoid duplicate Valetudo fan commands when the sibling fan select is present.
 - Expose config-entry ownership on all planner sensors for reliable Card discovery.
 - Consume the HA frontend `hassApi` context for Card service actions.

@@ -11,7 +11,9 @@ ARTIFACTS="${HA_E2E_ARTIFACT_DIR:-$ROOT/artifacts/ha-e2e}"
 
 cleanup() {
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-  rm -rf "$CONFIG"
+  if ! rm -rf "$CONFIG" 2>/dev/null; then
+    sudo rm -rf "$CONFIG" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT
 
