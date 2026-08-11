@@ -63,7 +63,7 @@ function call(type, payload = {}) {
 }
 
 await ready;
-const resourceUrl = "/robbie_advanced_cc/cleaning-control.js?lab=2026.8.5";
+const resourceUrl = "/robbie_advanced_cc/cleaning-control.js?lab=2026.8.6";
 const resources = await call("lovelace/resources/list");
 for (const resource of resources.filter((item) => item.url.startsWith("/robbie_advanced_cc/"))) {
   if (resource.url !== resourceUrl) await call("lovelace/resources/delete", { resource_id: resource.id });

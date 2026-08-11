@@ -17,7 +17,7 @@
 | UI languages | English and German translations expose the same keys | `tests/test_package.py` |
 | Card runtime | Simple and Advanced modes register once and expose weekly runs and conditions | `tests/test_card_runtime.js` |
 | Dashboard editing | The local lab persists its dashboard through Lovelace Storage mode | `tests/test_package.py`, runtime E2E |
-| Badge runtime | Badge uses native 36 px `ha-badge`, renders station/next run, and navigates to Cleaning Control | `tests/test_card_runtime.js` |
+| Badge runtime | Native 36 px `ha-badge` combines robot glyph, state marker and docked next run; mouse/keyboard open Cleaning Control | `tests/test_card_runtime.js` |
 | Packaging | Manifest, HACS metadata, permanent resource and ZIP agree | `tests/test_package.py` |
 
 Every production bug fix must add a regression row and automated test whenever

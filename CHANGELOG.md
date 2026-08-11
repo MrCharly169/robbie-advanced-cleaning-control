@@ -9,6 +9,7 @@
 - Four-step setup assistant with presence bindings and an optional starter mission.
 - SmartShading-style Simple and Advanced Card modes with a weekly run editor and visible per-run condition results.
 - Native 36 px `ha-badge` per robot with station state, next-run time, and Control Center navigation.
+- SmartShading-style composite badge symbol with a stable robot glyph, colored live-state marker, keyboard interaction, and render deduplication.
 - Editable Storage-mode Lovelace lab dashboard instead of a read-only YAML dashboard.
 - Native Home Assistant Schedule helper triggers and persistent wait-until-empty execution.
 - Local Home Assistant 2026.3+ brand icons and a reusable project logo.

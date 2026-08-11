@@ -114,9 +114,10 @@ New dashboards must use the canonical resource.
 The same JavaScript resource registers a native-size, circular HA dashboard
 badge for every robot. It occupies the standard badge row and uses HA's own
 `ha-badge` element at the native 36 px size. It shows cleaning, return,
-station, sleeping, waiting, error, and unavailable states; while docked it can
-also show that robot's next run time. Clicking it opens the configured Cleaning
-Control path.
+station, sleeping, waiting, error, and unavailable states through the current
+SmartShading symbol pattern: a stable robot glyph plus a small colored status
+marker. While docked it can also show that robot's next run time. Clicking or
+keyboard activation opens the configured Cleaning Control path.
 
 ```yaml
 badges:
