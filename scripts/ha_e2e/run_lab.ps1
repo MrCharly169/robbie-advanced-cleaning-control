@@ -9,6 +9,7 @@ $ConfigRoot = [IO.Path]::GetFullPath((Join-Path $ProjectRoot ".dev\ha-config"))
 $StateFile = Join-Path $ProjectRoot ".dev\runner-state.json"
 $Artifacts = Join-Path $ProjectRoot "artifacts\ha-e2e"
 $BundledPython = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+$BundledNode = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
 $PythonCommand = Get-Command python -ErrorAction SilentlyContinue
 $Python = if (Test-Path -LiteralPath $BundledPython) {
     $BundledPython
@@ -45,6 +46,14 @@ $BaseUrl = "http://127.0.0.1:$Port"
     --state-file $StateFile `
     --output-dir $Artifacts
 if ($LASTEXITCODE -ne 0) { throw "HA bootstrap scenario failed." }
+
+if (-not (Test-Path -LiteralPath $BundledNode)) {
+    throw "Bundled Node.js was not found."
+}
+& $BundledNode (Join-Path $PSScriptRoot "configure_dashboard.mjs") `
+    --base-url $BaseUrl `
+    --state-file $StateFile
+if ($LASTEXITCODE -ne 0) { throw "Editable Lovelace dashboard setup failed." }
 
 & $Python (Join-Path $PSScriptRoot "wait_for_config_entry.py") `
     --storage (Join-Path $ConfigRoot ".storage\core.config_entries") `

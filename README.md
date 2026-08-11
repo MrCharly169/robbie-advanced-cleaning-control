@@ -89,11 +89,17 @@ vendor cloud. See `docs/DEVELOPMENT.md` for lifecycle and control commands.
 ```yaml
 type: custom:robbie-advanced-cleaning-card
 status_entity: sensor.cleaning_planner_planner_status
+mode: simple
 ```
 
 The Card discovers the matching next-mission and last-decision sensors through
 the config-entry ID. It renders in German when the Home Assistant language
-starts with `de`; otherwise it uses English.
+starts with `de`; otherwise it uses English. `simple` provides the compact
+SmartShading-style daily control. `advanced` adds the seven-day run overview,
+per-run condition status and an inline editor for weekdays, start time,
+optional `schedule.*` helpers, presence behavior, robot, areas and cleaning
+profile. The mode button switches between both views without changing the
+saved dashboard configuration.
 
 The previous experimental resource remains a compatibility loader:
 
@@ -105,10 +111,12 @@ New dashboards must use the canonical resource.
 
 ## Per-robot badge
 
-The same JavaScript resource registers a compact dashboard badge for every
-robot. It shows cleaning, return, station, sleeping, waiting, error, and
-unavailable states together with that robot's next run. Clicking it opens the
-configured Cleaning Control path.
+The same JavaScript resource registers a native-size, circular HA dashboard
+badge for every robot. It occupies the standard badge row and uses HA's own
+`ha-badge` element at the native 36 px size. It shows cleaning, return,
+station, sleeping, waiting, error, and unavailable states; while docked it can
+also show that robot's next run time. Clicking it opens the configured Cleaning
+Control path.
 
 ```yaml
 badges:

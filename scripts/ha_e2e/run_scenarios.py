@@ -368,7 +368,13 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
         "announce_before_minutes": 1440,
     }
     add_mission(api, entry_id, valetudo)
-    wait_for_mission_count(api, entry_id, 1)
+    projected = wait_for_mission_count(api, entry_id, 1)
+    projected_missions = projected.get("attributes", {}).get("missions", [])
+    if len(projected_missions) != 1 or projected_missions[0].get("id") != valetudo["id"]:
+        raise AssertionError(f"Planner status did not project its mission: {projected_missions}")
+    conditions = projected_missions[0].get("conditions", [])
+    if not conditions or not all({"key", "enabled", "passed", "resolution", "entities"} <= item.keys() for item in conditions):
+        raise AssertionError(f"Planner status condition trace is incomplete: {conditions}")
     reset_calls(api)
     api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": valetudo["id"]})
     calls = fixture_calls(api)

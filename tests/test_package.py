@@ -79,6 +79,14 @@ class PackageTests(unittest.TestCase):
         self.assertIn("English and German", policy)
         self.assertTrue((COMPONENT / "strings.json").is_file())
 
+    def test_lab_dashboard_is_storage_editable(self):
+        configuration = (ROOT / "e2e" / "ha" / "configuration.yaml").read_text(encoding="utf-8")
+        dashboard_setup = (ROOT / "scripts" / "ha_e2e" / "configure_dashboard.mjs").read_text(encoding="utf-8")
+        self.assertNotIn("mode: yaml", configuration)
+        self.assertIn('call("lovelace/config/save"', dashboard_setup)
+        self.assertIn('const cardMode = args["card-mode"] === "advanced" ? "advanced" : "simple"', dashboard_setup)
+        self.assertIn("mode: cardMode", dashboard_setup)
+
 
 if __name__ == "__main__":
     unittest.main()

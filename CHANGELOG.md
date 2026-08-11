@@ -7,7 +7,9 @@
 - Full HA 2026.8.1 Docker lifecycle lab with Valetudo and generic/cloud fixtures.
 - Real config/options flow, mission, guard, Card and restart-persistence coverage.
 - Four-step setup assistant with presence bindings and an optional starter mission.
-- Small circular native-style per-robot dashboard badge with station state, next-run time, and Control Center navigation.
+- SmartShading-style Simple and Advanced Card modes with a weekly run editor and visible per-run condition results.
+- Native 36 px `ha-badge` per robot with station state, next-run time, and Control Center navigation.
+- Editable Storage-mode Lovelace lab dashboard instead of a read-only YAML dashboard.
 - Native Home Assistant Schedule helper triggers and persistent wait-until-empty execution.
 - Local Home Assistant 2026.3+ brand icons and a reusable project logo.
 
@@ -17,6 +19,7 @@
 - Expose config-entry ownership on all planner sensors for reliable Card discovery.
 - Consume the HA frontend `hassApi` context for Card service actions.
 - Wait for config-entry and vacuum area-mapping storage before restart tests.
+- Keep postponed Schedule-helper missions eligible for their replacement timer.
 
 ## 2026.8.0b0 - 2026-08-10
 

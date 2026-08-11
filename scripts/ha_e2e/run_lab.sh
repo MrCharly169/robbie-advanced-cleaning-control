@@ -34,6 +34,10 @@ python3 "$ROOT/scripts/ha_e2e/run_scenarios.py" \
   --state-file "$STATE" \
   --output-dir "$ARTIFACTS"
 
+node "$ROOT/scripts/ha_e2e/configure_dashboard.mjs" \
+  --base-url "http://127.0.0.1:$PORT" \
+  --state-file "$STATE"
+
 python3 "$ROOT/scripts/ha_e2e/wait_for_config_entry.py" \
   --storage "$CONFIG/.storage/core.config_entries" \
   --entity-registry "$CONFIG/.storage/core.entity_registry" \

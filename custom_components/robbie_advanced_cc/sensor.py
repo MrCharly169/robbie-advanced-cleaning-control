@@ -38,6 +38,7 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         next_runs = {}
+        missions = []
         for vacuum_entity_id in self.planner.vacuums:
             item = self.planner.next_mission_for(vacuum_entity_id)
             if item:
@@ -47,6 +48,17 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
                     "mission_id": mission.id,
                     "scheduled": occurrence.isoformat(),
                 }
+        for mission in self.planner.missions:
+            raw = mission.as_dict()
+            occurrence = self.planner.next_occurrence_for(mission)
+            raw["next_run"] = occurrence.isoformat() if occurrence else None
+            raw["conditions"] = self.planner.conditions_for(mission)
+            raw["all_conditions_met"] = all(
+                not item["enabled"] or item["passed"]
+                for item in raw["conditions"]
+            )
+            raw["waiting"] = mission.id in self.planner.pending_mission_ids
+            missions.append(raw)
         return {
             "entry_id": self.planner.entry.entry_id,
             "active_mission_id": self.planner.active_mission_id,
@@ -59,6 +71,7 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
                 if mission.id in self.planner.pending_mission_ids
             ],
             "next_runs": next_runs,
+            "missions": missions,
         }
 
 

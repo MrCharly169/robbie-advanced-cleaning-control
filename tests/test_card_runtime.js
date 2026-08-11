@@ -74,6 +74,14 @@ card.hass = {
         managed_vacuums: ["vacuum.robot"],
         waiting_vacuums: [],
         next_runs: {"vacuum.robot": {mission: "Sunday clean", scheduled: "2026-08-16T05:00:00+02:00"}},
+        missions: [{
+          id: "sunday", name: "Sunday clean", vacuum_entity_id: "vacuum.robot",
+          weekdays: ["sun"], start_time: "05:00", areas: ["kitchen"],
+          profile: { mode: "vacuum_and_mop", fan: "low", passes: 1 },
+          guards: { people_home: "wait" }, next_run: "2026-08-16T05:00:00+02:00",
+          all_conditions_met: true,
+          conditions: [{ key: "vacuum_available", enabled: true, passed: true }],
+        }],
       },
     },
     "sensor.next_mission": {
@@ -93,21 +101,27 @@ card.hass = {
     "vacuum.robot": { state: "docked", attributes: { friendly_name: "Robbie" } },
   },
 };
-assert.match(card.shadowRoot.innerHTML, /Reinigungssteuerung/);
+assert.match(card.shadowRoot.innerHTML, /Robbie Advanced CC/);
 assert.match(card.shadowRoot.innerHTML, /Sunday clean/);
-assert.match(card.shadowRoot.innerHTML, /kitchen/);
-assert.equal(card.getCardSize(), 5);
+assert.match(card.shadowRoot.innerHTML, /data-card-mode="simple"/);
+assert.equal(card.getCardSize(), 4);
 card.handlers['[data-action="postpone"]:click']();
 assert.equal(JSON.stringify(serviceCalls), JSON.stringify([{
   domain: "robbie_advanced_cc",
   service: "postpone_next",
   data: { entry_id: "entry-1", minutes: 60 },
 }]));
+card.handlers['[data-mode-toggle]:click']();
+assert.match(card.shadowRoot.innerHTML, /data-card-mode="advanced"/);
+assert.match(card.shadowRoot.innerHTML, /Wochenplan/);
+assert.match(card.shadowRoot.innerHTML, /kitchen/);
+assert.match(card.shadowRoot.innerHTML, /Roboter verfügbar/);
+assert.equal(card.getCardSize(), 9);
 
 const second = new Card();
 second.setConfig({ status_entity: "sensor.planner_status" });
 second.hass = { ...card._hass, language: "en" };
-assert.match(second.shadowRoot.innerHTML, /Cleaning Control/);
+assert.match(second.shadowRoot.innerHTML, /Robbie Advanced CC/);
 assert.equal(sandbox.window.customCards.length, 1);
 
 const Badge = registry.get("robbie-vacuum-badge");
@@ -120,11 +134,9 @@ badge.setConfig({
 badge.hass = card._hass;
 assert.match(badge.shadowRoot.innerHTML, /In Station/);
 assert.match(badge.shadowRoot.innerHTML, /Nächster Start/);
-assert.match(badge.shadowRoot.innerHTML, /home-import-outline/);
-assert.match(badge.shadowRoot.innerHTML, /width:50px;height:50px/);
-assert.match(badge.shadowRoot.innerHTML, /border-radius:50%/);
-assert.doesNotMatch(badge.shadowRoot.innerHTML, /class="copy"/);
-badge.handlers["button:click"]();
+assert.match(badge.shadowRoot.innerHTML, /ha-badge/);
+assert.match(badge.shadowRoot.innerHTML, /--ha-badge-size,36px/);
+badge.handlers["ha-badge:click"]();
 assert.equal(sandbox.navigatedTo, "/lovelace/cleaning");
 assert.equal(sandbox.windowEvent.constructor.name, "CustomEvent");
 

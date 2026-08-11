@@ -45,6 +45,13 @@ Weekly recurrence remains the portable default. A mission may instead bind to
 an existing `schedule.*` helper; its off-to-on transition becomes the start
 signal while the helper's `next_event` attribute supplies the next badge time.
 
+The planner-status sensor projects every mission together with its next
+occurrence and a condition trace. Each condition carries a stable key,
+enabled/passed state, resolution and contributing entities. This single
+projection feeds the Simple readiness summary, the Advanced condition chips
+and future notification explanations without duplicating guard logic in the
+frontend.
+
 ## Adapters
 
 The Generic adapter uses standard Home Assistant vacuum services. The Valetudo

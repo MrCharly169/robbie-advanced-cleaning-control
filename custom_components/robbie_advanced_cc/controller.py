@@ -151,6 +151,16 @@ class CleaningPlanner:
         occurrence = dt_util.parse_datetime(str(value)) if value else None
         return dt_util.as_local(occurrence) if occurrence else None
 
+    def next_occurrence_for(
+        self, mission: CleaningMission, now: datetime | None = None
+    ) -> datetime | None:
+        """Return the next effective occurrence for one mission."""
+        now = now or dt_util.now()
+        postponed = self.postponed.get(mission.id)
+        if postponed and postponed > now:
+            return postponed
+        return self._mission_occurrence(mission, now)
+
     def next_mission(
         self,
         now: datetime | None = None,
@@ -163,12 +173,14 @@ class CleaningPlanner:
         for mission in self.missions:
             if vacuum_entity_id and mission.vacuum_entity_id != vacuum_entity_id:
                 continue
-            if mission.id in self.postponed and self.postponed[mission.id] > now:
-                candidates.append((mission, self.postponed[mission.id]))
+            postponed = self.postponed.get(mission.id)
+            if (
+                for_timer
+                and mission.schedule_entity_id
+                and not (postponed and postponed > now)
+            ):
                 continue
-            if for_timer and mission.schedule_entity_id:
-                continue
-            occurrence = self._mission_occurrence(mission, now)
+            occurrence = self.next_occurrence_for(mission, now)
             if occurrence:
                 candidates.append((mission, occurrence))
         return min(candidates, key=lambda item: item[1]) if candidates else None
@@ -240,6 +252,51 @@ class CleaningPlanner:
             mop_attached=mop_attached,
             people_home=people_home,
         )
+
+    def conditions_for(self, mission: CleaningMission) -> list[dict[str, Any]]:
+        """Return the user-facing condition trace for one mission."""
+        context = self.context_for(mission)
+        return [
+            {
+                "key": "planner_enabled",
+                "enabled": True,
+                "passed": self.enabled and mission.enabled,
+                "resolution": "block",
+                "entities": [],
+            },
+            {
+                "key": "vacuum_available",
+                "enabled": True,
+                "passed": context.vacuum_available,
+                "resolution": mission.guards.vacuum_unavailable,
+                "entities": [mission.vacuum_entity_id],
+            },
+            {
+                "key": "vacation_inactive",
+                "enabled": bool(self.config.get(CONF_VACATION_ENTITY))
+                and mission.guards.vacation != "allow",
+                "passed": not context.vacation,
+                "resolution": mission.guards.vacation,
+                "entities": [self.config[CONF_VACATION_ENTITY]]
+                if self.config.get(CONF_VACATION_ENTITY)
+                else [],
+            },
+            {
+                "key": "mop_attached",
+                "enabled": mission.profile.mode in {"mop", "vacuum_and_mop"},
+                "passed": context.mop_attached is not False,
+                "resolution": mission.guards.mop_missing,
+                "entities": [],
+            },
+            {
+                "key": "home_empty",
+                "enabled": bool(self.presence_entities)
+                and mission.guards.people_home != "allow",
+                "passed": context.people_home is False,
+                "resolution": mission.guards.people_home,
+                "entities": self.presence_entities,
+            },
+        ]
 
     def _entity_is_home(self, entity_id: str) -> bool:
         state = self.hass.states.get(entity_id)

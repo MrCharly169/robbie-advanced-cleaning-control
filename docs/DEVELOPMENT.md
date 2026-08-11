@@ -51,6 +51,11 @@ restart. The CI shell runner executes the same lifecycle against stable and
 beta images. Card layout or interaction changes additionally require a real HA
 browser run.
 
+The lab writes its default Lovelace dashboard through the Storage API, so it
+remains editable in Home Assistant. It starts with the Simple Card and native
+badges; `configure_dashboard.mjs --card-mode advanced` is available for direct
+visual inspection of the weekly planner.
+
 ## Releases
 
 Release preparation and publication are separate gates. Prepare from tested
