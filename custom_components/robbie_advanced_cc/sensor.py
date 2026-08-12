@@ -6,6 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .adapters import adapter_for
+from .capabilities import discover_profile_options
 from .const import BADGE_TYPE, CARD_RESOURCE_URL, CARD_TYPE, DOMAIN
 from .controller import CleaningPlanner
 from .entity import PlannerEntity
@@ -64,6 +65,10 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
             "entry_id": self.planner.entry.entry_id,
             "active_mission_id": self.planner.active_mission_id,
             "managed_vacuums": self.planner.vacuums,
+            "profile_options": {
+                entity_id: discover_profile_options(self.planner.hass, entity_id)
+                for entity_id in self.planner.vacuums
+            },
             "mission_count": len(self.planner.missions),
             "waiting_mission_ids": list(self.planner.pending_mission_ids),
             "waiting_vacuums": [

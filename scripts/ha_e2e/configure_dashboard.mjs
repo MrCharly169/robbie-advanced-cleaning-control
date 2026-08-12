@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((items, value, index, all) => {
@@ -71,7 +72,9 @@ function call(type, payload = {}) {
 await ready;
 const manifest = JSON.parse(await fs.readFile("custom_components/robbie_advanced_cc/manifest.json", "utf8"));
 const resourcePath = "/robbie_advanced_cc/cleaning-control.js";
-const resourceUrl = `${resourcePath}?v=${manifest.version}`;
+const cardSource = await fs.readFile("custom_components/robbie_advanced_cc/frontend/cleaning-control.js");
+const assetDigest = crypto.createHash("sha256").update(cardSource).digest("hex").slice(0, 10);
+const resourceUrl = `${resourcePath}?v=${manifest.version}-${assetDigest}`;
 const resources = await call("lovelace/resources/list");
 const robbieResources = resources.filter((item) => item.url?.split("?", 1)[0] === resourcePath);
 if (robbieResources.length !== 1 || robbieResources[0].url !== resourceUrl || robbieResources[0].type !== "module") {
@@ -94,7 +97,9 @@ const dashboard = {
       { type: "custom:robbie-vacuum-badge", vacuum_entity: "vacuum.cloud_fixture_robot", status_entity: status.entity_id, navigation_path: "/lovelace/cleaning" },
     ],
     cards: [
-      { type: "custom:robbie-advanced-cleaning-card", status_entity: status.entity_id, mode: cardMode },
+      // Deliberately omit status_entity: the Card must discover its planner
+      // sensor itself, including after an entity rename or YAML copy/paste.
+      { type: "custom:robbie-advanced-cleaning-card", mode: cardMode },
       {
         type: "entities",
         title: "Badge Simulator · Lab only",

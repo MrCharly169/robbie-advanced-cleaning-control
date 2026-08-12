@@ -12,6 +12,7 @@ from homeassistant.helpers.event import async_track_point_in_time, async_track_s
 from homeassistant.util import dt as dt_util
 
 from .adapters import adapter_for
+from .capabilities import profile_source_entities
 from .const import (
     CONF_DASHBOARD_PATH,
     CONF_NOTIFICATION_ROUTE,
@@ -102,6 +103,7 @@ class CleaningPlanner:
         watched = list(self.vacuums)
         for entity_id in self.vacuums:
             watched.extend(adapter_for(self.hass, entity_id).watched_entities)
+            watched.extend(profile_source_entities(self.hass, entity_id))
         watched.extend(self.presence_entities)
         watched.extend(
             mission.schedule_entity_id

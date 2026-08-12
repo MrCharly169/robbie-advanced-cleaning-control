@@ -60,7 +60,7 @@ Copy `custom_components/robbie_advanced_cc` into Home Assistant's
 
 ## Configuration
 
-The four-step setup assistant creates one logical planner per apartment, floor,
+The five-step setup assistant creates one logical planner per apartment, floor,
 or robot fleet. It asks for:
 
 - one or more existing `vacuum.*` entities;
@@ -73,6 +73,11 @@ or robot fleet. It asks for:
 - an optional central notification `script` and route `input_text`;
 - an optional `todo.*` entity;
 - the dashboard path opened by notifications.
+
+After the mission robot is selected, a dedicated profile step reads its live
+Home Assistant area mapping, fan presets and related mode/water/select entities.
+Only supported controls are shown, and their dropdown values follow the selected
+robot instead of using static text presets.
 
 The adapter is selected automatically per vacuum. A Valetudo device continues
 to communicate through Valetudo's MQTT discovery; this integration adds
@@ -95,17 +100,20 @@ vendor cloud. See `docs/DEVELOPMENT.md` for lifecycle and control commands.
 
 ```yaml
 type: custom:robbie-advanced-cleaning-card
-status_entity: sensor.cleaning_planner_planner_status
 mode: simple
 ```
 
-The Card discovers the matching next-mission and last-decision sensors through
-the config-entry ID. It renders in German when the Home Assistant language
+The Card automatically discovers its Planner Status sensor. `status_entity`
+may still be set to choose one planner explicitly when several are installed;
+missing or renamed sensor IDs recover automatically. The Card discovers the
+matching next-mission and last-decision sensors through the config-entry ID.
+It renders in German when the Home Assistant language
 starts with `de`; otherwise it uses English. `simple` provides the compact
 SmartShading-style daily control. `advanced` adds the seven-day run overview,
 per-run condition status and an inline editor for weekdays, start time,
 optional `schedule.*` helpers, presence behavior, robot, rooms and cleaning
-profile. Each weekday has its own add button: Monday can therefore vacuum one
+profile. Changing the robot refreshes those dropdowns immediately and hides
+unsupported settings. Each weekday has its own add button: Monday can therefore vacuum one
 room without water while Tuesday uses a different room, strength, mop mode or
 number of passes. The mode button switches between both views without changing
 the saved dashboard configuration.

@@ -83,6 +83,15 @@ class ValetudoVacuumAdapter(GenericVacuumAdapter):
         }
         if mop := self._sibling("binary_sensor", "mop_attachment"):
             result.add(mop)
+        for domain, suffix in (
+            ("select", "mode"),
+            ("select", "fan"),
+            ("select", "water"),
+            ("select", "passes"),
+            ("sensor", "map_segments"),
+        ):
+            if entity_id := self._sibling(domain, suffix):
+                result.add(entity_id)
         return result
 
     def maintenance(self) -> dict[str, dict[str, object]]:

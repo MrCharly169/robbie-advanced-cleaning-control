@@ -307,6 +307,51 @@ def create_entry(api: HomeAssistantApi) -> str:
     return str(entry_id)
 
 
+def validate_dynamic_profile_flow(api: HomeAssistantApi) -> None:
+    """Prove the assistant builds robot-specific selectors before entry creation."""
+    result = api.post(
+        "/api/config/config_entries/flow",
+        {"handler": DOMAIN, "show_advanced_options": True},
+    )
+    result = api.post(
+        f"/api/config/config_entries/flow/{result['flow_id']}",
+        {"name": "Dynamic profile probe", "vacuums": [VACUUM_VALETUDO]},
+    )
+    result = api.post(
+        f"/api/config/config_entries/flow/{result['flow_id']}",
+        {"presence_entities": ["input_number.home_occupants"]},
+    )
+    result = api.post(
+        f"/api/config/config_entries/flow/{result['flow_id']}",
+        {
+            "create_starter_mission": True,
+            "mission_name": "Selector probe",
+            "vacuum_entity_id": VACUUM_VALETUDO,
+            "weekdays": ["mon"],
+            "start_time": "09:00:00",
+            "people_home": "wait",
+        },
+    )
+    if result.get("step_id") != "profile":
+        raise AssertionError(f"Dynamic profile wizard step failed: {result}")
+    schema = json.dumps(result.get("data_schema", []), sort_keys=True)
+    for expected in ("areas", "Kitchen", "profile_mode", "fan", "max", "water", "passes"):
+        if expected not in schema:
+            raise AssertionError(f"Profile selector is missing {expected}: {result}")
+    result = api.post(
+        f"/api/config/config_entries/flow/{result['flow_id']}",
+        {
+            "areas": ["kitchen"],
+            "profile_mode": "vacuum_and_mop",
+            "fan": "high",
+            "water": "medium",
+            "passes": "2",
+        },
+    )
+    if result.get("step_id") != "services":
+        raise AssertionError(f"Dynamic profile selection failed: {result}")
+
+
 def test_options_flow(api: HomeAssistantApi, entry_id: str) -> None:
     result = api.post("/api/config/config_entries/options/flow", {"handler": entry_id})
     if result.get("step_id") != "init":
@@ -343,9 +388,27 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     for vacuum in (VACUUM_VALETUDO, VACUUM_CLOUD):
         api.call_service(FIXTURE, "map_areas", {"entity_id": vacuum, "mapping": mapping})
 
+    validate_dynamic_profile_flow(api)
     entry_id = create_entry(api)
     wait_for_entry(api, entry_id)
-    wait_for_mission_count(api, entry_id, 0)
+    initial_status = wait_for_mission_count(api, entry_id, 0)
+    profile_options = initial_status.get("attributes", {}).get("profile_options", {})
+    valetudo_profile = profile_options.get(VACUUM_VALETUDO, {})
+    cloud_profile = profile_options.get(VACUUM_CLOUD, {})
+    if [item.get("value") for item in valetudo_profile.get("areas", [])] != [
+        "kitchen", "living_room", "bathroom"
+    ]:
+        raise AssertionError(f"Valetudo room choices were not discovered: {valetudo_profile}")
+    if [item.get("value") for item in valetudo_profile.get("fan_speeds", [])] != [
+        "low", "medium", "high", "max"
+    ]:
+        raise AssertionError(f"Valetudo fan choices were not discovered: {valetudo_profile}")
+    if [item.get("value") for item in valetudo_profile.get("water_levels", [])] != [
+        "low", "medium", "high"
+    ]:
+        raise AssertionError(f"Valetudo water choices were not discovered: {valetudo_profile}")
+    if cloud_profile.get("water_levels"):
+        raise AssertionError(f"Unsupported cloud water choices must stay hidden: {cloud_profile}")
     initial_planner_sensors = planner_states(api, entry_id)
     if len(initial_planner_sensors) != 4:
         raise AssertionError(

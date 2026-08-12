@@ -3,6 +3,24 @@
 ## Unreleased
 
 
+## 2026.8.0b3 - 2026-08-12
+
+### Added
+
+- Live robot capability discovery for Home Assistant area mappings, Valetudo MQTT selects, generic vacuum fan presets, and same-device cloud integration selects.
+- A dedicated robot-profile step in the setup assistant with dynamic dropdowns for rooms, cleaning mode, fan strength, water level, and passes.
+
+### Changed
+
+- The Advanced Card now refreshes its profile dropdowns whenever a different robot is selected and hides unsupported controls.
+- Planner status exposes normalized profile choices so setup and dashboard editing use the same robot-specific contract.
+- Lovelace resource cache busting now includes a stable Card asset fingerprint in addition to the integration version.
+
+### Fixed
+
+- The Card now discovers the matching Planner Status sensor at runtime when `status_entity` is missing, stale, or renamed, instead of showing only a configuration warning.
+
+
 ## 2026.8.0b2 - 2026-08-12
 
 ### Added

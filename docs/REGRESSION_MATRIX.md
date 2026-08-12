@@ -12,6 +12,7 @@
 | Condition projection | Planner status exposes enabled/passed/resolution details for every mission guard | package/runtime E2E |
 | Generic fallback | Area-less missions retain full-clean semantics | adapter/runtime E2E |
 | Valetudo capability discovery | Missing siblings never produce controls | adapter/runtime E2E |
+| Dynamic profile selectors | Setup and Advanced Card expose live room/mode/fan/water/pass choices for the selected robot and hide unsupported controls | runtime E2E, `tests/test_card_runtime.js` |
 | Persistence | Missions, skip and postpone survive restart | runtime E2E |
 | External ownership | Existing helpers are referenced, not created or removed | package/runtime E2E |
 | UI languages | English and German translations expose the same keys | `tests/test_package.py` |

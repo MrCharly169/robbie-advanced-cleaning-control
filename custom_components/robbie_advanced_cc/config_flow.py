@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigFlowResult, OptionsFlowWithReload
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
+from .capabilities import discover_profile_options
 from .const import (
     CONF_DASHBOARD_PATH,
     CONF_NOTIFICATION_ROUTE,
@@ -90,17 +91,39 @@ def _schedule_schema(vacuums: list[str], current: dict[str, Any] | None = None) 
             vol.Optional("people_home", default=current.get("people_home", "wait")): selector.SelectSelector(
                 selector.SelectSelectorConfig(options=["wait", "allow", "skip"], mode=selector.SelectSelectorMode.DROPDOWN)
             ),
-            vol.Optional("areas", default=current.get("areas", "")): selector.TextSelector(),
-            vol.Optional("profile_mode", default=current.get("profile_mode", "vacuum")): selector.SelectSelector(
-                selector.SelectSelectorConfig(options=["vacuum", "mop", "vacuum_and_mop"], mode=selector.SelectSelectorMode.DROPDOWN)
-            ),
-            vol.Optional("fan", default=current.get("fan", "")): selector.TextSelector(),
-            vol.Optional("water", default=current.get("water", "")): selector.TextSelector(),
-            vol.Optional("passes", default=current.get("passes", 1)): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=1, max=3, step=1, mode=selector.NumberSelectorMode.BOX)
-            ),
         }
     )
+
+
+def _profile_schema(options: dict[str, Any], current: dict[str, Any] | None = None) -> vol.Schema:
+    current = current or {}
+    detected = options.get("current") or {}
+    fields: dict[vol.Marker, Any] = {}
+    if options.get("areas"):
+        fields[vol.Optional("areas", default=current.get("areas", []))] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=options["areas"], multiple=True, mode=selector.SelectSelectorMode.DROPDOWN
+            )
+        )
+    fields[vol.Required(
+        "profile_mode", default=current.get("profile_mode", detected.get("mode") or "vacuum")
+    )] = selector.SelectSelector(
+        selector.SelectSelectorConfig(options=options["modes"], mode=selector.SelectSelectorMode.DROPDOWN)
+    )
+    if options.get("fan_speeds"):
+        fields[_optional("fan", current.get("fan", detected.get("fan")))] = selector.SelectSelector(
+            selector.SelectSelectorConfig(options=options["fan_speeds"], mode=selector.SelectSelectorMode.DROPDOWN)
+        )
+    if options.get("water_levels"):
+        fields[_optional("water", current.get("water", detected.get("water")))] = selector.SelectSelector(
+            selector.SelectSelectorConfig(options=options["water_levels"], mode=selector.SelectSelectorMode.DROPDOWN)
+        )
+    fields[vol.Required(
+        "passes", default=str(current.get("passes", detected.get("passes") or "1"))
+    )] = selector.SelectSelector(
+        selector.SelectSelectorConfig(options=options["passes"], mode=selector.SelectSelectorMode.DROPDOWN)
+    )
+    return vol.Schema(fields)
 
 
 def _services_schema(current: dict[str, Any] | None = None) -> vol.Schema:
@@ -141,6 +164,7 @@ class RobbieAdvancedCcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
+        self._starter: dict[str, Any] = {}
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
@@ -163,38 +187,49 @@ class RobbieAdvancedCcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_schedule(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            starter = dict(user_input)
-            enabled = bool(starter.pop("create_starter_mission", True))
-            if enabled:
-                start_time = str(starter.get("start_time") or "09:00")[:5]
-                profile_mode = str(starter.get("profile_mode") or "vacuum")
-                areas = [
-                    item.strip()
-                    for item in str(starter.get("areas") or "").split(",")
-                    if item.strip()
-                ]
-                self._data[CONF_STARTER_MISSION] = {
-                    "id": "starter",
-                    "name": starter.get("mission_name") or "Daily clean",
-                    "vacuum_entity_id": starter.get("vacuum_entity_id") or self._data[CONF_VACUUMS][0],
-                    "weekdays": starter.get("weekdays") or [],
-                    "start_time": start_time,
-                    "schedule_entity_id": starter.get("schedule_entity_id") or None,
-                    "areas": areas,
-                    "profile": {
-                        "mode": profile_mode,
-                        "fan": starter.get("fan") or None,
-                        "water": (
-                            starter.get("water") or None
-                            if profile_mode != "vacuum"
-                            else None
-                        ),
-                        "passes": int(starter.get("passes") or 1),
-                    },
-                    "guards": {"people_home": starter.get("people_home") or "wait"},
-                }
-            return await self.async_step_services()
+            self._starter = dict(user_input)
+            if not bool(self._starter.pop("create_starter_mission", True)):
+                return await self.async_step_services()
+            return await self.async_step_profile()
         return self.async_show_form(step_id="schedule", data_schema=_schedule_schema(self._data[CONF_VACUUMS]))
+
+    async def async_step_profile(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        vacuum_entity_id = self._starter.get("vacuum_entity_id") or self._data[CONF_VACUUMS][0]
+        options = discover_profile_options(self.hass, vacuum_entity_id)
+        if user_input is not None:
+            profile = dict(user_input)
+            profile_mode = str(profile.get("profile_mode") or "vacuum")
+            self._data[CONF_STARTER_MISSION] = {
+                "id": "starter",
+                "name": self._starter.get("mission_name") or "Daily clean",
+                "vacuum_entity_id": vacuum_entity_id,
+                "weekdays": self._starter.get("weekdays") or [],
+                "start_time": str(self._starter.get("start_time") or "09:00")[:5],
+                "schedule_entity_id": self._starter.get("schedule_entity_id") or None,
+                "areas": list(profile.get("areas") or []),
+                "profile": {
+                    "mode": profile_mode,
+                    "fan": profile.get("fan") or None,
+                    "water": (
+                        profile.get("water") or None
+                        if profile_mode != "vacuum"
+                        else None
+                    ),
+                    "passes": int(profile.get("passes") or 1),
+                },
+                "guards": {"people_home": self._starter.get("people_home") or "wait"},
+            }
+            return await self.async_step_services()
+        return self.async_show_form(
+            step_id="profile",
+            data_schema=_profile_schema(options),
+            description_placeholders={
+                "vacuum": self.hass.states.get(vacuum_entity_id).attributes.get("friendly_name", vacuum_entity_id)
+                if self.hass.states.get(vacuum_entity_id)
+                else vacuum_entity_id,
+                "adapter": str(options.get("adapter") or "home_assistant"),
+            },
+        )
 
     async def async_step_services(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:

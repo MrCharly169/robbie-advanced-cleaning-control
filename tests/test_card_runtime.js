@@ -8,6 +8,7 @@ class Element {
     const owner = this;
     this.shadowRoot = {
       innerHTML: "",
+      addEventListener(type, callback) { owner.handlers[`shadow:${type}`] = callback; },
       querySelector(selector) {
         return {
           addEventListener(type, callback) {
@@ -71,7 +72,24 @@ card.hass = {
       state: "idle",
       attributes: {
         entry_id: "entry-1",
-        managed_vacuums: ["vacuum.robot"],
+        managed_vacuums: ["vacuum.robot", "vacuum.cloud"],
+        profile_options: {
+          "vacuum.robot": {
+            areas: [{ value: "kitchen", label: "Kitchen" }, { value: "bathroom", label: "Bathroom" }],
+            modes: [{ value: "vacuum", label: "Vacuum" }, { value: "vacuum_and_mop", label: "Vacuum + Mop" }],
+            fan_speeds: [{ value: "low", label: "Low" }, { value: "high", label: "High" }],
+            water_levels: [{ value: "low", label: "Low" }, { value: "high", label: "High" }],
+            passes: [{ value: "1", label: "1" }, { value: "2", label: "2" }],
+            current: { mode: "vacuum", fan: "low", water: "low", passes: "1" },
+          },
+          "vacuum.cloud": {
+            areas: [{ value: "hall", label: "Hall" }],
+            modes: [{ value: "vacuum", label: "Vacuum" }],
+            fan_speeds: [{ value: "quiet", label: "Quiet" }, { value: "turbo", label: "Turbo" }],
+            water_levels: [], passes: [{ value: "1", label: "1" }],
+            current: { mode: "vacuum", fan: "quiet", passes: "1" },
+          },
+        },
         waiting_vacuums: [],
         next_runs: {"vacuum.robot": {mission: "Sunday clean", scheduled: "2026-08-16T05:00:00+02:00"}},
         missions: [{
@@ -106,19 +124,24 @@ card.hass = {
       attributes: { friendly_name: "Badge State Simulator" },
     },
     "vacuum.robot": { state: "docked", attributes: { friendly_name: "Robbie" } },
+    "vacuum.cloud": { state: "docked", attributes: { friendly_name: "Cloud Robot" } },
   },
 };
 assert.match(card.shadowRoot.innerHTML, /Robbie Advanced CC/);
 assert.match(card.shadowRoot.innerHTML, /Sunday clean/);
 assert.match(card.shadowRoot.innerHTML, /data-card-mode="simple"/);
 assert.equal(card.getCardSize(), 4);
-card.handlers['[data-action="postpone"]:click']();
+const cardClick = (matches, dataset = {}) => card.handlers["shadow:click"]({
+  preventDefault() {}, stopPropagation() {},
+  composedPath() { return [{ matches: (selector) => selector === "button" || selector === matches, dataset }]; },
+});
+cardClick('[data-action="postpone"]');
 assert.equal(JSON.stringify(serviceCalls), JSON.stringify([{
   domain: "robbie_advanced_cc",
   service: "postpone_next",
   data: { entry_id: "entry-1", minutes: 60 },
 }]));
-card.handlers['[data-mode-toggle]:click']();
+cardClick('[data-mode-toggle]');
 assert.match(card.shadowRoot.innerHTML, /data-card-mode="advanced"/);
 assert.match(card.shadowRoot.innerHTML, /Wochenplan/);
 assert.match(card.shadowRoot.innerHTML, /kitchen/);
@@ -127,12 +150,40 @@ assert.match(card.shadowRoot.innerHTML, /Home Zone: 0/);
 assert.match(card.shadowRoot.innerHTML, /data-add-day="mon"/);
 assert.match(card.shadowRoot.innerHTML, /Vac\+Mop · kitchen/);
 assert.equal(card.getCardSize(), 9);
+card._editingMissionId = "new";
+card._render();
+assert.match(card.shadowRoot.innerHTML, /Live-Auswahl des Roboters/);
+assert.match(card.shadowRoot.innerHTML, /<select name="fan">/);
+assert.match(card.shadowRoot.innerHTML, /<select name="water">/);
+assert.match(card.shadowRoot.innerHTML, /<select name="passes">/);
+assert.match(card.shadowRoot.innerHTML, /<select name="areas" multiple/);
+assert.doesNotMatch(card.shadowRoot.innerHTML, /<input name="fan"/);
+card.handlers["shadow:change"]({
+  target: { value: "vacuum.cloud", matches: (selector) => selector === "[data-profile-vacuum]" },
+  stopPropagation() {},
+});
+assert.match(card.shadowRoot.innerHTML, /Cloud Robot/);
+assert.match(card.shadowRoot.innerHTML, />Turbo</);
+assert.doesNotMatch(card.shadowRoot.innerHTML, /<select name="water">/);
 
 const second = new Card();
 second.setConfig({ status_entity: "sensor.planner_status" });
 second.hass = { ...card._hass, language: "en" };
 assert.match(second.shadowRoot.innerHTML, /Robbie Advanced CC/);
 assert.equal(sandbox.window.customCards.length, 1);
+
+const automatic = new Card();
+automatic.setConfig({ mode: "simple" });
+automatic.hass = card._hass;
+assert.match(automatic.shadowRoot.innerHTML, /data-card-mode="simple"/);
+assert.match(automatic.shadowRoot.innerHTML, /Sunday clean/);
+assert.doesNotMatch(automatic.shadowRoot.innerHTML, /Planerstatus-Entität auswählen/);
+
+const stale = new Card();
+stale.setConfig({ status_entity: "sensor.old_planner_status", mode: "advanced" });
+stale.hass = card._hass;
+assert.match(stale.shadowRoot.innerHTML, /data-card-mode="advanced"/);
+assert.match(stale.shadowRoot.innerHTML, /Wochenplan/);
 
 const Badge = registry.get("robbie-vacuum-badge");
 const badge = new Badge();

@@ -3,18 +3,18 @@
   "config": {
     "step": {
       "user": {
-        "title": "Step 1 of 4 · Robots",
+        "title": "Step 1 of 5 · Robots",
         "description": "Create one planner for an apartment, floor, or robot fleet.",
         "data": {"name": "Planner name", "vacuums": "Vacuum cleaners"}
       },
       "presence": {
-        "title": "Step 2 of 4 · Conditions",
+        "title": "Step 2 of 5 · Conditions",
         "description": "Select people, trackers, occupancy sensors, or numeric counters such as the Home zone. Numeric zero means empty; values above zero mean somebody is home. A waiting mission starts automatically when every selected entity reports empty.",
         "data": {"presence_entities": "Presence / Home entities", "vacation_entity": "Vacation mode"}
       },
       "schedule": {
-        "title": "Step 3 of 4 · First schedule",
-        "description": "Create one precise first run now. Choose its weekdays, rooms, vacuum/mop mode, strength and passes. In the Advanced Card you can later create a different profile for every weekday. An optional Home Assistant Schedule helper overrides weekdays and time.",
+        "title": "Step 3 of 5 · First schedule",
+        "description": "Choose the robot and timing for the first run. The next step reads the live cleaning choices exposed by that robot. In the Advanced Card you can later create a different profile for every weekday. An optional Home Assistant Schedule helper overrides weekdays and time.",
         "data": {
           "create_starter_mission": "Create first mission",
           "mission_name": "Mission name",
@@ -22,16 +22,22 @@
           "weekdays": "Weekdays",
           "start_time": "Start time",
           "schedule_entity_id": "Home Assistant Schedule helper (optional)",
-          "people_home": "When somebody is home (wait / allow / skip)",
-          "areas": "Rooms / segment IDs (comma-separated)",
+          "people_home": "When somebody is home (wait / allow / skip)"
+        }
+      },
+      "profile": {
+        "title": "Step 4 of 5 · Robot profile",
+        "description": "Live choices detected for {vacuum} via {adapter}. Unsupported settings stay hidden and the available values follow the robot entities.",
+        "data": {
+          "areas": "Rooms / segments",
           "profile_mode": "Cleaning mode",
-          "fan": "Vacuum strength / fan preset",
-          "water": "Water level (ignored for vacuum-only)",
+          "fan": "Vacuum strength",
+          "water": "Water level",
           "passes": "Cleaning passes"
         }
       },
       "services": {
-        "title": "Step 4 of 4 · Connections",
+        "title": "Step 5 of 5 · Connections",
         "description": "Optional links keep notifications, household tasks, and navigation aligned with your existing Home Assistant setup.",
         "data": {
           "notification_script": "Central notification router",

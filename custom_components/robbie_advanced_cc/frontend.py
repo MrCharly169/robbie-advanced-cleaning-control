@@ -1,6 +1,7 @@
 """Dashboard resource registration and first-run guidance."""
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -27,8 +28,8 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_register_card_resource(hass: HomeAssistant) -> bool:
     """Serve the Card and add its module to Storage-mode dashboards once."""
+    frontend = Path(__file__).parent / "frontend"
     if not hass.data.get(f"{DOMAIN}_frontend_registered"):
-        frontend = Path(__file__).parent / "frontend"
         await hass.http.async_register_static_paths(
             [StaticPathConfig(f"/{DOMAIN}", str(frontend), False)]
         )
@@ -48,7 +49,10 @@ async def async_register_card_resource(hass: HomeAssistant) -> bool:
     resources = lovelace.resources
     await resources.async_get_info()
     integration = await async_get_integration(hass, DOMAIN)
-    resource_url = f"{CARD_RESOURCE_URL}?v={integration.version}"
+    asset_digest = hashlib.sha256(
+        (frontend / "cleaning-control.js").read_bytes()
+    ).hexdigest()[:10]
+    resource_url = f"{CARD_RESOURCE_URL}?v={integration.version}-{asset_digest}"
     matching: list[dict[str, Any]] = [
         item
         for item in resources.async_items()
@@ -90,7 +94,6 @@ Add the Card through **Edit dashboard → Add card → Robbie Advanced Cleaning 
 
 ```yaml
 type: {CARD_TYPE}
-status_entity: sensor.YOUR_PLANNER_planner_status
 mode: simple
 ```
 
