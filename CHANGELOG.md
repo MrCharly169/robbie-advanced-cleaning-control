@@ -19,6 +19,7 @@
 ### Fixed
 
 - The Card now discovers the matching Planner Status sensor at runtime when `status_entity` is missing, stale, or renamed, instead of showing only a configuration warning.
+- The HA E2E fixture now waits for Valetudo mode, fan, and water selects before validating dynamically generated setup fields.
 
 
 ## 2026.8.0b2 - 2026-08-12

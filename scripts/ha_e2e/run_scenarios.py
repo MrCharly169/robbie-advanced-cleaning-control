@@ -15,6 +15,9 @@ from urllib.request import Request, urlopen
 
 VACUUM_VALETUDO = "vacuum.valetudo_fixture_robot"
 VACUUM_CLOUD = "vacuum.cloud_fixture_robot"
+VALETUDO_MODE = "select.valetudo_fixture_robot_mode"
+VALETUDO_FAN = "select.valetudo_fixture_robot_fan"
+VALETUDO_WATER = "select.valetudo_fixture_robot_water"
 MOP_SENSOR = "binary_sensor.valetudo_fixture_robot_mop_attachment"
 CALL_SENSOR = "sensor.robbie_fixture_service_calls"
 DOMAIN = "robbie_advanced_cc"
@@ -381,7 +384,15 @@ def assert_command(calls: list[dict[str, Any]], service: str, **data: Any) -> No
 
 def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> None:
     token = onboard(api)
-    for entity_id in (VACUUM_VALETUDO, VACUUM_CLOUD, MOP_SENSOR, CALL_SENSOR):
+    for entity_id in (
+        VACUUM_VALETUDO,
+        VACUUM_CLOUD,
+        VALETUDO_MODE,
+        VALETUDO_FAN,
+        VALETUDO_WATER,
+        MOP_SENSOR,
+        CALL_SENSOR,
+    ):
         wait_for_state(api, entity_id)
 
     mapping = {"kitchen": ["16"], "living_room": ["17"], "bathroom": ["18"]}
