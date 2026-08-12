@@ -69,6 +69,7 @@ input_select:
       - returning
       - paused
       - waiting
+      - vacation
       - error
       - unavailable
     initial: live

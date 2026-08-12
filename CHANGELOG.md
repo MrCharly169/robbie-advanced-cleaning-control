@@ -3,6 +3,18 @@
 ## Unreleased
 
 
+## 2026.8.0b4 - 2026-08-12
+
+### Changed
+
+- Vacation Mode is now a global planner state with priority over robot idle, live badge overrides, announcements, native Schedule triggers, and queued timers.
+- Card and Badge automatically discover the Planner and robot entities selected in the setup assistant; manual entity IDs are optional multi-robot overrides.
+
+### Fixed
+
+- Prevented continuous dashboard jumping by rebuilding the Card DOM only when planner-relevant data or local editor state actually changes.
+- Added a dedicated purple Vacation presentation with palm-tree marker in both Card modes and the native-size Badge.
+
 ## 2026.8.0b3 - 2026-08-12
 
 ### Added

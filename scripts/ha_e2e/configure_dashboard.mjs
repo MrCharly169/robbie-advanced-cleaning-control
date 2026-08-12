@@ -23,7 +23,7 @@ const status = states.find((item) =>
   && Array.isArray(item.attributes?.managed_vacuums));
 if (!status) throw new Error("Planner status entity was not found");
 const simulator = states.find((item) => item.entity_id === "input_select.badge_state_simulator");
-const simulatorStates = ["live", "docked", "idle", "cleaning", "returning", "paused", "waiting", "error", "unavailable"];
+const simulatorStates = ["live", "docked", "idle", "cleaning", "returning", "paused", "waiting", "vacation", "error", "unavailable"];
 if (!simulator || simulatorStates.some((value) => !simulator.attributes?.options?.includes(value))) {
   throw new Error("Badge state simulator does not expose every supported badge state");
 }
@@ -93,13 +93,15 @@ const dashboard = {
     path: "cleaning",
     icon: "mdi:robot-vacuum",
     badges: [
-      { type: "custom:robbie-vacuum-badge", vacuum_entity: "vacuum.valetudo_fixture_robot", status_entity: status.entity_id, state_override_entity: "input_select.badge_state_simulator", navigation_path: "/lovelace/cleaning" },
-      { type: "custom:robbie-vacuum-badge", vacuum_entity: "vacuum.cloud_fixture_robot", status_entity: status.entity_id, navigation_path: "/lovelace/cleaning" },
+      // The first Badge proves the zero-entity setup path. The second only
+      // overrides the robot because this lab intentionally manages two.
+      { type: "custom:robbie-vacuum-badge", entry_id: status.attributes.entry_id, state_override_entity: "input_select.badge_state_simulator", navigation_path: "/lovelace/cleaning" },
+      { type: "custom:robbie-vacuum-badge", vacuum_entity: "vacuum.cloud_fixture_robot", navigation_path: "/lovelace/cleaning" },
     ],
     cards: [
       // Deliberately omit status_entity: the Card must discover its planner
       // sensor itself, including after an entity rename or YAML copy/paste.
-      { type: "custom:robbie-advanced-cleaning-card", mode: cardMode },
+      { type: "custom:robbie-advanced-cleaning-card", entry_id: status.attributes.entry_id, mode: cardMode },
       {
         type: "entities",
         title: "Badge Simulator · Lab only",

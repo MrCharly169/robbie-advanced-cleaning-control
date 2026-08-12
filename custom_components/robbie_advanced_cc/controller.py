@@ -32,6 +32,7 @@ from .const import (
     STATE_PREPARING,
     STATE_RUNNING,
     STATE_SKIPPED,
+    STATE_VACATION,
     STATE_WAITING,
 )
 from .models import CleaningMission, MissionDecision, PlannerContext, decide_mission
@@ -71,6 +72,18 @@ class CleaningPlanner:
     @property
     def presence_entities(self) -> list[str]:
         return list(self.config.get(CONF_PRESENCE_ENTITIES, []))
+
+    @property
+    def vacation_active(self) -> bool:
+        """Return whether the configured global vacation lock is active."""
+        entity_id = self.config.get(CONF_VACATION_ENTITY)
+        state = self.hass.states.get(entity_id) if entity_id else None
+        return bool(state and state.state == "on")
+
+    @property
+    def effective_state(self) -> str:
+        """Expose vacation as the global presentation state without losing runtime state."""
+        return STATE_VACATION if self.vacation_active else self.state
 
     async def async_setup(self) -> None:
         self.missions, persisted = await self.store.async_load()
@@ -194,7 +207,7 @@ class CleaningPlanner:
         if self._next_cancel:
             self._next_cancel()
             self._next_cancel = None
-        if not self.enabled:
+        if not self.enabled or self.vacation_active:
             self._notify_listeners()
             return
         next_item = self.next_mission(for_timer=True)
@@ -222,6 +235,12 @@ class CleaningPlanner:
         if mission is None:
             self._schedule_next()
             return
+        # A timer may already be queued while vacation mode is switched on.
+        # Do not announce or execute it; the vacation entity listener schedules
+        # the next eligible occurrence after vacation mode is switched off.
+        if self.vacation_active:
+            self._schedule_next()
+            return
         if now < occurrence:
             self.state = STATE_ANNOUNCED
             self.last_reason = "mission_announced"
@@ -238,18 +257,13 @@ class CleaningPlanner:
         return next((mission for mission in self.missions if mission.id == mission_id), None)
 
     def context_for(self, mission: CleaningMission) -> PlannerContext:
-        vacation_entity = self.config.get(CONF_VACATION_ENTITY)
-        vacation_state = self.hass.states.get(vacation_entity) if vacation_entity else None
-        vacation = bool(
-            vacation_state and vacation_state.state == "on"
-        )
         adapter = adapter_for(self.hass, mission.vacuum_entity_id)
         mop_attached = getattr(adapter, "mop_attached", lambda: None)()
         people_home: bool | None = None
         if self.presence_entities:
             people_home = any(self._entity_is_home(entity_id) for entity_id in self.presence_entities)
         return PlannerContext(
-            vacation=vacation,
+            vacation=self.vacation_active,
             vacuum_available=adapter.available,
             mop_attached=mop_attached,
             people_home=people_home,
@@ -515,6 +529,19 @@ class CleaningPlanner:
             for mission in self.missions
             if mission.schedule_entity_id == entity_id
         ]
+        if entity_id == self.config.get(CONF_VACATION_ENTITY):
+            self.last_reason = (
+                "vacation_active" if self.vacation_active else "vacation_ended"
+            )
+            self._schedule_next()
+            return
+        if self.vacation_active and entity_id not in self.vacuums:
+            # Native schedule and presence helper transitions are deliberately
+            # inert during the global vacation lock. Robot state changes still
+            # update the hidden runtime state so leaving vacation cannot reveal
+            # a stale "running" value after the robot has docked.
+            self._notify_listeners()
+            return
         if new_state is not None and new_state.state == "on" and getattr(old_state, "state", None) != "on":
             for mission in schedule_missions:
                 await self.async_run(mission.id)

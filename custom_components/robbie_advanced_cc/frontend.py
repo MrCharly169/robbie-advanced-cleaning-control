@@ -94,6 +94,7 @@ Add the Card through **Edit dashboard → Add card → Robbie Advanced Cleaning 
 
 ```yaml
 type: {CARD_TYPE}
+entry_id: {entry.entry_id}
 mode: simple
 ```
 
@@ -101,10 +102,11 @@ Add the native-size robot Badge at the top of the view with:
 
 ```yaml
 type: {BADGE_TYPE}
-vacuum_entity: vacuum.YOUR_ROBOT
-status_entity: sensor.YOUR_PLANNER_planner_status
+entry_id: {entry.entry_id}
 navigation_path: {dashboard_path}
 ```
+
+Card and Badge discover the entities selected in the setup assistant automatically. Only select a specific robot in the visual Badge editor when this planner manages more than one robot.
 
 Open the [Cleaning Control dashboard]({dashboard_path}). Switch the Card to **Advanced** to create a separate run for each weekday, room, vacuum/mop mode, fan strength, water level and number of passes.
 """

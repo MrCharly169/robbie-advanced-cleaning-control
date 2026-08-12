@@ -12,7 +12,7 @@ const COPY = {
     fan: "Vacuum strength", water: "Water level", dayRun: "Run for", perDayHint: "Each run keeps its own rooms and cleaning settings. Use the + on a weekday for a precise day profile.",
     liveChoices: "Live robot choices", unsupported: "Unsupported settings are hidden",
     enabled: "Enabled", name: "Run name", nativeSchedule: "Native HA schedule", weeklySchedule: "Weekly schedule",
-    planner_enabled: "Planner and run enabled", vacuum_available: "Robot available", vacation_inactive: "Vacation mode off",
+    planner_enabled: "Planner and run enabled", vacuum_available: "Robot available", vacation_inactive: "Vacation mode off", vacation: "Vacation",
     mop_attached: "Mop attached", home_empty: "Nobody home", allow: "Start anyway", wait: "Wait until empty",
     skipPolicy: "Skip run", noConditions: "No additional conditions", configure: "Configure the planner status entity.",
     days: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
@@ -27,7 +27,7 @@ const COPY = {
     fan: "Saugstärke", water: "Wasserstufe", dayRun: "Lauf für", perDayHint: "Jeder Lauf speichert eigene Räume und Reinigungseinstellungen. Nutze das + am Wochentag für ein präzises Tagesprofil.",
     liveChoices: "Live-Auswahl des Roboters", unsupported: "Nicht unterstützte Einstellungen sind ausgeblendet",
     enabled: "Aktiviert", name: "Name des Laufs", nativeSchedule: "Nativer HA-Zeitplan", weeklySchedule: "Wochenplan",
-    planner_enabled: "Planer und Lauf aktiviert", vacuum_available: "Roboter verfügbar", vacation_inactive: "Urlaubsmodus aus",
+    planner_enabled: "Planer und Lauf aktiviert", vacuum_available: "Roboter verfügbar", vacation_inactive: "Urlaubsmodus aus", vacation: "Urlaub",
     mop_attached: "Wischmodul eingesetzt", home_empty: "Niemand zu Hause", allow: "Trotzdem starten",
     wait: "Auf leeres Zuhause warten", skipPolicy: "Lauf auslassen", noConditions: "Keine zusätzlichen Bedingungen",
     configure: "Bitte die Planerstatus-Entität auswählen.", days: ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
@@ -48,15 +48,16 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
   static getConfigElement() { return document.createElement("robbie-advanced-cleaning-card-editor"); }
 
   static getStubConfig(hass) {
-    const status = Object.keys(hass?.states ?? {}).find((id) =>
-      id.startsWith("sensor.") && Array.isArray(hass.states[id]?.attributes?.managed_vacuums));
-    return { status_entity: status, mode: "simple" };
+    const status = Object.values(hass?.states ?? {}).find((state) =>
+      Array.isArray(state.attributes?.managed_vacuums));
+    return { entry_id: status?.attributes?.entry_id, mode: "simple" };
   }
 
   setConfig(config) {
     if (!config) throw new Error("Card configuration is required");
     this._config = { mode: "simple", ...config };
     this._displayMode = this._config.mode === "advanced" ? "advanced" : "simple";
+    this._lastRenderSignature = "";
     this._render();
   }
 
@@ -128,6 +129,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       running: ["mdi:robot-vacuum", "active"], preparing: ["mdi:progress-wrench", "active"],
       waiting: ["mdi:account-clock-outline", "waiting"], blocked: ["mdi:shield-alert-outline", "danger"],
       failed: ["mdi:alert", "danger"], postponed: ["mdi:clock-plus-outline", "muted"],
+      vacation: ["mdi:palm-tree", "vacation"],
       idle: ["mdi:robot-vacuum-variant", "calm"], completed: ["mdi:check-circle-outline", "calm"],
     };
     return { state, icon: (map[state] || ["mdi:robot-vacuum", "muted"])[0], tone: (map[state] || ["", "muted"])[1] };
@@ -159,7 +161,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
         <div class="easy-header">
           <div class="heading"><div class="easy-brand">${escapeHtml(this._config.title || t.brand)}</div>
             <div class="easy-room">${escapeHtml(vacuum?.attributes?.friendly_name || missionName)}</div></div>
-          <div class="easy-status">${icon(info.icon, "status-icon")}<span>${escapeHtml(info.state)}</span></div>
+          <div class="easy-status">${icon(info.icon, "status-icon")}<span>${escapeHtml(t[info.state] || info.state)}</span></div>
         </div>
         <div class="easy-next">
           ${icon("mdi:calendar-clock", "next-icon")}
@@ -167,7 +169,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
           <span class="condition-summary ${conditionsReady ? "passed" : "pending"}">${icon(conditionsReady ? "mdi:check-all" : "mdi:clock-alert-outline", "summary-icon")}<span>${escapeHtml(conditionsReady ? t.ready : t.blocked)}</span></span>
         </div>
         <div class="easy-actions">
-          <button class="easy-action primary" data-action="run">${icon("mdi:play", "action-icon")}<span>${escapeHtml(t.run)}</span></button>
+          <button class="easy-action primary" data-action="run" ${info.state === "vacation" ? "disabled" : ""}>${icon("mdi:play", "action-icon")}<span>${escapeHtml(t.run)}</span></button>
           <button class="round" data-action="skip" title="${escapeHtml(t.skip)}">${icon("mdi:skip-next", "action-icon")}</button>
           <button class="round" data-action="postpone" title="${escapeHtml(t.postpone)}">${icon("mdi:clock-plus-outline", "action-icon")}</button>
           <button class="round advanced-button" data-mode-toggle title="${escapeHtml(t.advanced)}">${icon("mdi:tune-variant", "action-icon")}</button>
@@ -204,7 +206,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       </div>
       <div class="conditions">${conditions.map((item) => this._condition(item, t)).join("") || `<span class="muted">${escapeHtml(t.noConditions)}</span>`}</div>
       <div class="mission-actions">
-        <button data-run="${escapeHtml(mission.id)}">${icon("mdi:play", "mini-icon")}${escapeHtml(t.run)}</button>
+        <button data-run="${escapeHtml(mission.id)}" ${this._plannerStatus()?.state === "vacation" ? "disabled" : ""}>${icon("mdi:play", "mini-icon")}${escapeHtml(t.run)}</button>
         <button data-edit="${escapeHtml(mission.id)}">${icon("mdi:pencil", "mini-icon")}${escapeHtml(t.edit)}</button>
         <button data-remove="${escapeHtml(mission.id)}" class="danger-button">${icon("mdi:delete-outline", "mini-icon")}${escapeHtml(t.remove)}</button>
       </div>
@@ -269,7 +271,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     const editing = this._editingMissionId === "new" ? {} : missions.find((item) => item.id === this._editingMissionId);
     return `<ha-card data-card-mode="advanced" class="${info.tone}"><div class="advanced-wrap">
       <div class="advanced-header"><div><div class="title">${escapeHtml(this._config.title || t.title)}</div><div class="subtitle">${escapeHtml(t.advanced)} · ${missions.length} ${escapeHtml(t.missions)}</div></div>
-        <div class="mode-pill">${icon(info.icon, "status-icon")}<span>${escapeHtml(info.state)}</span></div></div>
+        <div class="mode-pill">${icon(info.icon, "status-icon")}<span>${escapeHtml(t[info.state] || info.state)}</span></div></div>
       <div class="overview-chips"><span>${icon("mdi:robot-vacuum", "chip-icon")}${status?.attributes?.managed_vacuums?.length || 0}</span><span>${icon("mdi:calendar-check", "chip-icon")}${missions.length}</span><span class="${passed === total ? "good" : "warn"}">${icon(passed === total ? "mdi:check-all" : "mdi:clock-alert-outline", "chip-icon")}${passed}/${total}</span></div>
       <section><div class="section-title"><strong>${escapeHtml(t.weekly)}</strong><button class="round" data-add title="${escapeHtml(t.add)}">${icon("mdi:plus", "action-icon")}</button></div>${this._week(missions, t)}</section>
       <section><div class="section-title"><strong>${escapeHtml(t.missions)}</strong></div><div class="mission-list">${missions.map((mission) => this._missionCard(mission, t)).join("") || `<div class="empty">${escapeHtml(t.noMission)}</div>`}</div></section>
@@ -365,11 +367,11 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
   _styles() {
     return `<style>
       :host{display:block;width:100%;min-width:0;font-family:var(--paper-font-body1_-_font-family,system-ui,sans-serif);container-type:inline-size;container-name:robbie-card}*{box-sizing:border-box;min-width:0}
-      ha-card{width:100%;overflow:hidden;border-radius:22px;border:1px solid rgba(255,255,255,.09);box-shadow:none;background:var(--ha-card-background,var(--card-background-color,#202020));color:var(--primary-text-color,#fff)}ha-card.active{background:linear-gradient(135deg,rgba(32,184,154,.16),rgba(24,34,31,.97))}ha-card.waiting{background:linear-gradient(135deg,rgba(242,169,59,.18),rgba(34,30,24,.97))}ha-card.danger{background:linear-gradient(135deg,rgba(238,91,100,.23),rgba(36,24,26,.97))}
+      ha-card{width:100%;overflow:hidden;border-radius:22px;border:1px solid rgba(255,255,255,.09);box-shadow:none;background:var(--ha-card-background,var(--card-background-color,#202020));color:var(--primary-text-color,#fff)}ha-card.active{background:linear-gradient(135deg,rgba(32,184,154,.16),rgba(24,34,31,.97))}ha-card.waiting{background:linear-gradient(135deg,rgba(242,169,59,.18),rgba(34,30,24,.97))}ha-card.vacation{background:linear-gradient(135deg,rgba(126,87,194,.25),rgba(29,25,39,.97))}ha-card.danger{background:linear-gradient(135deg,rgba(238,91,100,.23),rgba(36,24,26,.97))}
       .icon-box{width:18px;height:18px;display:grid;place-items:center;flex:0 0 18px;line-height:0}.icon-box>ha-icon{--mdc-icon-size:16px}.status-icon{width:17px;height:17px}.status-icon>ha-icon{--mdc-icon-size:15px}.chip-icon,.mini-icon,.condition-icon{width:15px;height:15px}.chip-icon>ha-icon,.mini-icon>ha-icon,.condition-icon>ha-icon{--mdc-icon-size:13px}.next-icon{width:34px;height:34px}.next-icon>ha-icon{--mdc-icon-size:27px}.action-icon>ha-icon{--mdc-icon-size:16px}
       button,input,select{font:inherit}.easy-wrap,.advanced-wrap{padding:16px;display:grid;gap:12px}.easy-header,.advanced-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.easy-brand{font-size:9px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;opacity:.45}.easy-room,.title{margin-top:3px;font-size:19px;font-weight:850;line-height:1.08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.subtitle{font-size:10px;opacity:.56;margin-top:4px}.easy-status,.mode-pill{height:30px;max-width:48%;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,.085);font-size:10px;font-weight:850;text-transform:uppercase;white-space:nowrap}
       .easy-next{position:relative;border-radius:17px;padding:11px 12px;background:rgba(255,255,255,.048);display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px}.easy-next-copy{display:grid;gap:1px}.easy-next-copy small{font-size:9px;text-transform:uppercase;letter-spacing:.08em;opacity:.48}.easy-next-copy strong{font-size:12px}.easy-next-copy>span{font-size:10px;opacity:.62}.condition-summary{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:760;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,.07)}.condition-summary.passed{color:var(--success-color,#4caf50)}.condition-summary.pending{color:var(--warning-color,#f2a93b)}
-      .easy-actions,.advanced-footer{display:flex;align-items:center;justify-content:flex-end;gap:7px}.easy-action,.advanced-add,.mission-actions button,.form-actions button{height:36px;border:0;border-radius:12px;padding:0 11px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.075);color:inherit;font-size:10px;font-weight:760;cursor:pointer}.easy-action.primary,.advanced-add,.form-actions .save{background:var(--primary-color,#41bdf5);color:var(--text-primary-color,#fff)}.round{width:36px;height:36px;border:0;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.075);color:inherit;cursor:pointer;padding:0}.round:hover,.mission-actions button:hover{background:rgba(255,255,255,.14)}
+      .easy-actions,.advanced-footer{display:flex;align-items:center;justify-content:flex-end;gap:7px}.easy-action,.advanced-add,.mission-actions button,.form-actions button{height:36px;border:0;border-radius:12px;padding:0 11px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.075);color:inherit;font-size:10px;font-weight:760;cursor:pointer}.easy-action.primary,.advanced-add,.form-actions .save{background:var(--primary-color,#41bdf5);color:var(--text-primary-color,#fff)}button:disabled{opacity:.38;cursor:not-allowed}.round{width:36px;height:36px;border:0;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.075);color:inherit;cursor:pointer;padding:0}.round:hover,.mission-actions button:hover{background:rgba(255,255,255,.14)}
       .overview-chips,.mission-chips{display:flex;flex-wrap:wrap;gap:6px}.overview-chips>span,.mission-chips>span{min-height:26px;display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.065);font-size:10px}.overview-chips .good{color:var(--success-color,#4caf50)}.overview-chips .warn{color:var(--warning-color,#f2a93b)}section{display:grid;gap:8px}.section-title{display:flex;align-items:center;justify-content:space-between}.section-title>strong{font-size:13px}
       .week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.week-day{min-height:79px;padding:7px 4px;border-radius:12px;background:rgba(255,255,255,.028);text-align:center}.week-day.active{background:rgba(65,189,245,.08)}.week-day>strong{font-size:9px;text-transform:uppercase;opacity:.55}.week-day>div{display:grid;gap:3px;margin-top:5px}.week-day button{border:0;border-radius:9px;padding:4px 3px;background:rgba(65,189,245,.16);color:inherit;font-size:8px;cursor:pointer;display:grid;gap:1px}.week-day button b{font-size:8px}.week-day button small{font-size:7px;opacity:.62;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.week-day span{font-size:9px;opacity:.25}.week-day .day-add{width:20px;height:20px;margin:2px auto 0;border-radius:50%;padding:0;display:grid;place-items:center;background:rgba(255,255,255,.06);font-size:12px}
       .mission-list{display:grid;gap:7px}.mission{padding:11px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.045);display:grid;gap:9px}.mission.pending{border-color:rgba(242,169,59,.24)}.mission-head{display:flex;justify-content:space-between;gap:10px}.mission-head>div{display:grid;gap:2px}.mission-head strong{font-size:12px}.mission-head small{font-size:9px;opacity:.58}.mission-state{display:inline-flex;align-items:center;gap:4px;font-size:9px;white-space:nowrap}.mission.ready .mission-state{color:var(--success-color,#4caf50)}.mission.pending .mission-state{color:var(--warning-color,#f2a93b)}.conditions{display:flex;flex-wrap:wrap;gap:5px}.condition{display:inline-flex;align-items:center;gap:4px;padding:5px 7px;border-radius:999px;background:rgba(255,255,255,.05);font-size:9px}.condition.passed{color:var(--success-color,#4caf50)}.condition.pending{color:var(--warning-color,#f2a93b)}.muted,.empty{font-size:10px;opacity:.52}.mission-actions{display:flex;justify-content:flex-end;gap:6px}.mission-actions button{height:30px;border-radius:10px}.mission-actions .danger-button{color:var(--error-color,#ee5b64)}
@@ -383,12 +385,27 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
     const t = this._copy();
     const status = this._plannerStatus();
+    const next = status ? this._entity(this._discover("next_mission")) : undefined;
+    const missions = Array.isArray(status?.attributes?.missions) ? status.attributes.missions : [];
+    const relevantEntities = (status?.attributes?.managed_vacuums || []).map((id) => {
+      const state = this._entity(id);
+      return [id, state?.state, state?.attributes?.friendly_name];
+    });
+    const signature = JSON.stringify([
+      this._config, this._hass?.language || "en", this._displayMode,
+      this._editingMissionId, this._editingWeekday, this._editingVacuumId,
+      this._editingRobotChanged, status?.state, status?.attributes?.entry_id,
+      status?.attributes?.vacation_active, status?.attributes?.managed_vacuums,
+      status?.attributes?.profile_options, status?.attributes?.waiting_vacuums,
+      status?.attributes?.next_runs, missions, next?.state, next?.attributes,
+      relevantEntities,
+    ]);
+    if (signature === this._lastRenderSignature) return;
+    this._lastRenderSignature = signature;
     if (!status) {
       this.shadowRoot.innerHTML = `<ha-card><div class="empty-card">${escapeHtml(t.configure)}</div></ha-card>${this._styles()}`;
       return;
     }
-    const next = this._entity(this._discover("next_mission"));
-    const missions = Array.isArray(status.attributes?.missions) ? status.attributes.missions : [];
     const content = this._displayMode === "advanced" ? this._advanced(status, missions, t) : this._simple(status, next, missions, t);
     this.shadowRoot.innerHTML = `${content}${this._styles()}`;
     this._bind();
@@ -405,7 +422,7 @@ class RobbieAdvancedCleaningCardEditor extends HTMLElement {
     if (!this._hass || !this._config) return;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
     const sensors = Object.keys(this._hass.states).filter((id) => id.startsWith("sensor.") && Array.isArray(this._hass.states[id]?.attributes?.managed_vacuums));
-    this.shadowRoot.innerHTML = `<div class="editor"><label>Planner status<select data-status>${sensors.map((id) => `<option value="${escapeHtml(id)}" ${id === this._config.status_entity ? "selected" : ""}>${escapeHtml(id)}</option>`).join("")}</select></label><label>Default mode<select data-mode><option value="simple" ${this._config.mode !== "advanced" ? "selected" : ""}>Simple</option><option value="advanced" ${this._config.mode === "advanced" ? "selected" : ""}>Advanced</option></select></label></div><style>.editor{display:grid;gap:14px;padding:16px}label{display:grid;gap:6px}select{padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}</style>`;
+    this.shadowRoot.innerHTML = `<div class="editor"><label>Planner status<select data-status><option value="">Automatic from setup</option>${sensors.map((id) => `<option value="${escapeHtml(id)}" ${id === this._config.status_entity ? "selected" : ""}>${escapeHtml(id)}</option>`).join("")}</select></label><label>Default mode<select data-mode><option value="simple" ${this._config.mode !== "advanced" ? "selected" : ""}>Simple</option><option value="advanced" ${this._config.mode === "advanced" ? "selected" : ""}>Advanced</option></select></label></div><style>.editor{display:grid;gap:14px;padding:16px}label{display:grid;gap:6px}select{padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}</style>`;
     this.shadowRoot.querySelector("[data-status]")?.addEventListener("change", (event) => this._emit("status_entity", event.target.value));
     this.shadowRoot.querySelector("[data-mode]")?.addEventListener("change", (event) => this._emit("mode", event.target.value));
   }
@@ -422,13 +439,13 @@ class RobbieVacuumBadge extends HTMLElement {
 
   static async getConfigElement() { return document.createElement("robbie-vacuum-badge-editor"); }
   static getStubConfig(hass) {
-    const vacuum = Object.keys(hass?.states ?? {}).find((id) => id.startsWith("vacuum."));
-    const status = Object.keys(hass?.states ?? {}).find((id) => id.startsWith("sensor.") && hass.states[id]?.attributes?.managed_vacuums?.includes(vacuum));
-    return { vacuum_entity: vacuum, status_entity: status, navigation_path: "/lovelace/cleaning" };
+    const status = Object.values(hass?.states ?? {}).find((state) =>
+      Array.isArray(state.attributes?.managed_vacuums));
+    return { entry_id: status?.attributes?.entry_id, navigation_path: "/lovelace/cleaning" };
   }
 
   setConfig(config = {}) {
-    if (!config || typeof config !== "object" || !config.vacuum_entity) throw new Error("vacuum_entity is required");
+    if (!config || typeof config !== "object") throw new Error("Badge configuration must be an object");
     this._config = { navigation_path: "/lovelace/cleaning", ...config };
     this._lastRenderSignature = "";
     this._render();
@@ -436,13 +453,14 @@ class RobbieVacuumBadge extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    const vacuum = hass?.states?.[this._config.vacuum_entity];
     const status = this._status();
+    const vacuumEntityId = this._vacuumEntityId(status);
+    const vacuum = hass?.states?.[vacuumEntityId];
     const override = this._stateOverride();
     let signature;
     try {
       signature = JSON.stringify([
-        this._config, hass?.language || "en", vacuum?.state, vacuum?.attributes,
+        this._config, hass?.language || "en", vacuumEntityId, vacuum?.state, vacuum?.attributes,
         status?.state, status?.attributes, override,
       ]);
     } catch (_error) {
@@ -454,13 +472,29 @@ class RobbieVacuumBadge extends HTMLElement {
   }
 
   _status() {
-    if (this._config?.status_entity) return this._hass?.states?.[this._config.status_entity];
-    return Object.values(this._hass?.states ?? {}).find((state) => state.attributes?.managed_vacuums?.includes(this._config.vacuum_entity));
+    const configured = this._hass?.states?.[this._config?.status_entity];
+    if (configured && Array.isArray(configured.attributes?.managed_vacuums)) return configured;
+    const candidates = Object.values(this._hass?.states ?? {}).filter((state) =>
+      Array.isArray(state.attributes?.managed_vacuums));
+    const entryId = this._config?.entry_id;
+    const vacuumEntityId = this._config?.vacuum_entity;
+    return candidates.find((state) => entryId && state.attributes?.entry_id === entryId)
+      || candidates.find((state) => vacuumEntityId && state.attributes.managed_vacuums.includes(vacuumEntityId))
+      || candidates[0];
+  }
+
+  _vacuumEntityId(status = this._status()) {
+    const configured = this._config?.vacuum_entity;
+    if (configured && this._hass?.states?.[configured]) return configured;
+    const managed = status?.attributes?.managed_vacuums || [];
+    return managed.find((id) => this._hass?.states?.[id])
+      || Object.keys(this._hass?.states ?? {}).find((id) => id.startsWith("vacuum."))
+      || configured;
   }
 
   _stateOverride() {
     const value = this._hass?.states?.[this._config?.state_override_entity]?.state;
-    return ["docked", "idle", "cleaning", "returning", "paused", "waiting", "error", "unavailable"].includes(value) ? value : "";
+    return ["docked", "idle", "cleaning", "returning", "paused", "waiting", "vacation", "error", "unavailable"].includes(value) ? value : "";
   }
 
   _navigate() {
@@ -472,7 +506,7 @@ class RobbieVacuumBadge extends HTMLElement {
 
   _bindInteraction() {
     const badge = this.shadowRoot?.querySelector?.("ha-badge");
-    if (!badge || !this._config.vacuum_entity) return;
+    if (!badge || !this._vacuumEntityId()) return;
     badge.addEventListener?.("click", (event) => {
       event.stopPropagation?.();
       this._navigate();
@@ -488,10 +522,10 @@ class RobbieVacuumBadge extends HTMLElement {
     const de = String(this._hass?.language || "en").toLowerCase().startsWith("de");
     const states = de ? {
       docked: "In Station", idle: "Schläft", cleaning: "Reinigt", returning: "Rückfahrt",
-      paused: "Pausiert", waiting: "Wartet", error: "Fehler", unavailable: "Nicht verfügbar",
+      paused: "Pausiert", waiting: "Wartet", vacation: "Urlaub", error: "Fehler", unavailable: "Nicht verfügbar",
     } : {
       docked: "Docked", idle: "Sleeping", cleaning: "Cleaning", returning: "Returning",
-      paused: "Paused", waiting: "Waiting", error: "Error", unavailable: "Unavailable",
+      paused: "Paused", waiting: "Waiting", vacation: "Vacation", error: "Error", unavailable: "Unavailable",
     };
     return de
       ? { states, next: "Nächster Start", choose: "Saugroboter auswählen" }
@@ -502,7 +536,7 @@ class RobbieVacuumBadge extends HTMLElement {
     return ({
       docked: "mdi:home", idle: "mdi:power-sleep", cleaning: "mdi:play",
       returning: "mdi:home-import-outline", paused: "mdi:pause",
-      waiting: "mdi:account-clock-outline", error: "mdi:alert",
+      waiting: "mdi:account-clock-outline", vacation: "mdi:palm-tree", error: "mdi:alert",
       unavailable: "mdi:alert-circle-outline",
     })[state] || "mdi:information-outline";
   }
@@ -513,6 +547,7 @@ class RobbieVacuumBadge extends HTMLElement {
       returning: "var(--info-color,var(--primary-color,#039be5))",
       paused: "var(--info-color,var(--primary-color,#039be5))",
       waiting: "var(--warning-color,var(--amber-color,#f2a93b))",
+      vacation: "var(--purple-color,#7e57c2)",
       error: "var(--error-color,var(--red-color,#db4437))",
       unavailable: "var(--error-color,var(--red-color,#db4437))",
     })[state] || "var(--state-inactive-color,var(--secondary-text-color,#727272))";
@@ -528,8 +563,10 @@ class RobbieVacuumBadge extends HTMLElement {
   _render() {
     if (!this.shadowRoot) return;
     const L = this._labels();
-    const vacuum = this._hass?.states?.[this._config.vacuum_entity];
-    if (!this._config.vacuum_entity || !vacuum) {
+    const status = this._status();
+    const vacuumEntityId = this._vacuumEntityId(status);
+    const vacuum = this._hass?.states?.[vacuumEntityId];
+    if (!vacuumEntityId || !vacuum) {
       this.shadowRoot.innerHTML = `
         <style>
           :host{display:block;width:var(--ha-badge-size,36px);height:var(--ha-badge-size,36px)}
@@ -547,13 +584,13 @@ class RobbieVacuumBadge extends HTMLElement {
         </ha-badge>`;
       return;
     }
-    const status = this._status();
-    const waiting = status?.attributes?.waiting_vacuums?.includes(this._config.vacuum_entity);
+    const waiting = status?.attributes?.waiting_vacuums?.includes(vacuumEntityId);
+    const vacation = status?.state === "vacation" || status?.attributes?.vacation_active === true;
     const raw = vacuum?.state || "unavailable";
-    const state = this._stateOverride() || (waiting ? "waiting" : raw);
-    const nextRun = status?.attributes?.next_runs?.[this._config.vacuum_entity];
+    const state = vacation ? "vacation" : this._stateOverride() || (waiting ? "waiting" : raw);
+    const nextRun = status?.attributes?.next_runs?.[vacuumEntityId];
     const time = this._formatTime(nextRun?.scheduled);
-    const name = this._config.name || vacuum?.attributes?.friendly_name || this._config.vacuum_entity;
+    const name = this._config.name || vacuum?.attributes?.friendly_name || vacuumEntityId;
     const label = L.states[state] || state;
     const tooltip = [name, label, time ? `${L.next} ${time}` : "", nextRun?.mission || ""].filter(Boolean).join(" · ");
     const showTime = state === "docked" && Boolean(time);
@@ -589,7 +626,7 @@ class RobbieVacuumBadgeEditor extends HTMLElement {
     const statuses = Object.keys(this._hass.states).filter((id) => id.startsWith("sensor.") && Array.isArray(this._hass.states[id]?.attributes?.managed_vacuums));
     const overrides = Object.keys(this._hass.states).filter((id) => id.startsWith("input_select.") || id.startsWith("select."));
     const options = (items, selected) => items.map((id) => `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(this._hass.states[id]?.attributes?.friendly_name || id)}</option>`).join("");
-    this.shadowRoot.innerHTML = `<div class="editor"><label>Vacuum<select data-vacuum>${options(vacuums, this._config.vacuum_entity)}</select></label><label>Planner status<select data-status>${options(statuses, this._config.status_entity)}</select></label><label>State override (optional)<select data-override><option value="">Live robot state</option>${options(overrides, this._config.state_override_entity)}</select></label><label>Navigation path<input data-path value="${escapeHtml(this._config.navigation_path)}"></label><small>Native 36 px Home Assistant badge with robot symbol, colored status marker and next docked run.</small></div><style>.editor{display:grid;gap:13px;padding:16px}label{display:grid;gap:6px}select,input{padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}small{opacity:.58}</style>`;
+    this.shadowRoot.innerHTML = `<div class="editor"><label>Vacuum<select data-vacuum><option value="">Automatic from setup</option>${options(vacuums, this._config.vacuum_entity)}</select></label><label>Planner status<select data-status><option value="">Automatic from setup</option>${options(statuses, this._config.status_entity)}</select></label><label>State override (optional)<select data-override><option value="">Live robot state</option>${options(overrides, this._config.state_override_entity)}</select></label><label>Navigation path<input data-path value="${escapeHtml(this._config.navigation_path)}"></label><small>Card and Badge automatically use the entities selected in the setup assistant. Choose a robot only when this planner manages several robots.</small></div><style>.editor{display:grid;gap:13px;padding:16px}label{display:grid;gap:6px}select,input{padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}small{opacity:.58}</style>`;
     this.shadowRoot.querySelector("[data-vacuum]")?.addEventListener("change", (event) => this._emit("vacuum_entity", event.target.value));
     this.shadowRoot.querySelector("[data-status]")?.addEventListener("change", (event) => this._emit("status_entity", event.target.value));
     this.shadowRoot.querySelector("[data-override]")?.addEventListener("change", (event) => this._emit("state_override_entity", event.target.value || undefined));

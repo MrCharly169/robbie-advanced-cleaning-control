@@ -7,7 +7,13 @@ from homeassistant.core import HomeAssistant
 
 from .adapters import adapter_for
 from .capabilities import discover_profile_options
-from .const import BADGE_TYPE, CARD_RESOURCE_URL, CARD_TYPE, DOMAIN
+from .const import (
+    BADGE_TYPE,
+    CARD_RESOURCE_URL,
+    CARD_TYPE,
+    CONF_VACATION_ENTITY,
+    DOMAIN,
+)
 from .controller import CleaningPlanner
 from .entity import PlannerEntity
 
@@ -35,7 +41,7 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        return self.planner.state
+        return self.planner.effective_state
 
     @property
     def extra_state_attributes(self):
@@ -63,6 +69,8 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
             missions.append(raw)
         return {
             "entry_id": self.planner.entry.entry_id,
+            "vacation_active": self.planner.vacation_active,
+            "vacation_entity_id": self.planner.config.get(CONF_VACATION_ENTITY),
             "active_mission_id": self.planner.active_mission_id,
             "managed_vacuums": self.planner.vacuums,
             "profile_options": {

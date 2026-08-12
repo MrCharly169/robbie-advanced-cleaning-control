@@ -3,11 +3,13 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 
 class Element {
-  constructor() { this.shadowRoot = null; this.handlers = {}; }
+  constructor() { this.shadowRoot = null; this.handlers = {}; this.renderWrites = 0; }
   attachShadow() {
     const owner = this;
+    let markup = "";
     this.shadowRoot = {
-      innerHTML: "",
+      get innerHTML() { return markup; },
+      set innerHTML(value) { markup = value; owner.renderWrites += 1; },
       addEventListener(type, callback) { owner.handlers[`shadow:${type}`] = callback; },
       querySelector(selector) {
         return {
@@ -131,6 +133,29 @@ assert.match(card.shadowRoot.innerHTML, /Robbie Advanced CC/);
 assert.match(card.shadowRoot.innerHTML, /Sunday clean/);
 assert.match(card.shadowRoot.innerHTML, /data-card-mode="simple"/);
 assert.equal(card.getCardSize(), 4);
+assert.equal(Card.getStubConfig(card._hass).entry_id, "entry-1");
+const stableRenderWrites = card.renderWrites;
+card.hass = {
+  ...card._hass,
+  states: { ...card._hass.states, "sun.sun": { state: "above_horizon", attributes: {} } },
+};
+assert.equal(card.renderWrites, stableRenderWrites, "unrelated HA updates must not rebuild the Card DOM");
+const nonVacationHass = card._hass;
+card.hass = {
+  ...nonVacationHass,
+  states: {
+    ...nonVacationHass.states,
+    "sensor.planner_status": {
+      ...nonVacationHass.states["sensor.planner_status"],
+      state: "vacation",
+      attributes: { ...nonVacationHass.states["sensor.planner_status"].attributes, vacation_active: true },
+    },
+  },
+};
+assert.match(card.shadowRoot.innerHTML, /mdi:palm-tree/);
+assert.match(card.shadowRoot.innerHTML, />Urlaub</);
+assert.match(card.shadowRoot.innerHTML, /data-action="run" disabled/);
+card.hass = nonVacationHass;
 const cardClick = (matches, dataset = {}) => card.handlers["shadow:click"]({
   preventDefault() {}, stopPropagation() {},
   composedPath() { return [{ matches: (selector) => selector === "button" || selector === matches, dataset }]; },
@@ -186,6 +211,12 @@ assert.match(stale.shadowRoot.innerHTML, /data-card-mode="advanced"/);
 assert.match(stale.shadowRoot.innerHTML, /Wochenplan/);
 
 const Badge = registry.get("robbie-vacuum-badge");
+assert.equal(Badge.getStubConfig(card._hass).entry_id, "entry-1");
+const automaticBadge = new Badge();
+automaticBadge.setConfig({ navigation_path: "/lovelace/cleaning" });
+automaticBadge.hass = card._hass;
+assert.match(automaticBadge.shadowRoot.innerHTML, /data-mode="docked"/);
+assert.match(automaticBadge.shadowRoot.innerHTML, /Robbie/);
 const badge = new Badge();
 badge.setConfig({
   vacuum_entity: "vacuum.robot",
@@ -210,6 +241,7 @@ const simulatedStates = {
   returning: "mdi:home-import-outline",
   paused: "mdi:pause",
   waiting: "mdi:account-clock-outline",
+  vacation: "mdi:palm-tree",
   error: "mdi:alert",
   unavailable: "mdi:alert-circle-outline",
 };
@@ -227,6 +259,20 @@ for (const [state, stateIcon] of Object.entries(simulatedStates)) {
   assert.match(badge.shadowRoot.innerHTML, new RegExp(`data-mode="${state}"`));
   assert.match(badge.shadowRoot.innerHTML, new RegExp(`icon="${stateIcon}"`));
 }
+badge.hass = {
+  ...card._hass,
+  states: {
+    ...card._hass.states,
+    "sensor.planner_status": {
+      ...card._hass.states["sensor.planner_status"],
+      state: "vacation",
+      attributes: { ...card._hass.states["sensor.planner_status"].attributes, vacation_active: true },
+    },
+    "input_select.badge_state_simulator": { state: "cleaning", attributes: {} },
+  },
+};
+assert.match(badge.shadowRoot.innerHTML, /data-mode="vacation"/);
+assert.match(badge.shadowRoot.innerHTML, /Urlaub/);
 let clickStopped = false;
 badge.handlers["ha-badge:click"]({ stopPropagation() { clickStopped = true; } });
 assert.equal(clickStopped, true);

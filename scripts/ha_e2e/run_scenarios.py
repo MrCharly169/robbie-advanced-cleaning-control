@@ -527,16 +527,38 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     assert_command(fixture_calls(api), "start")
     set_fixture(api, VACUUM_CLOUD, "docked")
     api.call_service("input_boolean", "turn_off", {"entity_id": "input_boolean.schedule_trigger"})
-    api.call_service(DOMAIN, "remove_mission", {"entry_id": entry_id, "mission_id": schedule_mission["id"]})
-    wait_for_mission_count(api, entry_id, 2)
 
     api.call_service("input_boolean", "turn_on", {"entity_id": "input_boolean.vacation_mode"})
+    vacation_status = wait_for_state(
+        api,
+        planner_status(api, entry_id)["entity_id"],
+        lambda state: state["state"] == "vacation"
+        and state.get("attributes", {}).get("vacation_active") is True,
+    )
+    if vacation_status.get("attributes", {}).get("vacation_entity_id") != "input_boolean.vacation_mode":
+        raise AssertionError(f"Vacation source was not projected: {vacation_status}")
+    # A native schedule transition must be completely inert while the global
+    # vacation lock is active.
+    reset_calls(api)
+    api.call_service("input_boolean", "turn_on", {"entity_id": "input_boolean.schedule_trigger"})
+    time.sleep(2)
+    if fixture_calls(api):
+        raise AssertionError("Vacation lock allowed a native schedule command")
+    api.call_service("input_boolean", "turn_off", {"entity_id": "input_boolean.schedule_trigger"})
     reset_calls(api)
     api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": valetudo["id"]})
     assert_last_reason(api, entry_id, "vacation_active")
     if fixture_calls(api):
         raise AssertionError("Vacation guard allowed a device command")
     api.call_service("input_boolean", "turn_off", {"entity_id": "input_boolean.vacation_mode"})
+    wait_for_state(
+        api,
+        planner_status(api, entry_id)["entity_id"],
+        lambda state: state["state"] != "vacation"
+        and state.get("attributes", {}).get("vacation_active") is False,
+    )
+    api.call_service(DOMAIN, "remove_mission", {"entry_id": entry_id, "mission_id": schedule_mission["id"]})
+    wait_for_mission_count(api, entry_id, 2)
 
     api.call_service(DOMAIN, "remove_mission", {"entry_id": entry_id, "mission_id": cloud["id"]})
     wait_for_mission_count(api, entry_id, 1)
