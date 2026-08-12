@@ -78,3 +78,21 @@ input_text:
   notify_route_test:
     name: Notification Route Test
     initial: persistent_notification.create
+  notify_route_capture:
+    name: Notification Route Capture
+    initial: none
+
+script:
+  robbie_notification_router_test:
+    alias: Robbie Notification Router Test
+    fields:
+      payload:
+        description: Robbie notification payload
+      route:
+        description: Resolved notification route
+    sequence:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.notify_route_capture
+        data:
+          value: "{{ route | default('missing') }}"

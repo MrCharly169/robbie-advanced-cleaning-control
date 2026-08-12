@@ -44,7 +44,105 @@ function icon(name, className = "") {
   return `<span class="icon-box ${className}"><ha-icon icon="${name}"></ha-icon></span>`;
 }
 
+const frameRequest = globalThis.requestAnimationFrame?.bind(globalThis)
+  || ((callback) => globalThis.setTimeout(callback, 0));
+const frameCancel = globalThis.cancelAnimationFrame?.bind(globalThis)
+  || ((handle) => globalThis.clearTimeout(handle));
+
+function domKey(node) {
+  if (node?.nodeType !== 1) return "";
+  const keys = [
+    "data-mission-id", "data-id", "data-edit", "data-add-day", "data-action",
+    "data-run", "data-remove", "data-mode-toggle", "data-add", "data-cancel",
+    "name", "data-day",
+  ];
+  for (const name of keys) {
+    if (node.hasAttribute?.(name)) return `${node.tagName}:${name}:${node.getAttribute(name)}`;
+  }
+  return "";
+}
+
+function syncAttributes(current, desired) {
+  for (const attribute of [...(current.attributes || [])]) {
+    if (!desired.hasAttribute(attribute.name)) current.removeAttribute(attribute.name);
+  }
+  for (const attribute of [...(desired.attributes || [])]) {
+    if (current.getAttribute(attribute.name) !== attribute.value) {
+      current.setAttribute(attribute.name, attribute.value);
+    }
+  }
+}
+
+function morphNode(current, desired, options = {}) {
+  if (!current || !desired || current.nodeType !== desired.nodeType
+      || (current.nodeType === 1 && current.tagName !== desired.tagName)) {
+    const replacement = desired.cloneNode(true);
+    current?.replaceWith?.(replacement);
+    return replacement;
+  }
+  if (current.nodeType === 3) {
+    if (current.nodeValue !== desired.nodeValue) current.nodeValue = desired.nodeValue;
+    return current;
+  }
+  syncAttributes(current, desired);
+  if (options.preserveEditor && current.matches?.("form[data-mission-form]")
+      && current.getAttribute("data-id") === desired.getAttribute("data-id")) {
+    return current;
+  }
+
+  const existing = [...current.childNodes];
+  const keyed = new Map(existing.map((node) => [domKey(node), node]).filter(([key]) => key));
+  const used = new Set();
+  let position = 0;
+  for (const desiredChild of [...desired.childNodes]) {
+    const key = domKey(desiredChild);
+    let candidate = key ? keyed.get(key) : existing[position];
+    if (candidate && used.has(candidate)) candidate = undefined;
+    if (candidate && (candidate.nodeType !== desiredChild.nodeType
+        || (candidate.nodeType === 1 && candidate.tagName !== desiredChild.tagName))) {
+      candidate = undefined;
+    }
+    if (!candidate) {
+      candidate = desiredChild.cloneNode(true);
+      current.insertBefore(candidate, current.childNodes[position] || null);
+    } else {
+      const reference = current.childNodes[position];
+      if (reference !== candidate) current.insertBefore(candidate, reference || null);
+      candidate = morphNode(candidate, desiredChild, options);
+    }
+    used.add(candidate);
+    position += 1;
+  }
+  for (const child of [...current.childNodes].slice(position)) {
+    if (!used.has(child)) child.remove();
+  }
+  return current;
+}
+
+function patchHost(host, markup, options = {}) {
+  const template = document.createElement("template");
+  // The lightweight Node contract runner has no HTML parser. Production HA
+  // and browser regression tests always take the keyed morphing path.
+  if (!template.content) {
+    host.innerHTML = markup;
+    return host.querySelector?.("ha-card,ha-badge");
+  }
+  template.innerHTML = markup;
+  const desired = template.content.firstElementChild;
+  const current = host.firstElementChild;
+  if (!current) host.append(desired.cloneNode(true));
+  else morphNode(current, desired, options);
+  return host.firstElementChild;
+}
+
 class RobbieAdvancedCleaningCard extends HTMLElement {
+  constructor() {
+    super();
+    this._renderFrame = null;
+    this._lastRenderSignature = "";
+    this._visibleRenderCount = 0;
+  }
+
   static getConfigElement() { return document.createElement("robbie-advanced-cleaning-card-editor"); }
 
   static getStubConfig(hass) {
@@ -58,7 +156,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     this._config = { mode: "simple", ...config };
     this._displayMode = this._config.mode === "advanced" ? "advanced" : "simple";
     this._lastRenderSignature = "";
-    this._render();
+    if (this._hass) this._scheduleRender();
   }
 
   connectedCallback() {
@@ -70,12 +168,52 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       },
     });
     this.dispatchEvent(request);
+    // A freshly fingerprinted Lovelace resource can finish loading after HA
+    // already created an unresolved custom-card element. HA then upgrades the
+    // element without replaying setConfig/hass. Request one view rebuild only
+    // for that narrow startup race; ordinary state renders never reach here.
+    if (!this.shadowRoot && !globalThis.__robbieCardRecoveryRequested) {
+      this._recoveryTimer = globalThis.setTimeout(() => {
+        this._recoveryTimer = null;
+        if (this.shadowRoot || !this.isConnected || globalThis.__robbieCardRecoveryRequested) return;
+        const host = this.parentElement;
+        const recoveredConfig = this._config || host?.config || host?._config;
+        const recoveredHass = this._hass || document.querySelector("home-assistant")?.hass;
+        if (!this._config && recoveredConfig) this.setConfig(recoveredConfig);
+        if (!this._hass && recoveredHass) this.hass = recoveredHass;
+        if (this._config && this._hass) this._render();
+        if (this.shadowRoot) return;
+        globalThis.__robbieCardRecoveryRequested = true;
+        this.dispatchEvent(new Event("ll-rebuild", { bubbles: true, composed: true }));
+      }, 250);
+    }
+  }
+
+  disconnectedCallback() {
+    if (this._renderFrame !== null) frameCancel(this._renderFrame);
+    if (this._recoveryTimer != null) globalThis.clearTimeout(this._recoveryTimer);
+    this._renderFrame = null;
+    this._recoveryTimer = null;
   }
 
   set hass(value) {
     this._hass = value;
     if (!this._callService && typeof value?.callService === "function") this._callService = value.callService.bind(value);
-    this._render();
+    this._scheduleRender();
+  }
+
+  _scheduleRender() {
+    if (this._renderFrame !== null) return;
+    this._renderFrame = frameRequest(() => {
+      this._renderFrame = null;
+      this._commitRender();
+    });
+  }
+
+  _render() {
+    if (this._renderFrame !== null) frameCancel(this._renderFrame);
+    this._renderFrame = null;
+    this._commitRender();
   }
 
   getCardSize() { return this._displayMode === "advanced" ? 9 : 4; }
@@ -105,6 +243,85 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       return id.startsWith("sensor.") && state.attributes?.entry_id === entryId &&
         (id.split(".", 2)[1]?.endsWith(suffix) || state.attributes?.translation_key === suffix);
     });
+  }
+
+  _viewModel(status, next, missions) {
+    const visibleMission = (mission) => ({
+      id: mission.id, name: mission.name, vacuum_entity_id: mission.vacuum_entity_id,
+      weekdays: mission.weekdays || [], start_time: mission.start_time,
+      schedule_entity_id: mission.schedule_entity_id || null, areas: mission.areas || [],
+      profile: {
+        mode: mission.profile?.mode || "vacuum", fan: mission.profile?.fan || null,
+        water: mission.profile?.water || null, passes: mission.profile?.passes || 1,
+      },
+      all_conditions_met: mission.all_conditions_met, next_run: mission.next_run || null,
+      conditions: (mission.conditions || []).map((condition) => ({
+        key: condition.key, enabled: condition.enabled !== false,
+        passed: Boolean(condition.passed),
+        entity_name: condition.entity_name || "", entity_state: condition.entity_state,
+      })),
+    });
+    const managed = (status?.attributes?.managed_vacuums || []).map((id) => ({
+      id, name: this._entity(id)?.attributes?.friendly_name || id,
+    }));
+    const selectedVacuum = this._editingVacuumId
+      || missions.find((mission) => mission.id === this._editingMissionId)?.vacuum_entity_id
+      || managed[0]?.id;
+    const options = this._editingMissionId
+      ? status?.attributes?.profile_options?.[selectedVacuum] || {}
+      : {};
+    const choices = (items) => (items || []).map((item) => typeof item === "object"
+      ? [String(item.value), String(item.label || item.value)] : [String(item), String(item)]);
+    const schedules = this._editingMissionId
+      ? Object.entries(this._hass?.states || {}).filter(([id]) => id.startsWith("schedule."))
+        .map(([id, state]) => [id, state.attributes?.friendly_name || id])
+      : [];
+    return {
+      language: this._hass?.language?.startsWith("de") ? "de" : "en",
+      config: {
+        entry_id: this._config?.entry_id || "", status_entity: this._config?.status_entity || "",
+        title: this._config?.title || "", mode: this._config?.mode || "simple",
+      },
+      ui: {
+        mode: this._displayMode, mission: this._editingMissionId || "",
+        weekday: this._editingWeekday || "", vacuum: this._editingVacuumId || "",
+        robotChanged: Boolean(this._editingRobotChanged),
+      },
+      status: status ? { state: status.state, entry_id: status.attributes?.entry_id || "" } : null,
+      next: next ? {
+        state: next.state, mission: next.attributes?.mission || "",
+        mission_id: next.attributes?.mission_id || "",
+        vacuum_entity_id: next.attributes?.vacuum_entity_id || "",
+      } : null,
+      managed,
+      missions: missions.map(visibleMission),
+      editor: this._editingMissionId ? {
+        selectedVacuum,
+        areas: choices(options.areas), modes: choices(options.modes),
+        fan: choices(options.fan_speeds), water: choices(options.water_levels),
+        passes: choices(options.passes),
+        current: {
+          mode: options.current?.mode || "", fan: options.current?.fan || "",
+          water: options.current?.water || "", passes: options.current?.passes || "",
+        },
+        schedules,
+        source: (() => {
+          const mission = missions.find((item) => item.id === this._editingMissionId) || {};
+          return {
+            id: mission.id || "", name: mission.name || "",
+            vacuum_entity_id: mission.vacuum_entity_id || "",
+            weekdays: mission.weekdays || [], start_time: mission.start_time || "",
+            schedule_entity_id: mission.schedule_entity_id || "", areas: mission.areas || [],
+            enabled: mission.enabled !== false,
+            profile: {
+              mode: mission.profile?.mode || "", fan: mission.profile?.fan || "",
+              water: mission.profile?.water || "", passes: mission.profile?.passes || "",
+            },
+            people_home: mission.guards?.people_home || "wait",
+          };
+        })(),
+      } : null,
+    };
   }
 
   async _call(service, data = {}) {
@@ -196,7 +413,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     const conditions = (mission.conditions || []).filter((item) => item.enabled !== false);
     const scheduleText = mission.schedule_entity_id ? t.nativeSchedule :
       `${(mission.weekdays || []).map((day) => t.days[DAYS.indexOf(day)]).join(" · ")} · ${mission.start_time || "—"}`;
-    return `<article class="mission ${mission.all_conditions_met ? "ready" : "pending"}">
+    return `<article data-mission-id="${escapeHtml(mission.id)}" class="mission ${mission.all_conditions_met ? "ready" : "pending"}">
       <div class="mission-head"><div><strong>${escapeHtml(mission.name)}</strong><small>${escapeHtml(scheduleText)}</small></div>
         <span class="mission-state">${icon(mission.all_conditions_met ? "mdi:check-circle" : "mdi:clock-alert-outline", "state-icon")}${escapeHtml(mission.all_conditions_met ? t.ready : t.blocked)}</span></div>
       <div class="mission-chips">
@@ -354,6 +571,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       event.stopPropagation?.();
       this._editingVacuumId = event.target.value;
       this._editingRobotChanged = true;
+      this._refreshEditor = true;
       this._render();
     });
     root.addEventListener("submit", (event) => {
@@ -366,7 +584,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
 
   _styles() {
     return `<style>
-      :host{display:block;width:100%;min-width:0;font-family:var(--paper-font-body1_-_font-family,system-ui,sans-serif);container-type:inline-size;container-name:robbie-card}*{box-sizing:border-box;min-width:0}
+      :host{display:block;width:100%;min-width:0;font-family:var(--paper-font-body1_-_font-family,system-ui,sans-serif);container-type:inline-size;container-name:robbie-card}[data-card-host]{display:contents}*{box-sizing:border-box;min-width:0}
       ha-card{width:100%;overflow:hidden;border-radius:22px;border:1px solid rgba(255,255,255,.09);box-shadow:none;background:var(--ha-card-background,var(--card-background-color,#202020));color:var(--primary-text-color,#fff)}ha-card.active{background:linear-gradient(135deg,rgba(32,184,154,.16),rgba(24,34,31,.97))}ha-card.waiting{background:linear-gradient(135deg,rgba(242,169,59,.18),rgba(34,30,24,.97))}ha-card.vacation{background:linear-gradient(135deg,rgba(126,87,194,.25),rgba(29,25,39,.97))}ha-card.danger{background:linear-gradient(135deg,rgba(238,91,100,.23),rgba(36,24,26,.97))}
       .icon-box{width:18px;height:18px;display:grid;place-items:center;flex:0 0 18px;line-height:0}.icon-box>ha-icon{--mdc-icon-size:16px}.status-icon{width:17px;height:17px}.status-icon>ha-icon{--mdc-icon-size:15px}.chip-icon,.mini-icon,.condition-icon{width:15px;height:15px}.chip-icon>ha-icon,.mini-icon>ha-icon,.condition-icon>ha-icon{--mdc-icon-size:13px}.next-icon{width:34px;height:34px}.next-icon>ha-icon{--mdc-icon-size:27px}.action-icon>ha-icon{--mdc-icon-size:16px}
       button,input,select{font:inherit}.easy-wrap,.advanced-wrap{padding:16px;display:grid;gap:12px}.easy-header,.advanced-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.easy-brand{font-size:9px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;opacity:.45}.easy-room,.title{margin-top:3px;font-size:19px;font-weight:850;line-height:1.08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.subtitle{font-size:10px;opacity:.56;margin-top:4px}.easy-status,.mode-pill{height:30px;max-width:48%;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,.085);font-size:10px;font-weight:850;text-transform:uppercase;white-space:nowrap}
@@ -380,35 +598,35 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     </style>`;
   }
 
-  _render() {
-    if (!this._config || !this._hass) return;
+  _ensureShell() {
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    if (this._mount) return;
+    this.shadowRoot.innerHTML = `${this._styles()}<div data-card-host></div>`;
+    this._mount = this.shadowRoot.querySelector("[data-card-host]");
+    this._bind();
+  }
+
+  _commitRender() {
+    if (!this._config || !this._hass) return;
+    this._ensureShell();
     const t = this._copy();
     const status = this._plannerStatus();
     const next = status ? this._entity(this._discover("next_mission")) : undefined;
     const missions = Array.isArray(status?.attributes?.missions) ? status.attributes.missions : [];
-    const relevantEntities = (status?.attributes?.managed_vacuums || []).map((id) => {
-      const state = this._entity(id);
-      return [id, state?.state, state?.attributes?.friendly_name];
-    });
-    const signature = JSON.stringify([
-      this._config, this._hass?.language || "en", this._displayMode,
-      this._editingMissionId, this._editingWeekday, this._editingVacuumId,
-      this._editingRobotChanged, status?.state, status?.attributes?.entry_id,
-      status?.attributes?.vacation_active, status?.attributes?.managed_vacuums,
-      status?.attributes?.profile_options, status?.attributes?.waiting_vacuums,
-      status?.attributes?.next_runs, missions, next?.state, next?.attributes,
-      relevantEntities,
-    ]);
+    const signature = JSON.stringify(this._viewModel(status, next, missions));
     if (signature === this._lastRenderSignature) return;
     this._lastRenderSignature = signature;
+    const preserveEditor = Boolean(this._editingMissionId) && !this._refreshEditor;
+    this._refreshEditor = false;
+    let content;
     if (!status) {
-      this.shadowRoot.innerHTML = `<ha-card><div class="empty-card">${escapeHtml(t.configure)}</div></ha-card>${this._styles()}`;
-      return;
+      content = `<ha-card><div class="empty-card">${escapeHtml(t.configure)}</div></ha-card>`;
+    } else {
+      content = this._displayMode === "advanced"
+        ? this._advanced(status, missions, t) : this._simple(status, next, missions, t);
     }
-    const content = this._displayMode === "advanced" ? this._advanced(status, missions, t) : this._simple(status, next, missions, t);
-    this.shadowRoot.innerHTML = `${content}${this._styles()}`;
-    this._bind();
+    this._cardRoot = patchHost(this._mount, content, { preserveEditor });
+    this._visibleRenderCount += 1;
   }
 }
 
@@ -431,10 +649,11 @@ class RobbieAdvancedCleaningCardEditor extends HTMLElement {
 class RobbieVacuumBadge extends HTMLElement {
   constructor() {
     super();
-    this.attachShadow({ mode: "open" });
     this._config = {};
     this._hass = null;
     this._lastRenderSignature = "";
+    this._renderFrame = null;
+    this._visibleRenderCount = 0;
   }
 
   static async getConfigElement() { return document.createElement("robbie-vacuum-badge-editor"); }
@@ -448,27 +667,31 @@ class RobbieVacuumBadge extends HTMLElement {
     if (!config || typeof config !== "object") throw new Error("Badge configuration must be an object");
     this._config = { navigation_path: "/lovelace/cleaning", ...config };
     this._lastRenderSignature = "";
-    this._render();
+    if (this._hass) this._scheduleRender();
   }
 
   set hass(hass) {
     this._hass = hass;
-    const status = this._status();
-    const vacuumEntityId = this._vacuumEntityId(status);
-    const vacuum = hass?.states?.[vacuumEntityId];
-    const override = this._stateOverride();
-    let signature;
-    try {
-      signature = JSON.stringify([
-        this._config, hass?.language || "en", vacuumEntityId, vacuum?.state, vacuum?.attributes,
-        status?.state, status?.attributes, override,
-      ]);
-    } catch (_error) {
-      signature = `${this._config.vacuum_entity || ""}:${vacuum?.state || ""}:${vacuum?.last_changed || ""}`;
-    }
-    if (signature === this._lastRenderSignature) return;
-    this._lastRenderSignature = signature;
-    this._render();
+    this._scheduleRender();
+  }
+
+  disconnectedCallback() {
+    if (this._renderFrame !== null) frameCancel(this._renderFrame);
+    this._renderFrame = null;
+  }
+
+  _scheduleRender() {
+    if (this._renderFrame !== null) return;
+    this._renderFrame = frameRequest(() => {
+      this._renderFrame = null;
+      this._commitRender();
+    });
+  }
+
+  _render() {
+    if (this._renderFrame !== null) frameCancel(this._renderFrame);
+    this._renderFrame = null;
+    this._commitRender();
   }
 
   _status() {
@@ -507,6 +730,8 @@ class RobbieVacuumBadge extends HTMLElement {
   _bindInteraction() {
     const badge = this.shadowRoot?.querySelector?.("ha-badge");
     if (!badge || !this._vacuumEntityId()) return;
+    if (this._interactionBadge === badge) return;
+    this._interactionBadge = badge;
     badge.addEventListener?.("click", (event) => {
       event.stopPropagation?.();
       this._navigate();
@@ -560,58 +785,79 @@ class RobbieVacuumBadge extends HTMLElement {
     return new Intl.DateTimeFormat(this._hass?.language || "en", { hour: "2-digit", minute: "2-digit" }).format(date);
   }
 
-  _render() {
-    if (!this.shadowRoot) return;
-    const L = this._labels();
+  _badgeStyles() {
+    return `<style>
+      :host{display:block;width:var(--ha-badge-size,36px);height:var(--ha-badge-size,36px)}
+      [data-badge-host]{display:contents}
+      .badge-symbol{position:relative;display:grid;place-items:center;width:22px;height:22px;color:var(--badge-color)}
+      .next-time{position:absolute;left:50%;bottom:-1px;transform:translateX(-50%);font-size:6px;font-weight:850;line-height:1;letter-spacing:-.05em;white-space:nowrap;color:var(--badge-color)}
+      .state-marker{position:absolute;right:-4px;bottom:-4px;display:grid;place-items:center;width:12px;height:12px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color,#fff));box-shadow:0 0 0 1px var(--ha-card-border-color,var(--divider-color,#ddd));color:var(--badge-color)}
+      .state-marker ha-icon{--mdc-icon-size:9px}
+    </style>`;
+  }
+
+  _ensureShell() {
+    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    if (this._mount) return;
+    this.shadowRoot.innerHTML = `${this._badgeStyles()}<span data-badge-host></span>`;
+    this._mount = this.shadowRoot.querySelector("[data-badge-host]");
+  }
+
+  _badgeViewModel() {
     const status = this._status();
     const vacuumEntityId = this._vacuumEntityId(status);
     const vacuum = this._hass?.states?.[vacuumEntityId];
-    if (!vacuumEntityId || !vacuum) {
-      this.shadowRoot.innerHTML = `
-        <style>
-          :host{display:block;width:var(--ha-badge-size,36px);height:var(--ha-badge-size,36px)}
-          ha-badge{--badge-color:var(--error-color,var(--red-color,#db4437))}
-          .badge-symbol{position:relative;display:grid;place-items:center;width:22px;height:22px;color:var(--badge-color)}
-          .robot-symbol{--mdc-icon-size:20px}
-          .state-marker{position:absolute;right:-4px;bottom:-4px;display:grid;place-items:center;width:12px;height:12px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color,#fff));box-shadow:0 0 0 1px var(--ha-card-border-color,var(--divider-color,#ddd));color:var(--badge-color)}
-          .state-marker ha-icon{--mdc-icon-size:9px}
-        </style>
-        <ha-badge icon-only title="${escapeHtml(L.choose)}" aria-label="${escapeHtml(L.choose)}">
-          <span slot="icon" class="badge-symbol">
-            <ha-icon class="robot-symbol" icon="mdi:robot-vacuum"></ha-icon>
-            <span class="state-marker"><ha-icon icon="mdi:alert-circle-outline"></ha-icon></span>
-          </span>
-        </ha-badge>`;
-      return;
-    }
     const waiting = status?.attributes?.waiting_vacuums?.includes(vacuumEntityId);
     const vacation = status?.state === "vacation" || status?.attributes?.vacation_active === true;
     const raw = vacuum?.state || "unavailable";
     const state = vacation ? "vacation" : this._stateOverride() || (waiting ? "waiting" : raw);
     const nextRun = status?.attributes?.next_runs?.[vacuumEntityId];
-    const time = this._formatTime(nextRun?.scheduled);
-    const name = this._config.name || vacuum?.attributes?.friendly_name || vacuumEntityId;
+    return {
+      language: String(this._hass?.language || "en").toLowerCase().startsWith("de") ? "de" : "en",
+      vacuumEntityId: vacuumEntityId || "", available: Boolean(vacuum), state,
+      name: this._config.name || vacuum?.attributes?.friendly_name || vacuumEntityId || "",
+      nextScheduled: nextRun?.scheduled || "", nextMission: nextRun?.mission || "",
+      navigation: this._config.navigation_path || "",
+    };
+  }
+
+  _commitRender() {
+    if (!this._config || !this._hass) return;
+    this._ensureShell();
+    const view = this._badgeViewModel();
+    const signature = JSON.stringify(view);
+    if (signature === this._lastRenderSignature) return;
+    this._lastRenderSignature = signature;
+    const L = this._labels();
+    if (!view.available) {
+      const tooltip = L.choose;
+      this._badgeRoot = patchHost(this._mount, `
+        <ha-badge icon-only data-mode="unavailable" title="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}" style="--badge-color:var(--error-color,var(--red-color,#db4437))">
+          <span slot="icon" class="badge-symbol">
+            <ha-icon class="robot-symbol" style="--mdc-icon-size:20px" icon="mdi:robot-vacuum"></ha-icon>
+            <span class="state-marker"><ha-icon icon="mdi:alert-circle-outline"></ha-icon></span>
+          </span>
+        </ha-badge>`);
+      this._bindInteraction();
+      this._visibleRenderCount += 1;
+      return;
+    }
+    const state = view.state;
+    const time = this._formatTime(view.nextScheduled);
     const label = L.states[state] || state;
-    const tooltip = [name, label, time ? `${L.next} ${time}` : "", nextRun?.mission || ""].filter(Boolean).join(" · ");
+    const tooltip = [view.name, label, time ? `${L.next} ${time}` : "", view.nextMission].filter(Boolean).join(" · ");
     const showTime = state === "docked" && Boolean(time);
-    this.shadowRoot.innerHTML = `
-      <style>
-        :host{display:block;width:var(--ha-badge-size,36px);height:var(--ha-badge-size,36px)}
-        ha-badge{--badge-color:${escapeHtml(this._color(state))}}
-        .badge-symbol{position:relative;display:grid;place-items:center;width:22px;height:22px;color:var(--badge-color)}
-        .robot-symbol{--mdc-icon-size:${showTime ? "15px" : "20px"};${showTime ? "transform:translateY(-3px)" : ""}}
-        .next-time{position:absolute;left:50%;bottom:-1px;transform:translateX(-50%);font-size:6px;font-weight:850;line-height:1;letter-spacing:-.05em;white-space:nowrap;color:var(--badge-color)}
-        .state-marker{position:absolute;right:-4px;bottom:-4px;display:grid;place-items:center;width:12px;height:12px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color,#fff));box-shadow:0 0 0 1px var(--ha-card-border-color,var(--divider-color,#ddd));color:var(--badge-color)}
-        .state-marker ha-icon{--mdc-icon-size:9px}
-      </style>
+    this._badgeRoot = patchHost(this._mount, `
       <ha-badge type="button" icon-only data-mode="${escapeHtml(state)}" title="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}">
         <span slot="icon" class="badge-symbol">
-          <ha-icon class="robot-symbol" icon="mdi:robot-vacuum${state === "docked" ? "-variant" : ""}"></ha-icon>
+          <ha-icon class="robot-symbol" style="--mdc-icon-size:${showTime ? "15px" : "20px"};${showTime ? "transform:translateY(-3px)" : ""}" icon="mdi:robot-vacuum${state === "docked" ? "-variant" : ""}"></ha-icon>
           ${showTime ? `<small class="next-time">${escapeHtml(time)}</small>` : ""}
           <span class="state-marker"><ha-icon icon="${escapeHtml(this._stateIcon(state))}"></ha-icon></span>
         </span>
-      </ha-badge>`;
+      </ha-badge>`);
+    this._badgeRoot.style?.setProperty?.("--badge-color", this._color(state));
     this._bindInteraction();
+    this._visibleRenderCount += 1;
   }
 }
 

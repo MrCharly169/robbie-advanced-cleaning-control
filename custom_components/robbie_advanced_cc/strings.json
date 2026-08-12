@@ -38,7 +38,7 @@
       },
       "services": {
         "title": "Step 5 of 5 · Connections",
-        "description": "Optional links keep notifications, household tasks, and navigation aligned with your existing Home Assistant setup.",
+        "description": "Notifications work without configuration and appear in Home Assistant. Advanced users can select a compatible central router script. The optional route helper contributes its current value, for example mobile, family, or persistent.",
         "data": {
           "notification_script": "Central notification router",
           "notification_route": "Notification route helper",
@@ -53,17 +53,48 @@
   "options": {
     "step": {
       "init": {
-        "title": "Planner connections",
-        "description": "Update robots, conditions, notifications, and navigation. Existing missions are retained.",
+        "title": "Configure planner",
+        "description": "Change connections and conditions, create another mission, or select any existing mission to edit it.",
+        "data": {"options_action": "What do you want to configure?"}
+      },
+      "connections": {
+        "title": "Connections & conditions",
+        "description": "Notifications require no configuration. Select a router script only if Home Assistant already uses a compatible central notification script. The route helper's current value is passed as route.",
         "data": {
           "name": "Planner name", "vacuums": "Vacuum cleaners", "presence_entities": "Presence / Home entities",
           "vacation_entity": "Vacation mode", "notification_script": "Central notification router",
           "notification_route": "Notification route helper", "todo_entity": "Household to-do list",
           "dashboard_path": "Cleaning Control dashboard path"
         }
+      },
+      "mission_schedule": {
+        "title": "Mission · Schedule & conditions",
+        "description": "Every saved mission remains available here after initial setup. Select its robot, timing and behavior, then continue to the live robot profile.",
+        "data": {
+          "mission_name": "Mission name", "vacuum_entity_id": "Vacuum cleaner", "weekdays": "Weekdays",
+          "start_time": "Start time", "schedule_entity_id": "Home Assistant Schedule helper (optional)",
+          "people_home": "When somebody is home", "enabled": "Mission enabled",
+          "announce_before_minutes": "Notify before start", "delete_mission": "Delete this mission"
+        }
+      },
+      "mission_profile": {
+        "title": "Mission · Robot profile",
+        "description": "Live choices detected for {vacuum} via {adapter}. Saving updates this mission immediately.",
+        "data": {
+          "areas": "Rooms / segments", "profile_mode": "Cleaning mode", "fan": "Vacuum strength",
+          "water": "Water level", "passes": "Cleaning passes"
+        }
+      },
+      "delete_mission": {
+        "title": "Delete mission?",
+        "description": "Permanently delete {mission}. This does not remove the vacuum or planner.",
+        "data": {"confirm_delete": "Yes, delete this mission"}
       }
     },
-    "error": {"no_vacuums": "Select at least one vacuum cleaner."}
+    "error": {
+      "no_vacuums": "Select at least one vacuum cleaner.",
+      "mission_not_found": "The selected mission no longer exists."
+    }
   },
   "entity": {
     "sensor": {

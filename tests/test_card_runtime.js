@@ -3,20 +3,52 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 
 class Element {
-  constructor() { this.shadowRoot = null; this.handlers = {}; this.renderWrites = 0; }
+  constructor() {
+    this.shadowRoot = null;
+    this.handlers = {};
+    this.renderWrites = 0;
+    this.shellWrites = 0;
+    this.isConnected = true;
+  }
   attachShadow() {
     const owner = this;
     let markup = "";
+    const roots = new Map();
+    const renderedRoot = (tag) => {
+      if (!roots.has(tag)) {
+        roots.set(tag, {
+          tag,
+          listeners: {},
+          addEventListener(type, callback) {
+            this.listeners[type] = callback;
+            owner.handlers[`${tag}:${type}`] = callback;
+          },
+          style: { setProperty(name, value) { owner.lastStyle = { name, value }; } },
+        });
+      }
+      return roots.get(tag);
+    };
+    const mount = (tag) => {
+      let content = "";
+      return {
+        get innerHTML() { return content; },
+        set innerHTML(value) { content = value; owner.renderWrites += 1; },
+        querySelector(selector) {
+          return selector.includes("ha-badge") ? renderedRoot("ha-badge") : renderedRoot("ha-card");
+        },
+      };
+    };
+    const cardMount = mount("ha-card");
+    const badgeMount = mount("ha-badge");
     this.shadowRoot = {
-      get innerHTML() { return markup; },
-      set innerHTML(value) { markup = value; owner.renderWrites += 1; },
+      get innerHTML() { return `${markup}${cardMount.innerHTML}${badgeMount.innerHTML}`; },
+      set innerHTML(value) { markup = value; owner.shellWrites += 1; },
       addEventListener(type, callback) { owner.handlers[`shadow:${type}`] = callback; },
       querySelector(selector) {
-        return {
-          addEventListener(type, callback) {
-            owner.handlers[`${selector}:${type}`] = callback;
-          },
-        };
+        if (selector === "[data-card-host]") return cardMount;
+        if (selector === "[data-badge-host]") return badgeMount;
+        if (selector === "ha-badge") return renderedRoot("ha-badge");
+        return { addEventListener(type, callback) { owner.handlers[`${selector}:${type}`] = callback; } };
       },
     };
     return this.shadowRoot;
@@ -24,7 +56,37 @@ class Element {
   dispatchEvent(event) { this.lastEvent = event; }
 }
 
+let nextFrame = 1;
+const frameQueue = new Map();
+let nextTimer = 1;
+const timerQueue = new Map();
+function requestAnimationFrame(callback) {
+  const handle = nextFrame++;
+  frameQueue.set(handle, callback);
+  return handle;
+}
+function cancelAnimationFrame(handle) { frameQueue.delete(handle); }
+function flushFrame() {
+  const pending = [...frameQueue.values()];
+  frameQueue.clear();
+  for (const callback of pending) callback();
+  return pending.length;
+}
+function setTimeout(callback) {
+  const handle = nextTimer++;
+  timerQueue.set(handle, callback);
+  return handle;
+}
+function clearTimeout(handle) { timerQueue.delete(handle); }
+function flushTimers() {
+  const pending = [...timerQueue.values()];
+  timerQueue.clear();
+  for (const callback of pending) callback();
+  return pending.length;
+}
+
 const registry = new Map();
+let homeAssistant;
 const sandbox = {
   HTMLElement: Element,
   customElements: {
@@ -35,7 +97,14 @@ const sandbox = {
     history: { pushState(_state, _title, path) { sandbox.navigatedTo = path; } },
     dispatchEvent(event) { sandbox.windowEvent = event; },
   },
-  document: { createElement: () => new Element() },
+  document: {
+    createElement: (tag) => tag === "template" ? {} : new Element(),
+    querySelector: (selector) => selector === "home-assistant" ? homeAssistant : undefined,
+  },
+  requestAnimationFrame,
+  cancelAnimationFrame,
+  setTimeout,
+  clearTimeout,
   CustomEvent: class {},
   Event: class {
     constructor(type, options) { this.type = type; Object.assign(this, options); }
@@ -129,16 +198,39 @@ card.hass = {
     "vacuum.cloud": { state: "docked", attributes: { friendly_name: "Cloud Robot" } },
   },
 };
+flushFrame();
+assert.equal(card._visibleRenderCount, 1, "the initial Card state should render once");
+assert.equal(flushTimers(), 1, "the configured Card should consume its startup recovery timer");
 assert.match(card.shadowRoot.innerHTML, /Robbie Advanced CC/);
 assert.match(card.shadowRoot.innerHTML, /Sunday clean/);
 assert.match(card.shadowRoot.innerHTML, /data-card-mode="simple"/);
 assert.equal(card.getCardSize(), 4);
 assert.equal(Card.getStubConfig(card._hass).entry_id, "entry-1");
+const stableCardRoot = card._cardRoot;
+const beforeBurst = card._visibleRenderCount;
+const burstBase = card._hass;
+for (const state of ["waiting", "running", "waiting"]) {
+  card.hass = {
+    ...burstBase,
+    states: {
+      ...burstBase.states,
+      "sensor.planner_status": { ...burstBase.states["sensor.planner_status"], state },
+    },
+  };
+}
+assert.equal(frameQueue.size, 1, "a Card update burst must queue only one animation frame");
+assert.equal(flushFrame(), 1);
+assert.equal(card._visibleRenderCount, beforeBurst + 1, "a visible Card burst must render once");
+assert.equal(card._cardRoot, stableCardRoot, "the ha-card root must remain stable");
+assert.equal(card.shellWrites, 1, "the Card shadow shell must only be created once");
+card.hass = burstBase;
+flushFrame();
 const stableRenderWrites = card.renderWrites;
 card.hass = {
   ...card._hass,
   states: { ...card._hass.states, "sun.sun": { state: "above_horizon", attributes: {} } },
 };
+assert.equal(flushFrame(), 1);
 assert.equal(card.renderWrites, stableRenderWrites, "unrelated HA updates must not rebuild the Card DOM");
 const nonVacationHass = card._hass;
 card.hass = {
@@ -152,10 +244,12 @@ card.hass = {
     },
   },
 };
+flushFrame();
 assert.match(card.shadowRoot.innerHTML, /mdi:palm-tree/);
 assert.match(card.shadowRoot.innerHTML, />Urlaub</);
 assert.match(card.shadowRoot.innerHTML, /data-action="run" disabled/);
 card.hass = nonVacationHass;
+flushFrame();
 const cardClick = (matches, dataset = {}) => card.handlers["shadow:click"]({
   preventDefault() {}, stopPropagation() {},
   composedPath() { return [{ matches: (selector) => selector === "button" || selector === matches, dataset }]; },
@@ -194,12 +288,14 @@ assert.doesNotMatch(card.shadowRoot.innerHTML, /<select name="water">/);
 const second = new Card();
 second.setConfig({ status_entity: "sensor.planner_status" });
 second.hass = { ...card._hass, language: "en" };
+flushFrame();
 assert.match(second.shadowRoot.innerHTML, /Robbie Advanced CC/);
 assert.equal(sandbox.window.customCards.length, 1);
 
 const automatic = new Card();
 automatic.setConfig({ mode: "simple" });
 automatic.hass = card._hass;
+flushFrame();
 assert.match(automatic.shadowRoot.innerHTML, /data-card-mode="simple"/);
 assert.match(automatic.shadowRoot.innerHTML, /Sunday clean/);
 assert.doesNotMatch(automatic.shadowRoot.innerHTML, /Planerstatus-Entität auswählen/);
@@ -207,14 +303,26 @@ assert.doesNotMatch(automatic.shadowRoot.innerHTML, /Planerstatus-Entität ausw�
 const stale = new Card();
 stale.setConfig({ status_entity: "sensor.old_planner_status", mode: "advanced" });
 stale.hass = card._hass;
+flushFrame();
 assert.match(stale.shadowRoot.innerHTML, /data-card-mode="advanced"/);
 assert.match(stale.shadowRoot.innerHTML, /Wochenplan/);
+
+homeAssistant = { hass: card._hass };
+const recovered = new Card();
+recovered.parentElement = { _config: { entry_id: "entry-1", mode: "advanced" } };
+recovered.connectedCallback();
+assert.equal(flushTimers(), 1);
+assert.match(recovered.shadowRoot.innerHTML, /data-card-mode="advanced"/);
+assert.match(recovered.shadowRoot.innerHTML, /Sunday clean/);
+assert.equal(recovered._visibleRenderCount, 1, "a late-upgraded Card should recover exactly once");
+homeAssistant = undefined;
 
 const Badge = registry.get("robbie-vacuum-badge");
 assert.equal(Badge.getStubConfig(card._hass).entry_id, "entry-1");
 const automaticBadge = new Badge();
 automaticBadge.setConfig({ navigation_path: "/lovelace/cleaning" });
 automaticBadge.hass = card._hass;
+flushFrame();
 assert.match(automaticBadge.shadowRoot.innerHTML, /data-mode="docked"/);
 assert.match(automaticBadge.shadowRoot.innerHTML, /Robbie/);
 const badge = new Badge();
@@ -225,6 +333,7 @@ badge.setConfig({
   navigation_path: "/lovelace/cleaning",
 });
 badge.hass = card._hass;
+flushFrame();
 assert.match(badge.shadowRoot.innerHTML, /In Station/);
 assert.match(badge.shadowRoot.innerHTML, /Nächster Start/);
 assert.match(badge.shadowRoot.innerHTML, /ha-badge/);
@@ -234,6 +343,29 @@ assert.match(badge.shadowRoot.innerHTML, /class="robot-symbol"/);
 assert.match(badge.shadowRoot.innerHTML, /class="state-marker"/);
 assert.match(badge.shadowRoot.innerHTML, /data-mode="docked"/);
 assert.match(badge.shadowRoot.innerHTML, /class="next-time"/);
+const stableBadgeRoot = badge._badgeRoot;
+const badgeBeforeBurst = badge._visibleRenderCount;
+for (const [state, scheduled] of [["idle", "2026-08-16T05:05:00+02:00"], ["cleaning", "2026-08-16T05:10:00+02:00"]]) {
+  badge.hass = {
+    ...card._hass,
+    states: {
+      ...card._hass.states,
+      "vacuum.robot": { ...card._hass.states["vacuum.robot"], state },
+      "sensor.planner_status": {
+        ...card._hass.states["sensor.planner_status"],
+        attributes: {
+          ...card._hass.states["sensor.planner_status"].attributes,
+          next_runs: { "vacuum.robot": { mission: "Sunday clean", scheduled } },
+        },
+      },
+    },
+  };
+}
+assert.equal(frameQueue.size, 1, "a Badge update burst must queue only one animation frame");
+flushFrame();
+assert.equal(badge._visibleRenderCount, badgeBeforeBurst + 1, "a visible Badge burst must render once");
+assert.equal(badge._badgeRoot, stableBadgeRoot, "the ha-badge root must remain stable");
+assert.equal(badge.shellWrites, 1, "the Badge shadow shell must only be created once");
 const simulatedStates = {
   docked: "mdi:home",
   idle: "mdi:power-sleep",
@@ -256,6 +388,7 @@ for (const [state, stateIcon] of Object.entries(simulatedStates)) {
       },
     },
   };
+  flushFrame();
   assert.match(badge.shadowRoot.innerHTML, new RegExp(`data-mode="${state}"`));
   assert.match(badge.shadowRoot.innerHTML, new RegExp(`icon="${stateIcon}"`));
 }
@@ -271,6 +404,7 @@ badge.hass = {
     "input_select.badge_state_simulator": { state: "cleaning", attributes: {} },
   },
 };
+flushFrame();
 assert.match(badge.shadowRoot.innerHTML, /data-mode="vacation"/);
 assert.match(badge.shadowRoot.innerHTML, /Urlaub/);
 let clickStopped = false;

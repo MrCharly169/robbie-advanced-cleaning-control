@@ -74,6 +74,13 @@ if ($LASTEXITCODE -ne 0) { throw "Config entry was not flushed to HA storage." }
     --output-dir $Artifacts
 if ($LASTEXITCODE -ne 0) { throw "HA restart scenario failed." }
 
+& $BundledNode (Join-Path $PSScriptRoot "configure_dashboard.mjs") `
+    --base-url $BaseUrl `
+    --state-file $StateFile `
+    --card-mode advanced `
+    --check-onboarding false
+if ($LASTEXITCODE -ne 0) { throw "Card resource verification after restart failed." }
+
 $HomeAssistantLog = Join-Path $ConfigRoot "home-assistant.log"
 if (Test-Path -LiteralPath $HomeAssistantLog) {
     $LogText = Get-Content -LiteralPath $HomeAssistantLog -Raw

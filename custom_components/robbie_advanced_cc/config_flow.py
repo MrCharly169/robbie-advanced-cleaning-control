@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid4
 
 import voluptuous as vol
 
@@ -134,7 +135,7 @@ def _services_schema(current: dict[str, Any] | None = None) -> vol.Schema:
                 selector.EntitySelectorConfig(domain="script")
             ),
             _optional(CONF_NOTIFICATION_ROUTE, current.get(CONF_NOTIFICATION_ROUTE)): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="input_text")
+                selector.EntitySelectorConfig(domain=["input_text", "input_select", "select"])
             ),
             _optional(CONF_TODO_ENTITY, current.get(CONF_TODO_ENTITY)): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain="todo")
@@ -155,6 +156,84 @@ def _options_schema(current: dict[str, Any]) -> vol.Schema:
             **_services_schema(current).schema,
         }
     )
+
+
+def _options_start_schema(missions, language: str = "en") -> vol.Schema:
+    de = str(language).lower().startswith("de")
+    choices = [
+        {
+            "value": "connections",
+            "label": "Verbindungen & Bedingungen" if de else "Connections & conditions",
+        },
+        {"value": "new", "label": "+ Mission erstellen" if de else "+ Create mission"},
+    ]
+    choices.extend(
+        {
+            "value": mission.id,
+            "label": f"{'Bearbeiten' if de else 'Edit'} · {mission.name}",
+        }
+        for mission in missions
+    )
+    return vol.Schema(
+        {
+            vol.Required("options_action", default="connections"): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=choices,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+        }
+    )
+
+
+def _mission_schedule_schema(
+    vacuums: list[str], current: dict[str, Any], *, can_delete: bool
+) -> vol.Schema:
+    guards = current.get("guards") or {}
+    fields: dict[vol.Marker, Any] = {
+        vol.Required("mission_name", default=current.get("name", "Cleaning mission")): selector.TextSelector(),
+        vol.Required(
+            "vacuum_entity_id",
+            default=current.get("vacuum_entity_id", vacuums[0]),
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=vacuums, mode=selector.SelectSelectorMode.DROPDOWN
+            )
+        ),
+        vol.Required("weekdays", default=current.get("weekdays", list(WEEKDAYS))): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=list(WEEKDAYS),
+                multiple=True,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        ),
+        vol.Required("start_time", default=current.get("start_time", "09:00")): selector.TimeSelector(),
+        _optional("schedule_entity_id", current.get("schedule_entity_id")): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="schedule")
+        ),
+        vol.Required("people_home", default=guards.get("people_home", "wait")): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["wait", "allow", "skip"],
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        ),
+        vol.Required("enabled", default=current.get("enabled", True)): selector.BooleanSelector(),
+        vol.Required(
+            "announce_before_minutes",
+            default=current.get("announce_before_minutes", 1440),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0,
+                max=10080,
+                step=5,
+                mode=selector.NumberSelectorMode.BOX,
+                unit_of_measurement="min",
+            )
+        ),
+    }
+    if can_delete:
+        fields[vol.Optional("delete_mission", default=False)] = selector.BooleanSelector()
+    return vol.Schema(fields)
 
 
 class RobbieAdvancedCcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -245,18 +324,144 @@ class RobbieAdvancedCcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class RobbieAdvancedCcOptionsFlow(OptionsFlowWithReload):
-    """Edit external bindings without touching missions."""
+    """Edit bindings and persistent missions after initial setup."""
+
+    def __init__(self) -> None:
+        self._mission: dict[str, Any] = {}
+        self._mission_draft: dict[str, Any] = {}
+
+    @property
+    def _planner(self):
+        return self.config_entry.runtime_data
 
     async def async_step_init(self, user_input=None) -> ConfigFlowResult:
+        if user_input is not None:
+            action = str(user_input["options_action"])
+            if action == "connections":
+                return await self.async_step_connections()
+            if action == "new":
+                self._mission = {
+                    "id": uuid4().hex,
+                    "weekdays": list(WEEKDAYS),
+                    "start_time": "09:00",
+                    "guards": {"people_home": "wait"},
+                    "profile": {"mode": "vacuum", "passes": 1},
+                    "enabled": True,
+                    "announce_before_minutes": 1440,
+                }
+            else:
+                mission = self._planner.mission_by_id(action)
+                if mission is None:
+                    return self.async_show_form(
+                        step_id="init",
+                        data_schema=_options_start_schema(
+                            self._planner.missions, self.hass.config.language
+                        ),
+                        errors={"base": "mission_not_found"},
+                    )
+                self._mission = mission.as_dict()
+            return await self.async_step_mission_schedule()
+        return self.async_show_form(
+            step_id="init",
+            data_schema=_options_start_schema(
+                self._planner.missions, self.hass.config.language
+            ),
+        )
+
+    async def async_step_connections(self, user_input=None) -> ConfigFlowResult:
         current = {**self.config_entry.data, **self.config_entry.options, "name": self.config_entry.title}
         if user_input is not None:
             options = dict(user_input)
             if not options.get(CONF_VACUUMS):
-                return self.async_show_form(step_id="init", data_schema=_options_schema(user_input), errors={"base": "no_vacuums"})
+                return self.async_show_form(step_id="connections", data_schema=_options_schema(user_input), errors={"base": "no_vacuums"})
             title = str(options.pop("name", self.config_entry.title))
             for key in (CONF_PRESENCE_ENTITIES, CONF_VACATION_ENTITY, CONF_NOTIFICATION_SCRIPT, CONF_NOTIFICATION_ROUTE, CONF_TODO_ENTITY):
                 options.setdefault(key, [] if key == CONF_PRESENCE_ENTITIES else "")
             if title != self.config_entry.title:
                 self.hass.config_entries.async_update_entry(self.config_entry, title=title)
             return self.async_create_entry(title="", data=options)
-        return self.async_show_form(step_id="init", data_schema=_options_schema(current))
+        return self.async_show_form(step_id="connections", data_schema=_options_schema(current))
+
+    async def async_step_mission_schedule(self, user_input=None) -> ConfigFlowResult:
+        vacuums = list(self._planner.vacuums)
+        if user_input is not None:
+            if user_input.get("delete_mission"):
+                return await self.async_step_delete_mission()
+            self._mission_draft = {
+                **self._mission,
+                "name": user_input["mission_name"],
+                "vacuum_entity_id": user_input["vacuum_entity_id"],
+                "weekdays": list(user_input.get("weekdays") or []),
+                "start_time": str(user_input.get("start_time") or "09:00")[:5],
+                "schedule_entity_id": user_input.get("schedule_entity_id") or None,
+                "enabled": bool(user_input.get("enabled", True)),
+                "announce_before_minutes": int(user_input.get("announce_before_minutes", 1440)),
+                "guards": {
+                    **(self._mission.get("guards") or {}),
+                    "people_home": user_input.get("people_home") or "wait",
+                },
+            }
+            return await self.async_step_mission_profile()
+        return self.async_show_form(
+            step_id="mission_schedule",
+            data_schema=_mission_schedule_schema(
+                vacuums,
+                self._mission,
+                can_delete=any(
+                    mission.id == self._mission.get("id")
+                    for mission in self._planner.missions
+                ),
+            ),
+        )
+
+    async def async_step_mission_profile(self, user_input=None) -> ConfigFlowResult:
+        vacuum_entity_id = self._mission_draft["vacuum_entity_id"]
+        profile = self._mission.get("profile") or {}
+        current = {
+            "areas": self._mission.get("areas") or [],
+            "profile_mode": profile.get("mode") or "vacuum",
+            "fan": profile.get("fan"),
+            "water": profile.get("water"),
+            "passes": profile.get("passes") or 1,
+        }
+        options = discover_profile_options(self.hass, vacuum_entity_id)
+        if user_input is not None:
+            mode = str(user_input.get("profile_mode") or "vacuum")
+            mission = {
+                **self._mission_draft,
+                "areas": list(user_input.get("areas") or []),
+                "profile": {
+                    "mode": mode,
+                    "fan": user_input.get("fan") or None,
+                    "water": user_input.get("water") or None if mode != "vacuum" else None,
+                    "passes": int(user_input.get("passes") or 1),
+                },
+            }
+            await self._planner.async_add_mission(mission)
+            return self.async_create_entry(title="", data=dict(self.config_entry.options))
+        return self.async_show_form(
+            step_id="mission_profile",
+            data_schema=_profile_schema(options, current),
+            description_placeholders={
+                "vacuum": self.hass.states.get(vacuum_entity_id).attributes.get(
+                    "friendly_name", vacuum_entity_id
+                )
+                if self.hass.states.get(vacuum_entity_id)
+                else vacuum_entity_id,
+                "adapter": str(options.get("adapter") or "home_assistant"),
+            },
+        )
+
+    async def async_step_delete_mission(self, user_input=None) -> ConfigFlowResult:
+        if user_input is not None:
+            if user_input.get("confirm_delete"):
+                await self._planner.async_remove_mission(str(self._mission["id"]))
+                return self.async_create_entry(title="", data=dict(self.config_entry.options))
+            return await self.async_step_mission_schedule()
+        return self.async_show_form(
+            step_id="delete_mission",
+            data_schema=vol.Schema(
+                {vol.Required("confirm_delete", default=False): selector.BooleanSelector()}
+            ),
+            description_placeholders={"mission": str(self._mission.get("name") or "")},
+        )

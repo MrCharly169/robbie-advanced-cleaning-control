@@ -49,9 +49,10 @@ async def async_register_card_resource(hass: HomeAssistant) -> bool:
     resources = lovelace.resources
     await resources.async_get_info()
     integration = await async_get_integration(hass, DOMAIN)
-    asset_digest = hashlib.sha256(
-        (frontend / "cleaning-control.js").read_bytes()
-    ).hexdigest()[:10]
+    card_bytes = await hass.async_add_executor_job(
+        (frontend / "cleaning-control.js").read_bytes
+    )
+    asset_digest = hashlib.sha256(card_bytes).hexdigest()[:10]
     resource_url = f"{CARD_RESOURCE_URL}?v={integration.version}-{asset_digest}"
     matching: list[dict[str, Any]] = [
         item

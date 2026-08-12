@@ -298,6 +298,7 @@ def create_entry(api: HomeAssistantApi) -> str:
     result = api.post(
         f"/api/config/config_entries/flow/{result['flow_id']}",
         {
+            "notification_script": "script.robbie_notification_router_test",
             "notification_route": "input_text.notify_route_test",
             "dashboard_path": "/lovelace/cleaning",
         },
@@ -361,11 +362,18 @@ def test_options_flow(api: HomeAssistantApi, entry_id: str) -> None:
         raise AssertionError(f"Options flow did not start: {result}")
     result = api.post(
         f"/api/config/config_entries/options/flow/{result['flow_id']}",
+        {"options_action": "connections"},
+    )
+    if result.get("step_id") != "connections":
+        raise AssertionError(f"Connections options step failed: {result}")
+    result = api.post(
+        f"/api/config/config_entries/options/flow/{result['flow_id']}",
         {
             "name": "Robbie E2E Planner",
             "vacuums": [VACUUM_VALETUDO, VACUUM_CLOUD],
             "presence_entities": ["input_number.home_occupants"],
             "vacation_entity": "input_boolean.vacation_mode",
+            "notification_script": "script.robbie_notification_router_test",
             "notification_route": "input_text.notify_route_test",
             "dashboard_path": "/lovelace/cleaning",
         },
@@ -373,6 +381,53 @@ def test_options_flow(api: HomeAssistantApi, entry_id: str) -> None:
     if result.get("type") != "create_entry":
         raise AssertionError(f"Options flow failed: {result}")
     wait_for_entry(api, entry_id)
+
+
+def edit_mission_options_flow(api: HomeAssistantApi, entry_id: str, mission_id: str) -> None:
+    """Prove every persisted mission remains editable after initial setup."""
+    result = api.post("/api/config/config_entries/options/flow", {"handler": entry_id})
+    flow_id = result["flow_id"]
+    result = api.post(
+        f"/api/config/config_entries/options/flow/{flow_id}",
+        {"options_action": mission_id},
+    )
+    if result.get("step_id") != "mission_schedule":
+        raise AssertionError(f"Mission schedule editor did not open: {result}")
+    result = api.post(
+        f"/api/config/config_entries/options/flow/{flow_id}",
+        {
+            "mission_name": "Valetudo area clean",
+            "vacuum_entity_id": VACUUM_VALETUDO,
+            "weekdays": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+            "start_time": "23:59:00",
+            "people_home": "wait",
+            "enabled": True,
+            "announce_before_minutes": 30,
+            "delete_mission": False,
+        },
+    )
+    if result.get("step_id") != "mission_profile":
+        raise AssertionError(f"Mission profile editor did not open: {result}")
+    result = api.post(
+        f"/api/config/config_entries/options/flow/{flow_id}",
+        {
+            "areas": ["kitchen", "living_room"],
+            "profile_mode": "vacuum_and_mop",
+            "fan": "high",
+            "water": "high",
+            "passes": "1",
+        },
+    )
+    if result.get("type") != "create_entry":
+        raise AssertionError(f"Mission edit was not saved: {result}")
+    wait_for_entry(api, entry_id)
+    status = planner_status(api, entry_id)
+    mission = next(
+        (item for item in status.get("attributes", {}).get("missions", []) if item.get("id") == mission_id),
+        None,
+    )
+    if mission is None or mission.get("announce_before_minutes") != 30:
+        raise AssertionError(f"Mission edit did not persist: {mission}")
 
 
 def assert_command(calls: list[dict[str, Any]], service: str, **data: Any) -> None:
@@ -548,6 +603,11 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     reset_calls(api)
     api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": valetudo["id"]})
     assert_last_reason(api, entry_id, "vacation_active")
+    wait_for_state(
+        api,
+        "input_text.notify_route_capture",
+        lambda state: state["state"] == "persistent_notification.create",
+    )
     if fixture_calls(api):
         raise AssertionError("Vacation guard allowed a device command")
     api.call_service("input_boolean", "turn_off", {"entity_id": "input_boolean.vacation_mode"})
@@ -565,6 +625,8 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     api.call_service(DOMAIN, "postpone_next", {"entry_id": entry_id, "minutes": 37})
     api.call_service(DOMAIN, "skip_next", {"entry_id": entry_id})
     test_options_flow(api, entry_id)
+    wait_for_mission_count(api, entry_id, 1)
+    edit_mission_options_flow(api, entry_id, valetudo["id"])
     wait_for_mission_count(api, entry_id, 1)
 
     snapshot = {

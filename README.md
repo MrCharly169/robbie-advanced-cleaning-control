@@ -70,7 +70,8 @@ or robot fleet. It asks for:
 - an optional vacation `input_boolean`;
 - a precise first mission with weekdays, rooms, cleaning mode, strength,
   water and passes, or an existing Home Assistant `schedule.*` helper;
-- an optional central notification `script` and route `input_text`;
+- optional advanced notification routing through a central `script` and an
+  `input_text`, `input_select`, or `select` route helper;
 - an optional `todo.*` entity;
 - the dashboard path opened by notifications.
 
@@ -78,6 +79,36 @@ After the mission robot is selected, a dedicated profile step reads its live
 Home Assistant area mapping, fan presets and related mode/water/select entities.
 Only supported controls are shown, and their dropdown values follow the selected
 robot instead of using static text presets.
+
+After setup, open **Settings → Devices & services → Robbie Advanced Cleaning
+Control → Configure**. The assistant always lists every stored mission there.
+You can create, edit, disable, or delete missions and re-read the selected
+robot's current rooms, modes, fan levels, water levels, and passes. The
+Advanced Card remains a second, quicker editing surface for the same missions.
+
+### Notifications
+
+No notification setup is required. By default, announcements and blocked-run
+messages are created as normal Home Assistant persistent notifications.
+
+For installations that already have a central notification router, select its
+`script.*` entity. Robbie calls that script with this stable variable contract:
+
+```yaml
+payload:
+  title: "..."
+  message: "..."
+  data:
+    tag: "racc_..."
+    url: "/lovelace/cleaning"
+    clickAction: "/lovelace/cleaning"
+route: "mobile" # only when a route helper is selected
+```
+
+`route` is the helper's current state, not its entity ID. This makes a shared
+router optional and lets the customer switch destinations without changing
+Robbie. If no compatible script is selected, Robbie safely keeps using the
+Home Assistant notification center.
 
 The adapter is selected automatically per vacuum. A Valetudo device continues
 to communicate through Valetudo's MQTT discovery; this integration adds

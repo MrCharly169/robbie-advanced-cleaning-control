@@ -495,7 +495,9 @@ class CleaningPlanner:
         dashboard_path = str(
             self.config.get(CONF_DASHBOARD_PATH) or DEFAULT_DASHBOARD_PATH
         )
-        if configured.startswith("script."):
+        if configured.startswith("script.") and self.hass.services.has_service(
+            "script", configured.split(".", 1)[1]
+        ):
             data: dict[str, Any] = {
                 "payload": {
                     "title": title,
@@ -507,8 +509,14 @@ class CleaningPlanner:
                     },
                 }
             }
-            if route := self.config.get(CONF_NOTIFICATION_ROUTE):
-                data["route"] = route
+            if route_entity_id := self.config.get(CONF_NOTIFICATION_ROUTE):
+                route_state = self.hass.states.get(route_entity_id)
+                if route_state and route_state.state not in {
+                    "",
+                    "unknown",
+                    "unavailable",
+                }:
+                    data["route"] = route_state.state
             await self.hass.services.async_call(
                 "script", configured.split(".", 1)[1], data, blocking=False
             )

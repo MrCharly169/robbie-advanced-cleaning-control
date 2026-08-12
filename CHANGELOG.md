@@ -3,6 +3,21 @@
 ## Unreleased
 
 
+## 2026.8.0b5 - 2026-08-12
+
+### Added
+
+- A persistent post-setup mission editor under the integration's Configure action, including create, edit, enable/disable, live robot profile refresh, notification lead time, and confirmed deletion.
+- A documented generic notification contract with zero-configuration Home Assistant notifications and an optional SmartShading-style central router script.
+
+### Fixed
+
+- Notification route helpers now pass their current state to the central router instead of passing the helper entity ID.
+- Card resource fingerprinting now reads the JavaScript asset outside Home Assistant's event loop without changing the cache-buster contract.
+- Card and Badge now coalesce Home Assistant state bursts to one render per animation frame and use narrow, visible-state signatures.
+- Normal updates now morph stable Card and Badge DOM roots instead of replacing the Shadow DOM, preserving dashboard scroll, focus, open mission editing, unsaved form values, selected missions, and internal list scroll positions.
+- A narrowly scoped startup recovery now rehydrates a Card that Home Assistant upgraded after a freshly fingerprinted resource finished loading.
+
 ## 2026.8.0b4 - 2026-08-12
 
 ### Changed
