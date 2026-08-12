@@ -72,6 +72,13 @@ class PackageTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     release_changelog.validate_version(channel, version)
 
+    def test_release_workflow_rejects_crossed_branch_versions(self):
+        workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("main requires YYYY.M.PATCH", workflow)
+        self.assertNotIn("Manifest synchronization is not a publishable", workflow)
+
     def test_stable_release_can_aggregate_beta_history(self):
         text = (
             "# Changelog\n\n## Unreleased\n\n"

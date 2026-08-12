@@ -47,9 +47,8 @@ jobs:
           elif [[ "${{ github.ref_name }}" == "main" && ! "$VERSION" =~ b[0-9]+$ ]]; then
             CHANNEL="stable"
           else
-            echo "::notice::Manifest synchronization is not a publishable branch channel."
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "::error::Invalid release channel: main requires YYYY.M.PATCH and develop requires YYYY.M.PATCHbN."
+            exit 1
           fi
           echo "publish=true" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"

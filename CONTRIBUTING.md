@@ -44,6 +44,8 @@ python scripts/build_release.py --check
 - `feature/<topic>` and `fix/<topic>`: focused work
 
 Beta versions match `YYYY.M.PATCHbN`; stable versions match `YYYY.M.PATCH`.
+This is a hard branch invariant: a beta manifest on `main` or a stable manifest
+on `develop` fails the release workflow instead of being silently ignored.
 Release preparation opens a draft PR. Merging reviewed metadata on `develop`
 publishes a beta; merging it on `main` publishes a stable release. Tags and
 GitHub releases are immutable and must be created by the release workflow.
