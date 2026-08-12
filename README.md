@@ -9,7 +9,9 @@ planner for robot vacuum cleaners in Home Assistant. Valetudo receives enhanced
 capability discovery while cloud-connected robots remain behind their existing
 Home Assistant integrations. The planner never stores vendor cloud credentials.
 
-The integration is currently a beta. Its technical version is defined only in
+The default branch contains the current stable release. Preview builds remain
+available from the `develop` branch and are published as GitHub pre-releases.
+The technical version is defined only in
 `custom_components/robbie_advanced_cc/manifest.json`.
 
 ## Product principles
