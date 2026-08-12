@@ -50,7 +50,17 @@ def _presence_schema(current: dict[str, Any] | None = None) -> vol.Schema:
         {
             _optional(CONF_PRESENCE_ENTITIES, current.get(CONF_PRESENCE_ENTITIES)): selector.EntitySelector(
                 selector.EntitySelectorConfig(
-                    domain=["person", "device_tracker", "binary_sensor", "input_boolean", "zone"],
+                    domain=[
+                        "person",
+                        "device_tracker",
+                        "binary_sensor",
+                        "input_boolean",
+                        "zone",
+                        "sensor",
+                        "number",
+                        "input_number",
+                        "counter",
+                    ],
                     multiple=True,
                 )
             ),
@@ -79,6 +89,15 @@ def _schedule_schema(vacuums: list[str], current: dict[str, Any] | None = None) 
             ),
             vol.Optional("people_home", default=current.get("people_home", "wait")): selector.SelectSelector(
                 selector.SelectSelectorConfig(options=["wait", "allow", "skip"], mode=selector.SelectSelectorMode.DROPDOWN)
+            ),
+            vol.Optional("areas", default=current.get("areas", "")): selector.TextSelector(),
+            vol.Optional("profile_mode", default=current.get("profile_mode", "vacuum")): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=["vacuum", "mop", "vacuum_and_mop"], mode=selector.SelectSelectorMode.DROPDOWN)
+            ),
+            vol.Optional("fan", default=current.get("fan", "")): selector.TextSelector(),
+            vol.Optional("water", default=current.get("water", "")): selector.TextSelector(),
+            vol.Optional("passes", default=current.get("passes", 1)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=3, step=1, mode=selector.NumberSelectorMode.BOX)
             ),
         }
     )
@@ -148,6 +167,12 @@ class RobbieAdvancedCcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             enabled = bool(starter.pop("create_starter_mission", True))
             if enabled:
                 start_time = str(starter.get("start_time") or "09:00")[:5]
+                profile_mode = str(starter.get("profile_mode") or "vacuum")
+                areas = [
+                    item.strip()
+                    for item in str(starter.get("areas") or "").split(",")
+                    if item.strip()
+                ]
                 self._data[CONF_STARTER_MISSION] = {
                     "id": "starter",
                     "name": starter.get("mission_name") or "Daily clean",
@@ -155,6 +180,17 @@ class RobbieAdvancedCcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "weekdays": starter.get("weekdays") or [],
                     "start_time": start_time,
                     "schedule_entity_id": starter.get("schedule_entity_id") or None,
+                    "areas": areas,
+                    "profile": {
+                        "mode": profile_mode,
+                        "fan": starter.get("fan") or None,
+                        "water": (
+                            starter.get("water") or None
+                            if profile_mode != "vacuum"
+                            else None
+                        ),
+                        "passes": int(starter.get("passes") or 1),
+                    },
                     "guards": {"people_home": starter.get("people_home") or "wait"},
                 }
             return await self.async_step_services()

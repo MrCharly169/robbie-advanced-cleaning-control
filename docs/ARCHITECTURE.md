@@ -47,7 +47,9 @@ signal while the helper's `next_event` attribute supplies the next badge time.
 
 The planner-status sensor projects every mission together with its next
 occurrence and a condition trace. Each condition carries a stable key,
-enabled/passed state, resolution and contributing entities. This single
+enabled/passed state, resolution, contributing entity, current state and
+friendly name. Numeric presence values use zero as empty and values above zero
+as occupied; unknown values fail safe to occupied. This single
 projection feeds the Simple readiness summary, the Advanced condition chips
 and future notification explanations without duplicating guard logic in the
 frontend.
@@ -68,3 +70,8 @@ direct cloud client.
 Presence, Home zone, vacation, Schedule, notification routing, dashboard paths,
 and to-do lists are config-entry options. They remain user-owned entities.
 Removing this integration must not remove or rename them.
+
+The Card is served by the integration and idempotently registered in Lovelace
+Storage resources. YAML resource mode remains user-owned and receives explicit
+manual instructions instead. A one-time persistent notification contains the
+Card, Badge and dashboard navigation examples after entry setup.

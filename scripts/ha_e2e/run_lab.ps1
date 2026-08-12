@@ -52,7 +52,9 @@ if (-not (Test-Path -LiteralPath $BundledNode)) {
 }
 & $BundledNode (Join-Path $PSScriptRoot "configure_dashboard.mjs") `
     --base-url $BaseUrl `
-    --state-file $StateFile
+    --state-file $StateFile `
+    --card-mode advanced `
+    --check-onboarding true
 if ($LASTEXITCODE -ne 0) { throw "Editable Lovelace dashboard setup failed." }
 
 & $Python (Join-Path $PSScriptRoot "wait_for_config_entry.py") `

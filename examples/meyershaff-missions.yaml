@@ -3,6 +3,20 @@
   data:
     entry_id: YOUR_CONFIG_ENTRY_ID
     mission:
+      id: monday_hobby_vacuum
+      name: Monday Hobby vacuum
+      vacuum_entity_id: vacuum.valetudo_robbie_haus1_et1
+      weekdays: [mon]
+      start_time: "09:00"
+      areas: [hobby]
+      profile: {mode: vacuum, fan: medium, water: null, passes: 1}
+      guards: {people_home: wait, vacation: block, vacuum_unavailable: postpone}
+      announce_before_minutes: 1440
+
+- action: robbie_advanced_cc.add_mission
+  data:
+    entry_id: YOUR_CONFIG_ENTRY_ID
+    mission:
       id: wednesday_standard
       name: Wednesday standard clean
       vacuum_entity_id: vacuum.valetudo_robbie_haus1_et1

@@ -7,6 +7,7 @@ const args = Object.fromEntries(process.argv.slice(2).reduce((items, value, inde
 }, []));
 const baseUrl = (args["base-url"] || "http://127.0.0.1:18123").replace(/\/$/, "");
 const cardMode = args["card-mode"] === "advanced" ? "advanced" : "simple";
+const checkOnboarding = args["check-onboarding"] === "true";
 const state = JSON.parse(await fs.readFile(args["state-file"], "utf8"));
 const token = state.token;
 if (!token) throw new Error("Runner state does not contain a Home Assistant token");
@@ -68,13 +69,18 @@ function call(type, payload = {}) {
 }
 
 await ready;
-const resourceUrl = "/robbie_advanced_cc/cleaning-control.js?lab=2026.8.7";
+const manifest = JSON.parse(await fs.readFile("custom_components/robbie_advanced_cc/manifest.json", "utf8"));
+const resourcePath = "/robbie_advanced_cc/cleaning-control.js";
+const resourceUrl = `${resourcePath}?v=${manifest.version}`;
 const resources = await call("lovelace/resources/list");
-for (const resource of resources.filter((item) => item.url.startsWith("/robbie_advanced_cc/"))) {
-  if (resource.url !== resourceUrl) await call("lovelace/resources/delete", { resource_id: resource.id });
+const robbieResources = resources.filter((item) => item.url?.split("?", 1)[0] === resourcePath);
+if (robbieResources.length !== 1 || robbieResources[0].url !== resourceUrl || robbieResources[0].type !== "module") {
+  throw new Error(`Integration did not auto-register its canonical Card resource: ${JSON.stringify(robbieResources)}`);
 }
-if (!resources.some((item) => item.url === resourceUrl)) {
-  await call("lovelace/resources/create", { res_type: "module", url: resourceUrl });
+const notifications = await call("persistent_notification/get");
+const setupNotification = notifications.find((item) => item.notification_id === `robbie_advanced_cc_setup_${state.entry_id}`);
+if (checkOnboarding && (!setupNotification?.message?.includes("registered automatically") || !setupNotification.message.includes("custom:robbie-vacuum-badge"))) {
+  throw new Error(`Dashboard setup notification is incomplete: ${JSON.stringify(setupNotification)}`);
 }
 
 const dashboard = {

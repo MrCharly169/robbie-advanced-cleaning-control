@@ -40,13 +40,18 @@ The integration is currently a beta. Its technical version is defined only in
 2. Install **Robbie Advanced Cleaning Control**.
 3. Restart Home Assistant.
 4. Add the integration under **Settings -> Devices & services**.
-5. Add the permanent dashboard resource:
+5. After successful setup, open the **Dashboard setup** notification and add
+   the Card or Badge from Home Assistant's graphical editor.
+
+The integration automatically registers the permanent JavaScript Module in
+Storage-mode dashboards and appends the installed version as a cache key:
 
 ```text
 /robbie_advanced_cc/cleaning-control.js
 ```
 
-Use resource type **JavaScript Module**. Do not add a version query parameter.
+For YAML-mode resources, add that URL manually with type **JavaScript Module**.
+Storage mode updates its version query automatically after every upgrade.
 
 ### Manual installation
 
@@ -59,10 +64,12 @@ The four-step setup assistant creates one logical planner per apartment, floor,
 or robot fleet. It asks for:
 
 - one or more existing `vacuum.*` entities;
-- optional `person.*`, `device_tracker.*`, occupancy, Home-zone, or helper
-  entities used to decide whether somebody is home;
+- optional `person.*`, `device_tracker.*`, occupancy, Home-zone, or numeric
+  helper entities used to decide whether somebody is home; numeric `0` means
+  empty and a value above `0` means occupied;
 - an optional vacation `input_boolean`;
-- a first weekly mission or an existing Home Assistant `schedule.*` helper;
+- a precise first mission with weekdays, rooms, cleaning mode, strength,
+  water and passes, or an existing Home Assistant `schedule.*` helper;
 - an optional central notification `script` and route `input_text`;
 - an optional `todo.*` entity;
 - the dashboard path opened by notifications.
@@ -97,9 +104,11 @@ the config-entry ID. It renders in German when the Home Assistant language
 starts with `de`; otherwise it uses English. `simple` provides the compact
 SmartShading-style daily control. `advanced` adds the seven-day run overview,
 per-run condition status and an inline editor for weekdays, start time,
-optional `schedule.*` helpers, presence behavior, robot, areas and cleaning
-profile. The mode button switches between both views without changing the
-saved dashboard configuration.
+optional `schedule.*` helpers, presence behavior, robot, rooms and cleaning
+profile. Each weekday has its own add button: Monday can therefore vacuum one
+room without water while Tuesday uses a different room, strength, mop mode or
+number of passes. The mode button switches between both views without changing
+the saved dashboard configuration.
 
 The previous experimental resource remains a compatibility loader:
 
@@ -167,6 +176,11 @@ instead of `weekdays` and `start_time`, add for example:
 ```yaml
     schedule_entity_id: schedule.robbie_weekly
 ```
+
+Presence accepts both state-based and numeric entities. This includes the
+native `zone.home`, `input_number.*`, `number.*`, `counter.*` and numeric
+`sensor.*` entities. Unknown/unavailable values remain fail-safe occupied so a
+robot never starts merely because a presence source disappeared.
 
 Additional examples, including the migrated MeyersHaff schedule, live under
 `examples/`.

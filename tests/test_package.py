@@ -41,6 +41,17 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(legacy.strip(), 'import "./cleaning-control.js";')
         self.assertNotRegex(canonical, r"2026\.\d+")
 
+    def test_card_resource_and_numeric_presence_are_first_class(self):
+        frontend = (COMPONENT / "frontend.py").read_text(encoding="utf-8")
+        config_flow = (COMPONENT / "config_flow.py").read_text(encoding="utf-8")
+        controller = (COMPONENT / "controller.py").read_text(encoding="utf-8")
+        self.assertIn("async_register_card_resource", frontend)
+        self.assertIn('"res_type": "module"', frontend)
+        self.assertIn("async_show_setup_notification", frontend)
+        for domain in ("zone", "sensor", "number", "input_number", "counter"):
+            self.assertIn(f'"{domain}"', config_flow)
+        self.assertIn('float(state.state) > 0', controller)
+
     def test_release_package_is_installable(self):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "release.zip"
@@ -89,6 +100,7 @@ class PackageTests(unittest.TestCase):
         self.assertIn("input_select:\n  badge_state_simulator:", configuration)
         self.assertIn('state_override_entity: "input_select.badge_state_simulator"', dashboard_setup)
         self.assertIn("Badge Simulator · Lab only", dashboard_setup)
+        self.assertIn("did not auto-register its canonical Card resource", dashboard_setup)
 
 
 if __name__ == "__main__":

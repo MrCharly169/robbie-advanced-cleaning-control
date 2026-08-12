@@ -3,6 +3,20 @@
 ## Unreleased
 
 
+## 2026.8.0b2 - 2026-08-12
+
+### Added
+
+- Numeric presence sources such as `zone.home`, `input_number`, `number`, `counter`, and numeric sensors; zero means empty and unknown values fail safe to occupied.
+- Precise first-run fields in the setup assistant for rooms, vacuum/mop mode, fan strength, water level, and passes.
+- Per-weekday add controls and independent day profiles in the Advanced Card, including an explicit Monday Hobby vacuum-only example.
+- Automatic Lovelace Storage resource registration with release-aware cache busting and a one-time Card/Badge setup notification.
+
+### Changed
+
+- Advanced condition chips now name every configured presence entity and show its current value.
+- Vacuum-only profiles always discard water settings before persistence.
+
 ## 2026.8.0b1 - 2026-08-12
 
 ### Added

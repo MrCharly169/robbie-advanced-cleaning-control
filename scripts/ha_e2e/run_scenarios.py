@@ -280,7 +280,7 @@ def create_entry(api: HomeAssistantApi) -> str:
     result = api.post(
         f"/api/config/config_entries/flow/{result['flow_id']}",
         {
-            "presence_entities": ["input_boolean.someone_home"],
+            "presence_entities": ["input_number.home_occupants"],
             "vacation_entity": "input_boolean.vacation_mode",
         },
     )
@@ -316,7 +316,7 @@ def test_options_flow(api: HomeAssistantApi, entry_id: str) -> None:
         {
             "name": "Robbie E2E Planner",
             "vacuums": [VACUUM_VALETUDO, VACUUM_CLOUD],
-            "presence_entities": ["input_boolean.someone_home"],
+            "presence_entities": ["input_number.home_occupants"],
             "vacation_entity": "input_boolean.vacation_mode",
             "notification_route": "input_text.notify_route_test",
             "dashboard_path": "/lovelace/cleaning",
@@ -355,7 +355,6 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     card = api.get(f"/{DOMAIN}/cleaning-control.js", authenticated=False, raw=True)
     if "customElements.define" not in card or "robbie-advanced-cleaning-card" not in card or "robbie-vacuum-badge" not in card:
         raise AssertionError("Frontend resource did not return the expected card module")
-
     valetudo = {
         "id": "valetudo_area",
         "name": "Valetudo area clean",
@@ -364,7 +363,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
         "start_time": "23:59",
         "areas": ["kitchen", "living_room"],
         "profile": {"mode": "vacuum_and_mop", "fan": "high", "water": "high", "passes": 1},
-        "guards": {"vacation": "block", "mop_missing": "block", "vacuum_unavailable": "postpone"},
+        "guards": {"vacation": "block", "mop_missing": "block", "vacuum_unavailable": "postpone", "people_home": "wait"},
         "announce_before_minutes": 1440,
     }
     add_mission(api, entry_id, valetudo)
@@ -419,14 +418,14 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     }
     add_mission(api, entry_id, presence_wait)
     wait_for_mission_count(api, entry_id, 3)
-    api.call_service("input_boolean", "turn_on", {"entity_id": "input_boolean.someone_home"})
+    api.call_service("input_number", "set_value", {"entity_id": "input_number.home_occupants", "value": 2})
     reset_calls(api)
     api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": presence_wait["id"]})
     assert_last_reason(api, entry_id, "people_home")
     waiting = planner_status(api, entry_id)
     if presence_wait["id"] not in waiting.get("attributes", {}).get("waiting_mission_ids", []):
         raise AssertionError(f"Presence wait was not armed: {waiting}")
-    api.call_service("input_boolean", "turn_off", {"entity_id": "input_boolean.someone_home"})
+    api.call_service("input_number", "set_value", {"entity_id": "input_number.home_occupants", "value": 0})
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline and not fixture_calls(api):
         time.sleep(1)

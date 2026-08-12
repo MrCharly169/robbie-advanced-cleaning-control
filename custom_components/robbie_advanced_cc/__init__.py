@@ -1,11 +1,8 @@
 """Robbie Advanced Cleaning Control integration."""
 from __future__ import annotations
 
-from pathlib import Path
-
 import voluptuous as vol
 
-from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 
@@ -19,6 +16,7 @@ from .const import (
     SERVICE_SKIP_NEXT,
 )
 from .controller import CleaningPlanner
+from .frontend import async_register_card_resource, async_show_setup_notification
 
 type RobbieConfigEntry = ConfigEntry[CleaningPlanner]
 
@@ -34,12 +32,7 @@ def _planner(hass: HomeAssistant, entry_id: str) -> CleaningPlanner:
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register the permanent card resource and narrow planner services."""
-    if not hass.data.get(f"{DOMAIN}_frontend_registered"):
-        frontend = Path(__file__).parent / "frontend"
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(f"/{DOMAIN}", str(frontend), False)]
-        )
-        hass.data[f"{DOMAIN}_frontend_registered"] = True
+    hass.data[f"{DOMAIN}_resource_registered"] = await async_register_card_resource(hass)
 
     if hass.services.has_service(DOMAIN, SERVICE_RUN_NEXT):
         return True
@@ -114,6 +107,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: RobbieConfigEntry) -> bo
     entry.runtime_data = planner
     hass.data.setdefault(_REGISTRY, {})[entry.entry_id] = planner
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await async_show_setup_notification(
+        hass,
+        entry,
+        bool(hass.data.get(f"{DOMAIN}_resource_registered")),
+    )
     return True
 
 

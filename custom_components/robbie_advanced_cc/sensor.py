@@ -6,6 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .adapters import adapter_for
+from .const import BADGE_TYPE, CARD_RESOURCE_URL, CARD_TYPE, DOMAIN
 from .controller import CleaningPlanner
 from .entity import PlannerEntity
 
@@ -72,6 +73,14 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
             ],
             "next_runs": next_runs,
             "missions": missions,
+            "dashboard": {
+                "resource_url": CARD_RESOURCE_URL,
+                "resource_registered": bool(
+                    self.planner.hass.data.get(f"{DOMAIN}_resource_registered")
+                ),
+                "card_type": CARD_TYPE,
+                "badge_type": BADGE_TYPE,
+            },
         }
 
 

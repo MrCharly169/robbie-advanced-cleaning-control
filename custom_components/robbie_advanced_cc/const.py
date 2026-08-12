@@ -15,11 +15,15 @@ CONF_NOTIFICATION_ROUTE: Final = "notification_route"
 CONF_TODO_ENTITY: Final = "todo_entity"
 CONF_DASHBOARD_PATH: Final = "dashboard_path"
 CONF_STARTER_MISSION: Final = "starter_mission"
+CONF_FRONTEND_ONBOARDING_SENT: Final = "frontend_onboarding_sent"
 
 DEFAULT_NAME: Final = "Cleaning Planner"
 DEFAULT_DASHBOARD_PATH: Final = "/lovelace/cleaning"
 DEFAULT_POSTPONE_MINUTES: Final = 60
 DEFAULT_ANNOUNCEMENT_MINUTES: Final = 24 * 60
+CARD_RESOURCE_URL: Final = f"/{DOMAIN}/cleaning-control.js"
+CARD_TYPE: Final = "custom:robbie-advanced-cleaning-card"
+BADGE_TYPE: Final = "custom:robbie-vacuum-badge"
 STORAGE_VERSION: Final = 1
 
 SERVICE_ADD_MISSION: Final = "add_mission"

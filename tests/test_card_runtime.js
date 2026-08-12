@@ -80,7 +80,10 @@ card.hass = {
           profile: { mode: "vacuum_and_mop", fan: "low", passes: 1 },
           guards: { people_home: "wait" }, next_run: "2026-08-16T05:00:00+02:00",
           all_conditions_met: true,
-          conditions: [{ key: "vacuum_available", enabled: true, passed: true }],
+          conditions: [
+            { key: "vacuum_available", enabled: true, passed: true },
+            { key: "home_empty", enabled: true, passed: true, entity_name: "Home Zone", entity_state: "0" },
+          ],
         }],
       },
     },
@@ -120,6 +123,9 @@ assert.match(card.shadowRoot.innerHTML, /data-card-mode="advanced"/);
 assert.match(card.shadowRoot.innerHTML, /Wochenplan/);
 assert.match(card.shadowRoot.innerHTML, /kitchen/);
 assert.match(card.shadowRoot.innerHTML, /Roboter verfügbar/);
+assert.match(card.shadowRoot.innerHTML, /Home Zone: 0/);
+assert.match(card.shadowRoot.innerHTML, /data-add-day="mon"/);
+assert.match(card.shadowRoot.innerHTML, /Vac\+Mop · kitchen/);
 assert.equal(card.getCardSize(), 9);
 
 const second = new Card();

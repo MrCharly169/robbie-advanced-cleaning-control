@@ -49,6 +49,14 @@ input_boolean:
   schedule_trigger:
     name: Schedule Trigger Fixture
 
+input_number:
+  home_occupants:
+    name: Home Zone Occupants
+    min: 0
+    max: 10
+    step: 1
+    initial: 0
+
 input_select:
   badge_state_simulator:
     name: Badge State Simulator

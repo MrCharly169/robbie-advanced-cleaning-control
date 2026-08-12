@@ -38,7 +38,9 @@ python3 "$ROOT/scripts/ha_e2e/run_scenarios.py" \
 
 node "$ROOT/scripts/ha_e2e/configure_dashboard.mjs" \
   --base-url "http://127.0.0.1:$PORT" \
-  --state-file "$STATE"
+  --state-file "$STATE" \
+  --card-mode advanced \
+  --check-onboarding true
 
 python3 "$ROOT/scripts/ha_e2e/wait_for_config_entry.py" \
   --storage "$CONFIG/.storage/core.config_entries" \

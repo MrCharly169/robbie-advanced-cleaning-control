@@ -256,7 +256,7 @@ class CleaningPlanner:
     def conditions_for(self, mission: CleaningMission) -> list[dict[str, Any]]:
         """Return the user-facing condition trace for one mission."""
         context = self.context_for(mission)
-        return [
+        conditions = [
             {
                 "key": "planner_enabled",
                 "enabled": True,
@@ -288,15 +288,26 @@ class CleaningPlanner:
                 "resolution": mission.guards.mop_missing,
                 "entities": [],
             },
-            {
-                "key": "home_empty",
-                "enabled": bool(self.presence_entities)
-                and mission.guards.people_home != "allow",
-                "passed": context.people_home is False,
-                "resolution": mission.guards.people_home,
-                "entities": self.presence_entities,
-            },
         ]
+        if mission.guards.people_home != "allow":
+            for entity_id in self.presence_entities:
+                state = self.hass.states.get(entity_id)
+                conditions.append(
+                    {
+                        "key": "home_empty",
+                        "enabled": True,
+                        "passed": not self._entity_is_home(entity_id),
+                        "resolution": mission.guards.people_home,
+                        "entities": [entity_id],
+                        "entity_name": (
+                            state.attributes.get("friendly_name", entity_id)
+                            if state is not None
+                            else entity_id
+                        ),
+                        "entity_state": state.state if state is not None else "unknown",
+                    }
+                )
+        return conditions
 
     def _entity_is_home(self, entity_id: str) -> bool:
         state = self.hass.states.get(entity_id)
@@ -304,11 +315,17 @@ class CleaningPlanner:
         if state is None or state.state in {"unknown", "unavailable"}:
             return True
         domain = entity_id.split(".", 1)[0]
-        if domain == "zone":
+        if domain in {"zone", "sensor", "number", "input_number", "counter"}:
             try:
                 return float(state.state) > 0
-            except ValueError:
-                return False
+            except (TypeError, ValueError):
+                # A non-numeric sensor value is treated like the normal HA
+                # home/away vocabulary. Anything else remains fail-safe home.
+                if state.state in {"not_home", "away", "off"}:
+                    return False
+                if state.state in {"home", "on"}:
+                    return True
+                return True
         if domain in {"binary_sensor", "input_boolean"}:
             return state.state == "on"
         return state.state == "home"

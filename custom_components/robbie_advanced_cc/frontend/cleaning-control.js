@@ -8,7 +8,8 @@ const COPY = {
     weekly: "Weekly runs", missions: "Runs & conditions", run: "Run now", skip: "Skip once",
     postpone: "Postpone", add: "Add run", edit: "Edit", remove: "Remove", save: "Save run", cancel: "Cancel",
     vacuum: "Robot", schedule: "HA Schedule helper", time: "Start time", weekdays: "Weekdays",
-    condition: "When somebody is home", profile: "Cleaning profile", areas: "Areas", passes: "Passes",
+    condition: "When somebody is home", profile: "Cleaning mode", areas: "Rooms / segments", passes: "Passes",
+    fan: "Vacuum strength", water: "Water level", dayRun: "Run for", perDayHint: "Each run keeps its own rooms and cleaning settings. Use the + on a weekday for a precise day profile.",
     enabled: "Enabled", name: "Run name", nativeSchedule: "Native HA schedule", weeklySchedule: "Weekly schedule",
     planner_enabled: "Planner and run enabled", vacuum_available: "Robot available", vacation_inactive: "Vacation mode off",
     mop_attached: "Mop attached", home_empty: "Nobody home", allow: "Start anyway", wait: "Wait until empty",
@@ -21,7 +22,8 @@ const COPY = {
     weekly: "Wochenplan", missions: "Läufe & Bedingungen", run: "Jetzt starten", skip: "Einmal überspringen",
     postpone: "Verschieben", add: "Lauf hinzufügen", edit: "Bearbeiten", remove: "Entfernen", save: "Lauf speichern", cancel: "Abbrechen",
     vacuum: "Roboter", schedule: "HA-Zeitplan-Helper", time: "Startzeit", weekdays: "Wochentage",
-    condition: "Wenn jemand zu Hause ist", profile: "Reinigungsprofil", areas: "Bereiche", passes: "Durchgänge",
+    condition: "Wenn jemand zu Hause ist", profile: "Reinigungsmodus", areas: "Räume / Segmente", passes: "Durchgänge",
+    fan: "Saugstärke", water: "Wasserstufe", dayRun: "Lauf für", perDayHint: "Jeder Lauf speichert eigene Räume und Reinigungseinstellungen. Nutze das + am Wochentag für ein präzises Tagesprofil.",
     enabled: "Aktiviert", name: "Name des Laufs", nativeSchedule: "Nativer HA-Zeitplan", weeklySchedule: "Wochenplan",
     planner_enabled: "Planer und Lauf aktiviert", vacuum_available: "Roboter verfügbar", vacation_inactive: "Urlaubsmodus aus",
     mop_attached: "Wischmodul eingesetzt", home_empty: "Niemand zu Hause", allow: "Trotzdem starten",
@@ -118,9 +120,11 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     const visible = condition.enabled !== false;
     if (!visible) return "";
     const label = t[condition.key] || condition.key;
+    const entity = condition.entity_name
+      ? ` · ${condition.entity_name}: ${condition.entity_state ?? "unknown"}` : "";
     return `<span class="condition ${condition.passed ? "passed" : "pending"}">
       ${icon(condition.passed ? "mdi:check-circle" : "mdi:clock-alert-outline", "condition-icon")}
-      <span>${escapeHtml(label)}</span>
+      <span>${escapeHtml(label + entity)}</span>
     </span>`;
   }
 
@@ -159,7 +163,11 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     return `<div class="week-grid">${DAYS.map((day, index) => {
       const entries = missions.filter((mission) => !mission.schedule_entity_id && mission.weekdays?.includes(day));
       return `<div class="week-day ${entries.length ? "active" : ""}"><strong>${t.days[index]}</strong>
-        <div>${entries.map((mission) => `<button data-edit="${escapeHtml(mission.id)}" title="${escapeHtml(mission.name)}">${escapeHtml(mission.start_time || "—")}</button>`).join("") || "<span>—</span>"}</div></div>`;
+        <div>${entries.map((mission) => {
+          const profile = mission.profile || {};
+          const detail = [profile.mode === "vacuum" ? "Vac" : profile.mode === "mop" ? "Mop" : "Vac+Mop", (mission.areas || [])[0]].filter(Boolean).join(" · ");
+          return `<button data-edit="${escapeHtml(mission.id)}" title="${escapeHtml(`${mission.name} · ${detail}`)}"><b>${escapeHtml(mission.start_time || "—")}</b><small>${escapeHtml(detail)}</small></button>`;
+        }).join("") || "<span>—</span>"}<button class="day-add" data-add-day="${day}" title="${escapeHtml(`${t.add} · ${t.days[index]}`)}">+</button></div></div>`;
     }).join("")}</div>`;
   }
 
@@ -192,24 +200,30 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     const guards = value.guards || {};
     const vacuums = status?.attributes?.managed_vacuums || [];
     const schedules = Object.keys(this._hass?.states || {}).filter((id) => id.startsWith("schedule."));
+    const defaultDays = this._editingWeekday ? [this._editingWeekday] : DAYS;
+    const defaultName = this._editingWeekday ? `${t.dayRun} ${t.days[DAYS.indexOf(this._editingWeekday)]}` : "";
     const option = (item, selected) => `<option value="${escapeHtml(item)}" ${item === selected ? "selected" : ""}>${escapeHtml(this._entity(item)?.attributes?.friendly_name || item)}</option>`;
     return `<form class="mission-editor" data-mission-form data-id="${escapeHtml(value.id || "")}">
       <div class="form-head"><strong>${escapeHtml(value.id ? t.edit : t.add)}</strong><button type="button" class="round" data-cancel>${icon("mdi:close", "action-icon")}</button></div>
       <div class="form-grid">
-        <label><span>${escapeHtml(t.name)}</span><input name="name" required value="${escapeHtml(value.name || "")}"></label>
+        <label><span>${escapeHtml(t.name)}</span><input name="name" required value="${escapeHtml(value.name || defaultName)}"></label>
         <label><span>${escapeHtml(t.vacuum)}</span><select name="vacuum_entity_id" required>${vacuums.map((id) => option(id, value.vacuum_entity_id || vacuums[0])).join("")}</select></label>
         <label><span>${escapeHtml(t.time)}</span><input name="start_time" type="time" value="${escapeHtml(value.start_time || "09:00")}"></label>
         <label><span>${escapeHtml(t.schedule)}</span><select name="schedule_entity_id"><option value="">${escapeHtml(t.weeklySchedule)}</option>${schedules.map((id) => option(id, value.schedule_entity_id)).join("")}</select></label>
       </div>
-      <fieldset><legend>${escapeHtml(t.weekdays)}</legend><div class="day-picker">${DAYS.map((day, index) => `<label class="day-choice"><input type="checkbox" data-day="${day}" ${(value.weekdays || DAYS).includes(day) ? "checked" : ""}><span>${t.days[index]}</span></label>`).join("")}</div></fieldset>
+      <fieldset><legend>${escapeHtml(t.weekdays)}</legend><div class="day-picker">${DAYS.map((day, index) => `<label class="day-choice"><input type="checkbox" data-day="${day}" ${(value.weekdays || defaultDays).includes(day) ? "checked" : ""}><span>${t.days[index]}</span></label>`).join("")}</div></fieldset>
+      <div class="form-hint">${icon("mdi:calendar-edit", "mini-icon")}${escapeHtml(t.perDayHint)}</div>
       <div class="form-grid profile-grid">
         <label><span>${escapeHtml(t.condition)}</span><select name="people_home"><option value="wait" ${guards.people_home === "wait" ? "selected" : ""}>${escapeHtml(t.wait)}</option><option value="allow" ${guards.people_home === "allow" ? "selected" : ""}>${escapeHtml(t.allow)}</option><option value="skip" ${guards.people_home === "skip" ? "selected" : ""}>${escapeHtml(t.skipPolicy)}</option></select></label>
         <label><span>${escapeHtml(t.profile)}</span><select name="profile_mode"><option value="vacuum" ${profile.mode === "vacuum" ? "selected" : ""}>Vacuum</option><option value="mop" ${profile.mode === "mop" ? "selected" : ""}>Mop</option><option value="vacuum_and_mop" ${profile.mode === "vacuum_and_mop" ? "selected" : ""}>Vacuum + Mop</option></select></label>
-        <label><span>Fan</span><input name="fan" value="${escapeHtml(profile.fan || "")}" placeholder="auto / low / high"></label>
-        <label><span>Water</span><input name="water" value="${escapeHtml(profile.water || "")}" placeholder="low / medium / high"></label>
+        <label><span>${escapeHtml(t.fan)}</span><input name="fan" list="robbie-fan-presets" value="${escapeHtml(profile.fan || "")}" placeholder="auto / low / medium / high / max"></label>
+        <label><span>${escapeHtml(t.water)}</span><input name="water" list="robbie-water-presets" value="${escapeHtml(profile.mode === "vacuum" ? "" : profile.water || "")}" placeholder="off / low / medium / high"></label>
         <label><span>${escapeHtml(t.passes)}</span><input name="passes" type="number" min="1" max="3" value="${escapeHtml(profile.passes || 1)}"></label>
         <label><span>${escapeHtml(t.areas)}</span><input name="areas" value="${escapeHtml((value.areas || []).join(", "))}" placeholder="kitchen, living_room"></label>
+        <label class="enabled-choice"><span>${escapeHtml(t.enabled)}</span><input name="enabled" type="checkbox" ${value.enabled !== false ? "checked" : ""}></label>
       </div>
+      <datalist id="robbie-fan-presets"><option value="auto"><option value="silent"><option value="low"><option value="medium"><option value="high"><option value="max"></datalist>
+      <datalist id="robbie-water-presets"><option value="off"><option value="low"><option value="medium"><option value="high"></datalist>
       <div class="form-actions"><button type="submit" class="save">${icon("mdi:content-save", "mini-icon")}${escapeHtml(t.save)}</button><button type="button" data-cancel>${escapeHtml(t.cancel)}</button></div>
     </form>`;
   }
@@ -240,12 +254,13 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     const mission = {
       ...existing, id, name: data.name, vacuum_entity_id: data.vacuum_entity_id,
       weekdays, start_time: data.start_time || "09:00", schedule_entity_id: data.schedule_entity_id || null,
-      areas: String(data.areas || "").split(",").map((item) => item.trim()).filter(Boolean), enabled: true,
-      profile: { ...(existing.profile || {}), mode: data.profile_mode || "vacuum", fan: data.fan || null, water: data.water || null, passes: Number(data.passes || 1) },
+      areas: String(data.areas || "").split(",").map((item) => item.trim()).filter(Boolean), enabled: data.enabled === "on",
+      profile: { ...(existing.profile || {}), mode: data.profile_mode || "vacuum", fan: data.fan || null, water: data.profile_mode === "vacuum" ? null : data.water || null, passes: Number(data.passes || 1) },
       guards: { ...(existing.guards || {}), people_home: data.people_home || "wait" },
     };
     await this._call("add_mission", { mission });
     this._editingMissionId = null;
+    this._editingWeekday = null;
     this._render();
   }
 
@@ -257,11 +272,12 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     root.querySelector("[data-mode-toggle]")?.addEventListener("click", () => {
       this._displayMode = this._displayMode === "advanced" ? "simple" : "advanced"; this._editingMissionId = null; this._render();
     });
-    root.querySelectorAll?.("[data-add]").forEach((button) => button.addEventListener("click", () => { this._editingMissionId = "new"; this._render(); }));
+    root.querySelectorAll?.("[data-add]").forEach((button) => button.addEventListener("click", () => { this._editingMissionId = "new"; this._editingWeekday = null; this._render(); }));
+    root.querySelectorAll?.("[data-add-day]").forEach((button) => button.addEventListener("click", () => { this._editingMissionId = "new"; this._editingWeekday = button.dataset.addDay; this._render(); }));
     root.querySelectorAll?.("[data-edit]").forEach((button) => button.addEventListener("click", () => { this._editingMissionId = button.dataset.edit; this._render(); }));
     root.querySelectorAll?.("[data-run]").forEach((button) => button.addEventListener("click", () => this._call("run_next", { mission_id: button.dataset.run })));
     root.querySelectorAll?.("[data-remove]").forEach((button) => button.addEventListener("click", () => this._call("remove_mission", { mission_id: button.dataset.remove })));
-    root.querySelectorAll?.("[data-cancel]").forEach((button) => button.addEventListener("click", () => { this._editingMissionId = null; this._render(); }));
+    root.querySelectorAll?.("[data-cancel]").forEach((button) => button.addEventListener("click", () => { this._editingMissionId = null; this._editingWeekday = null; this._render(); }));
     root.querySelector("[data-mission-form]")?.addEventListener("submit", (event) => { event.preventDefault(); this._saveForm(event.currentTarget); });
   }
 
@@ -274,9 +290,9 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       .easy-next{position:relative;border-radius:17px;padding:11px 12px;background:rgba(255,255,255,.048);display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px}.easy-next-copy{display:grid;gap:1px}.easy-next-copy small{font-size:9px;text-transform:uppercase;letter-spacing:.08em;opacity:.48}.easy-next-copy strong{font-size:12px}.easy-next-copy>span{font-size:10px;opacity:.62}.condition-summary{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:760;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,.07)}.condition-summary.passed{color:var(--success-color,#4caf50)}.condition-summary.pending{color:var(--warning-color,#f2a93b)}
       .easy-actions,.advanced-footer{display:flex;align-items:center;justify-content:flex-end;gap:7px}.easy-action,.advanced-add,.mission-actions button,.form-actions button{height:36px;border:0;border-radius:12px;padding:0 11px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.075);color:inherit;font-size:10px;font-weight:760;cursor:pointer}.easy-action.primary,.advanced-add,.form-actions .save{background:var(--primary-color,#41bdf5);color:var(--text-primary-color,#fff)}.round{width:36px;height:36px;border:0;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.075);color:inherit;cursor:pointer;padding:0}.round:hover,.mission-actions button:hover{background:rgba(255,255,255,.14)}
       .overview-chips,.mission-chips{display:flex;flex-wrap:wrap;gap:6px}.overview-chips>span,.mission-chips>span{min-height:26px;display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.065);font-size:10px}.overview-chips .good{color:var(--success-color,#4caf50)}.overview-chips .warn{color:var(--warning-color,#f2a93b)}section{display:grid;gap:8px}.section-title{display:flex;align-items:center;justify-content:space-between}.section-title>strong{font-size:13px}
-      .week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.week-day{min-height:63px;padding:7px 4px;border-radius:12px;background:rgba(255,255,255,.028);text-align:center}.week-day.active{background:rgba(65,189,245,.08)}.week-day>strong{font-size:9px;text-transform:uppercase;opacity:.55}.week-day>div{display:grid;gap:3px;margin-top:5px}.week-day button{border:0;border-radius:999px;padding:3px;background:rgba(65,189,245,.16);color:inherit;font-size:8px;cursor:pointer}.week-day span{font-size:9px;opacity:.25}
+      .week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.week-day{min-height:79px;padding:7px 4px;border-radius:12px;background:rgba(255,255,255,.028);text-align:center}.week-day.active{background:rgba(65,189,245,.08)}.week-day>strong{font-size:9px;text-transform:uppercase;opacity:.55}.week-day>div{display:grid;gap:3px;margin-top:5px}.week-day button{border:0;border-radius:9px;padding:4px 3px;background:rgba(65,189,245,.16);color:inherit;font-size:8px;cursor:pointer;display:grid;gap:1px}.week-day button b{font-size:8px}.week-day button small{font-size:7px;opacity:.62;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.week-day span{font-size:9px;opacity:.25}.week-day .day-add{width:20px;height:20px;margin:2px auto 0;border-radius:50%;padding:0;display:grid;place-items:center;background:rgba(255,255,255,.06);font-size:12px}
       .mission-list{display:grid;gap:7px}.mission{padding:11px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.045);display:grid;gap:9px}.mission.pending{border-color:rgba(242,169,59,.24)}.mission-head{display:flex;justify-content:space-between;gap:10px}.mission-head>div{display:grid;gap:2px}.mission-head strong{font-size:12px}.mission-head small{font-size:9px;opacity:.58}.mission-state{display:inline-flex;align-items:center;gap:4px;font-size:9px;white-space:nowrap}.mission.ready .mission-state{color:var(--success-color,#4caf50)}.mission.pending .mission-state{color:var(--warning-color,#f2a93b)}.conditions{display:flex;flex-wrap:wrap;gap:5px}.condition{display:inline-flex;align-items:center;gap:4px;padding:5px 7px;border-radius:999px;background:rgba(255,255,255,.05);font-size:9px}.condition.passed{color:var(--success-color,#4caf50)}.condition.pending{color:var(--warning-color,#f2a93b)}.muted,.empty{font-size:10px;opacity:.52}.mission-actions{display:flex;justify-content:flex-end;gap:6px}.mission-actions button{height:30px;border-radius:10px}.mission-actions .danger-button{color:var(--error-color,#ee5b64)}
-      .mission-editor{padding:13px;border-radius:17px;background:rgba(255,255,255,.045);display:grid;gap:12px}.form-head{display:flex;align-items:center;justify-content:space-between}.form-head>strong{font-size:13px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.form-grid label{display:grid;gap:5px}.form-grid label>span,fieldset legend{font-size:9px;text-transform:uppercase;letter-spacing:.06em;opacity:.55}.form-grid input,.form-grid select{width:100%;height:36px;border:1px solid rgba(255,255,255,.10);border-radius:10px;padding:0 9px;background:rgba(0,0,0,.14);color:inherit}fieldset{margin:0;padding:0;border:0;display:grid;gap:7px}.day-picker{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.day-choice input{position:absolute;opacity:0}.day-choice span{height:31px;display:grid;place-items:center;border-radius:9px;background:rgba(255,255,255,.045);font-size:9px;cursor:pointer}.day-choice input:checked+span{background:rgba(65,189,245,.20);color:var(--primary-color,#41bdf5);font-weight:800}.form-actions{display:flex;justify-content:flex-end;gap:7px}
+      .mission-editor{padding:13px;border-radius:17px;background:rgba(255,255,255,.045);display:grid;gap:12px}.form-head{display:flex;align-items:center;justify-content:space-between}.form-head>strong{font-size:13px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.form-grid label{display:grid;gap:5px}.form-grid label>span,fieldset legend{font-size:9px;text-transform:uppercase;letter-spacing:.06em;opacity:.55}.form-grid input,.form-grid select{width:100%;height:36px;border:1px solid rgba(255,255,255,.10);border-radius:10px;padding:0 9px;background:rgba(0,0,0,.14);color:inherit}fieldset{margin:0;padding:0;border:0;display:grid;gap:7px}.day-picker{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.day-choice input{position:absolute;opacity:0}.day-choice span{height:31px;display:grid;place-items:center;border-radius:9px;background:rgba(255,255,255,.045);font-size:9px;cursor:pointer}.day-choice input:checked+span{background:rgba(65,189,245,.20);color:var(--primary-color,#41bdf5);font-weight:800}.form-hint{display:flex;align-items:flex-start;gap:6px;font-size:9px;line-height:1.4;opacity:.62}.enabled-choice{grid-template-columns:1fr auto!important;align-items:center}.enabled-choice input{width:20px!important;height:20px!important}.form-actions{display:flex;justify-content:flex-end;gap:7px}
       @container robbie-card (max-width:520px){.easy-wrap,.advanced-wrap{padding:13px}.condition-summary span:last-child{display:none}.easy-next{grid-template-columns:30px minmax(0,1fr) auto}.week-grid{gap:3px}.week-day{padding:6px 2px}.form-grid{grid-template-columns:1fr}.mission-state{font-size:0}.mission-state .icon-box{display:grid}.mission-actions button{font-size:0;padding:0;width:30px}.mission-actions .icon-box{margin:0}.profile-grid{grid-template-columns:1fr 1fr}.easy-room,.title{font-size:17px}}
     </style>`;
   }
