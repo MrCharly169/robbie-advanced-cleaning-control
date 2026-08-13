@@ -141,6 +141,12 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     this._renderFrame = null;
     this._lastRenderSignature = "";
     this._visibleRenderCount = 0;
+    this._boundButtons = new WeakSet();
+    this._boundProfileSelects = new WeakSet();
+    this._boundForms = new WeakSet();
+    this._handledClicks = new WeakSet();
+    this._handledChanges = new WeakSet();
+    this._handledSubmits = new WeakSet();
   }
 
   static getConfigElement() { return document.createElement("robbie-advanced-cleaning-card-editor"); }
@@ -536,20 +542,8 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     if (this._interactionRoot === root) return;
     this._interactionRoot = root;
     root.addEventListener("click", (event) => this._handleClick(event));
-    root.addEventListener("change", (event) => {
-      if (!event.target?.matches?.("[data-profile-vacuum]")) return;
-      event.stopPropagation?.();
-      this._editingVacuumId = event.target.value;
-      this._editingRobotChanged = true;
-      this._refreshEditor = true;
-      this._render();
-    });
-    root.addEventListener("submit", (event) => {
-      if (!event.target?.matches?.("[data-mission-form]")) return;
-      event.preventDefault();
-      event.stopPropagation?.();
-      this._saveForm(event.target);
-    });
+    root.addEventListener("change", (event) => this._handleProfileChange(event));
+    root.addEventListener("submit", (event) => this._handleSubmit(event));
   }
 
   _bindHostClick() {
@@ -565,7 +559,6 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
   }
 
   _activateControl(control, event) {
-    this._handledClicks ||= new WeakSet();
     if (this._handledClicks.has(event)) return;
     this._handledClicks.add(event);
     event.preventDefault?.();
@@ -609,6 +602,42 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       this._editingVacuumId = null;
       this._editingRobotChanged = false;
       return void this._render();
+    }
+  }
+
+  _handleProfileChange(event, select = event.target) {
+    if (!select?.matches?.("[data-profile-vacuum]") || this._handledChanges.has(event)) return;
+    this._handledChanges.add(event);
+    event.stopPropagation?.();
+    this._editingVacuumId = select.value;
+    this._editingRobotChanged = true;
+    this._refreshEditor = true;
+    this._render();
+  }
+
+  _handleSubmit(event, form = event.target) {
+    if (!form?.matches?.("[data-mission-form]") || this._handledSubmits.has(event)) return;
+    this._handledSubmits.add(event);
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    void this._saveForm(form);
+  }
+
+  _bindInteractiveNodes() {
+    for (const button of this._mount?.querySelectorAll?.("button") || []) {
+      if (this._boundButtons.has(button)) continue;
+      this._boundButtons.add(button);
+      button.addEventListener("click", (event) => this._activateControl(button, event));
+    }
+    for (const select of this._mount?.querySelectorAll?.("[data-profile-vacuum]") || []) {
+      if (this._boundProfileSelects.has(select)) continue;
+      this._boundProfileSelects.add(select);
+      select.addEventListener("change", (event) => this._handleProfileChange(event, select));
+    }
+    for (const form of this._mount?.querySelectorAll?.("[data-mission-form]") || []) {
+      if (this._boundForms.has(form)) continue;
+      this._boundForms.add(form);
+      form.addEventListener("submit", (event) => this._handleSubmit(event, form));
     }
   }
 
@@ -661,6 +690,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
         ? this._advanced(status, missions, t) : this._simple(status, next, missions, t);
     }
     this._cardRoot = patchHost(this._mount, content, { preserveEditor });
+    this._bindInteractiveNodes();
     this._visibleRenderCount += 1;
   }
 }

@@ -281,6 +281,8 @@ assert.equal(card._editingPlacement, "bottom");
 assert.match(card.shadowRoot.innerHTML, /Live-Auswahl des Roboters/);
 assert.match(card.shadowRoot.innerHTML, /class="robbie-mark /);
 assert.match(card.shadowRoot.innerHTML, /class="robbie-machine"/);
+assert.match(source, /_bindInteractiveNodes\(\)/);
+assert.match(source, /button\.addEventListener\("click", \(event\) => this\._activateControl\(button, event\)\)/);
 assert.match(card.shadowRoot.innerHTML, /<select name="fan">/);
 assert.match(card.shadowRoot.innerHTML, /<select name="water">/);
 assert.match(card.shadowRoot.innerHTML, /<select name="passes">/);

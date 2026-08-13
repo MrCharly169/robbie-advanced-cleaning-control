@@ -94,6 +94,10 @@ try {
     const firstRoot = card.shadowRoot.querySelector("ha-card");
     card.shadowRoot.querySelector("[data-mode-toggle]").click();
     const advancedRoot = card.shadowRoot.querySelector("ha-card");
+    // Safari/HA Mobile can lose a delegated click while retargeting nested
+    // Shadow DOM. Disable delegation here so this assertion exercises the
+    // direct listener attached to the stable button itself.
+    card._handleClick = () => {};
     const bottomAdd = card.shadowRoot.querySelector('[data-add-position="bottom"]');
     bottomAdd.click();
     const addRunOpened = card._editingMissionId === "new"

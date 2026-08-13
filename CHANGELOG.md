@@ -3,6 +3,12 @@
 ## Unreleased
 
 
+## 2026.8.0b7 - 2026-08-13
+
+### Fixed
+
+- Card controls, robot-profile changes, and mission submission now also bind directly to their stable DOM nodes, avoiding lost `Add run` clicks caused by Shadow DOM event retargeting in Safari and Home Assistant Mobile.
+
 ## 2026.8.0b6 - 2026-08-13
 
 ### Added
