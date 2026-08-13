@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import crypto from "node:crypto";
 import fs from "node:fs/promises";
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((items, value, index, all) => {
@@ -70,14 +69,10 @@ function call(type, payload = {}) {
 }
 
 await ready;
-const manifest = JSON.parse(await fs.readFile("custom_components/robbie_advanced_cc/manifest.json", "utf8"));
 const resourcePath = "/robbie_advanced_cc/cleaning-control.js";
-const cardSource = await fs.readFile("custom_components/robbie_advanced_cc/frontend/cleaning-control.js");
-const assetDigest = crypto.createHash("sha256").update(cardSource).digest("hex").slice(0, 10);
-const resourceUrl = `${resourcePath}?v=${manifest.version}-${assetDigest}`;
 const resources = await call("lovelace/resources/list");
 const robbieResources = resources.filter((item) => item.url?.split("?", 1)[0] === resourcePath);
-if (robbieResources.length !== 1 || robbieResources[0].url !== resourceUrl || robbieResources[0].type !== "module") {
+if (robbieResources.length !== 1 || robbieResources[0].url !== resourcePath || robbieResources[0].type !== "module") {
   throw new Error(`Integration did not auto-register its canonical Card resource: ${JSON.stringify(robbieResources)}`);
 }
 const notifications = await call("persistent_notification/get");
