@@ -1,7 +1,6 @@
 """Dashboard resource registration and first-run guidance."""
 from __future__ import annotations
 
-import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -11,7 +10,6 @@ from homeassistant.components.lovelace.const import LOVELACE_DATA, MODE_STORAGE
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ID, CONF_URL
 from homeassistant.core import HomeAssistant
-from homeassistant.loader import async_get_integration
 
 from .const import (
     BADGE_TYPE,
@@ -48,27 +46,23 @@ async def async_register_card_resource(hass: HomeAssistant) -> bool:
 
     resources = lovelace.resources
     await resources.async_get_info()
-    integration = await async_get_integration(hass, DOMAIN)
-    card_bytes = await hass.async_add_executor_job(
-        (frontend / "cleaning-control.js").read_bytes
-    )
-    asset_digest = hashlib.sha256(card_bytes).hexdigest()[:10]
-    resource_url = f"{CARD_RESOURCE_URL}?v={integration.version}-{asset_digest}"
     matching: list[dict[str, Any]] = [
         item
         for item in resources.async_items()
         if str(item.get(CONF_URL, "")).split("?", 1)[0] == CARD_RESOURCE_URL
     ]
     if not matching:
-        await resources.async_create_item({"res_type": "module", CONF_URL: resource_url})
-        _LOGGER.info("Registered Robbie dashboard module %s", resource_url)
+        await resources.async_create_item(
+            {"res_type": "module", CONF_URL: CARD_RESOURCE_URL}
+        )
+        _LOGGER.info("Registered Robbie dashboard module %s", CARD_RESOURCE_URL)
         return True
 
     primary = matching[0]
-    if primary.get(CONF_URL) != resource_url or primary.get("type") != "module":
+    if primary.get(CONF_URL) != CARD_RESOURCE_URL or primary.get("type") != "module":
         await resources.async_update_item(
             str(primary[CONF_ID]),
-            {"res_type": "module", CONF_URL: resource_url},
+            {"res_type": "module", CONF_URL: CARD_RESOURCE_URL},
         )
     return True
 

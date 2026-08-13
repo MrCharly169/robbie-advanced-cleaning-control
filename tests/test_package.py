@@ -47,6 +47,8 @@ class PackageTests(unittest.TestCase):
         controller = (COMPONENT / "controller.py").read_text(encoding="utf-8")
         self.assertIn("async_register_card_resource", frontend)
         self.assertIn('"res_type": "module"', frontend)
+        self.assertNotIn("?v=", frontend)
+        self.assertNotIn("read_bytes", frontend)
         self.assertIn("async_show_setup_notification", frontend)
         for domain in ("zone", "sensor", "number", "input_number", "counter"):
             self.assertIn(f'"{domain}"', config_flow)

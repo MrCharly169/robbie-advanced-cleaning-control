@@ -3,6 +3,14 @@
 ## Unreleased
 
 
+## 2026.8.0b10 - 2026-08-13
+
+### Changed
+
+- The automatically managed Lovelace module now always uses the canonical URL `/robbie_advanced_cc/cleaning-control.js`, independent of the installed integration version.
+- Existing versioned or fingerprinted Robbie resource entries are migrated to the canonical URL during Home Assistant setup.
+
+
 ## 2026.8.0b9 - 2026-08-13
 
 ### Fixed

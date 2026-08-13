@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import ast
-import asyncio
-import hashlib
 from pathlib import Path
-import threading
 from types import SimpleNamespace
 import unittest
 
@@ -31,7 +28,7 @@ def _load_registration_function():
         "__file__": str(FRONTEND_MODULE),
         "Any": object,
         "HomeAssistant": object,
-        "Path": RecordingPath,
+        "Path": Path,
         "StaticPathConfig": lambda *args: args,
         "LOVELACE_DATA": "lovelace",
         "MODE_STORAGE": "storage",
@@ -39,37 +36,10 @@ def _load_registration_function():
         "CARD_RESOURCE_URL": "/robbie_advanced_cc/cleaning-control.js",
         "CONF_URL": "url",
         "CONF_ID": "id",
-        "hashlib": hashlib,
         "_LOGGER": SimpleNamespace(info=lambda *args: None, warning=lambda *args: None),
-        "async_get_integration": _get_integration,
     }
     exec(compile(module, str(FRONTEND_MODULE), "exec"), namespace)
     return namespace["async_register_card_resource"]
-
-
-async def _get_integration(_hass, _domain):
-    return SimpleNamespace(version="2026.8.0b4")
-
-
-class RecordingPath:
-    read_threads: list[int] = []
-
-    def __init__(self, value):
-        self.value = str(value)
-
-    @property
-    def parent(self):
-        return self
-
-    def __truediv__(self, child):
-        return RecordingPath(f"{self.value}/{child}")
-
-    def __str__(self):
-        return self.value
-
-    def read_bytes(self):
-        self.read_threads.append(threading.get_ident())
-        return b"stable frontend asset"
 
 
 class Resources:
@@ -103,35 +73,44 @@ class FakeHass:
             "lovelace": SimpleNamespace(resource_mode="storage", resources=self.resources),
         }
         self.static_registrations = 0
-        self.executor_calls = 0
         self.http = SimpleNamespace(async_register_static_paths=self._register_static_paths)
 
     async def _register_static_paths(self, _paths):
         self.static_registrations += 1
 
-    async def async_add_executor_job(self, target):
-        self.executor_calls += 1
-        return await asyncio.to_thread(target)
-
-
 class FrontendRuntimeTests(unittest.IsolatedAsyncioTestCase):
-    async def test_asset_hash_io_uses_executor_and_registration_is_idempotent(self):
+    async def test_stable_resource_url_and_registration_are_idempotent(self):
         register = _load_registration_function()
         hass = FakeHass()
-        event_loop_thread = threading.get_ident()
-        RecordingPath.read_threads.clear()
 
         self.assertTrue(await register(hass))
         self.assertTrue(await register(hass))
 
-        self.assertEqual(hass.executor_calls, 2)
         self.assertEqual(hass.static_registrations, 1)
         self.assertEqual(hass.resources.creates, 1)
         self.assertEqual(hass.resources.updates, 0)
         self.assertEqual(len(hass.resources.items), 1)
-        self.assertTrue(RecordingPath.read_threads)
-        self.assertTrue(all(thread != event_loop_thread for thread in RecordingPath.read_threads))
-        self.assertRegex(hass.resources.items[0]["url"], r"\?v=2026\.8\.0b4-[0-9a-f]{10}$")
+        self.assertEqual(
+            hass.resources.items[0]["url"],
+            "/robbie_advanced_cc/cleaning-control.js",
+        )
+
+    async def test_legacy_versioned_resource_is_migrated_to_stable_url(self):
+        register = _load_registration_function()
+        hass = FakeHass()
+        hass.resources.items.append({
+            "id": "resource-1",
+            "type": "module",
+            "url": "/robbie_advanced_cc/cleaning-control.js?v=2026.8.0b9-deadbeef00",
+        })
+
+        self.assertTrue(await register(hass))
+        self.assertEqual(hass.resources.creates, 0)
+        self.assertEqual(hass.resources.updates, 1)
+        self.assertEqual(
+            hass.resources.items[0]["url"],
+            "/robbie_advanced_cc/cleaning-control.js",
+        )
 
 
 if __name__ == "__main__":

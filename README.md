@@ -44,14 +44,14 @@ The integration is currently a beta. Its technical version is defined only in
    the Card or Badge from Home Assistant's graphical editor.
 
 The integration automatically registers the permanent JavaScript Module in
-Storage-mode dashboards and appends the installed version as a cache key:
+Storage-mode dashboards with one stable, version-independent URL:
 
 ```text
 /robbie_advanced_cc/cleaning-control.js
 ```
 
 For YAML-mode resources, add that URL manually with type **JavaScript Module**.
-Storage mode updates its version query automatically after every upgrade.
+Storage mode keeps this exact URL across upgrades.
 
 ### Manual installation
 
