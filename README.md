@@ -1,224 +1,427 @@
 # Robbie Advanced Cleaning Control
 
+<p align="right"><strong>English</strong> · <a href="docs/de/README.md">Deutsch</a></p>
+
 <p align="center">
-  <img src="assets/robbie-advanced-cc-logo.png" width="220" alt="Robbie Advanced Cleaning Control logo">
+  <img src="docs/images/robbie-advanced-cc-logo.png" width="220" alt="Robbie Advanced Cleaning Control logo">
 </p>
 
-Robbie Advanced Cleaning Control is a local-first, vendor-neutral mission
-planner for robot vacuum cleaners in Home Assistant. Valetudo receives enhanced
-capability discovery while cloud-connected robots remain behind their existing
-Home Assistant integrations. The planner never stores vendor cloud credentials.
+<p align="center">
+  <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/actions/workflows/validate.yml"><img alt="Validate status" src="https://img.shields.io/github/actions/workflow/status/MrCharly169/robbie-advanced-cleaning-control/validate.yml?branch=main&amp;style=flat-square&amp;label=Validate"></a>
+  <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases/tag/v2026.8.0b11"><img alt="Current beta release v2026.8.0b11" src="https://img.shields.io/badge/Release-v2026.8.0b11-2ea44f?style=flat-square"></a>
+  <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/MrCharly169/robbie-advanced-cleaning-control?style=flat-square&amp;label=Stars"></a>
+  <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases"><img alt="GitHub release downloads" src="https://img.shields.io/github/downloads/MrCharly169/robbie-advanced-cleaning-control/total?style=flat-square&amp;label=Release%20downloads"></a>
+  <a href="#hacs-custom-repository"><img alt="HACS Custom" src="https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat-square"></a>
+  <a href="hacs.json"><img alt="Home Assistant 2026.6 or newer" src="https://img.shields.io/badge/Home%20Assistant-2026.6%2B-18BCF2?style=flat-square"></a>
+  <a href="LICENSE"><img alt="License MIT" src="https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square"></a>
+</p>
 
-The default branch contains the current stable release. Preview builds remain
-available from the `develop` branch and are published as GitHub pre-releases.
-The technical version is defined only in
-`custom_components/robbie_advanced_cc/manifest.json`.
+**Plan cleaning missions locally for robot vacuums that already exist in Home Assistant.**
 
-## Product principles
+Robbie is not a new manufacturer-cloud connector. It is a local, vendor-neutral
+mission planner and dashboard for existing `vacuum.*` entities. A mission says
+*what* should be cleaned and under which conditions; an adapter translates that
+intent into capabilities already exposed by Home Assistant.
 
-- Home Assistant areas, entities and services are the public contract.
-- Missions describe intent; adapters translate device dialects.
-- Every blocked, skipped or postponed run has a stable reason code.
-- One-shot state and missions survive Home Assistant restarts.
-- Existing vacation, notification-route and to-do entities are referenced,
-  never silently replaced or renamed.
-- Unsupported controls are hidden instead of being presented as broken.
-- English is used for source, identifiers and repository documentation. The
-  Home Assistant UI and Card are available in English and German.
+> **Release status:** Robbie has a stable release and an actively developed beta
+> line. Stable is the safer default. Beta releases contain the newest Card and
+> planner changes and may still change. The manifest is the source of truth for
+> the installed version; the release badge above includes prereleases.
 
-## Supported adapters
+## Who is it for?
 
-| Adapter | Behavior |
+Robbie is for Home Assistant users who:
+
+- already have one or more robot vacuums working as Home Assistant entities;
+- want weekly missions, presence/vacation rules, rooms and cleaning profiles in
+  one place;
+- may use different vendors or a mixture of local and cloud-backed integrations;
+- prefer Home Assistant entities and services over another set of credentials or
+  another cloud account.
+
+It is not a replacement for the integration that connected your robot to Home
+Assistant. If the robot is not available as a working `vacuum.*` entity first,
+Robbie cannot connect it.
+
+## What Robbie does — and what it does not do
+
+| Robbie does | Robbie does not |
 |---|---|
-| Generic Home Assistant | Start, pause, return, fan speed and `vacuum.clean_area` when available |
-| Valetudo | Generic behavior plus automatic sibling discovery for mode, fan, water, mop, map, locate and dock capabilities |
-| Cloud integrations | Supported through their existing HA vacuum entity; no vendor credentials are added here |
+| Stores recurring cleaning missions and one-shot planner state in Home Assistant | Log in to a robot manufacturer cloud |
+| Evaluates planner enabled, vacation, availability, mop and presence conditions | Replace Valetudo, MQTT or a vendor integration |
+| Detects available rooms, fan and water choices where implemented and omits absent selectors | Promise room cleaning, mopping, water control or repeat passes that the active adapter does not execute |
+| Uses Home Assistant entities and services as its public interface | Publish vendor topics, tokens or proprietary cloud payloads |
+| Shows the current planner state, next run, conditions and last decision reason | Keep a permanent run-history database |
+
+![Robbie architecture: schedules and conditions flow through the mission planner, capability detection and an adapter to the existing Home Assistant vacuum integration and robot](docs/images/architecture.svg)
+
+Schedules and conditions decide *when* a mission is eligible. The Mission
+Planner owns intent and decision reasons. Capability Detection discovers what
+Home Assistant currently exposes. The adapter applies only supported choices,
+then delegates device communication to the existing Home Assistant integration.
+
+## Screenshots
+
+The screenshots below come from the repository's disposable Home Assistant lab
+and its real-Card browser regression fixture, using neutral test data. No
+production Home Assistant instance, robot account or manufacturer cloud is
+involved; the UI is rendered by the production Card resource.
+
+| Simple Card | Advanced Card |
+|---|---|
+| ![Simple Robbie Card showing the next run and quick actions](docs/images/simple-card.png) | ![Advanced Robbie Card showing a weekly plan and condition results](docs/images/advanced-card.png) |
+| Next run, readiness and Run/Skip/Postpone controls. | Seven-day overview, profiles and explainable conditions. |
+
+| Mission editor | Per-robot badge |
+|---|---|
+| ![Robbie mission editor with neutral schedule and cleaning profile choices](docs/images/mission-editor.png) | ![Native Home Assistant robot badge showing docked state and the next run](docs/images/robot-badge.png) |
+| Edit timing, presence behavior, robot, rooms and supported profile choices. | A native 36 px badge with live state and optional next-run time. |
+
+## Quick Start
+
+1. Confirm that your robot already works as a `vacuum.*` entity in Home
+   Assistant 2026.6 or newer.
+2. [Add this repository to HACS](#hacs-custom-repository) as type
+   **Integration**, install Robbie and restart Home Assistant.
+3. Go to **Settings → Devices & services → Add integration**, search for
+   **Robbie Advanced Cleaning Control**, and complete the five setup steps.
+4. Add the Card through the dashboard editor. In Storage mode, Robbie registers
+   its frontend resource automatically.
+5. Start with one neutral weekly mission, verify the detected rooms/profile
+   choices, then enable presence or vacation behavior. For the Generic adapter,
+   keep mode at Vacuum and passes at 1 unless its documented execution limits
+   are acceptable to you.
+
+Minimal Card:
+
+```yaml
+type: custom:robbie-advanced-cleaning-card
+mode: simple
+```
+
+Minimal Badge when one planner/robot can be discovered automatically:
+
+```yaml
+type: custom:robbie-vacuum-badge
+navigation_path: /lovelace/cleaning
+```
+
+Set `entry_id`, `status_entity` or `vacuum_entity` only when automatic discovery
+is ambiguous, for example when several Robbie planners manage several robots.
 
 ## Installation
 
 ### HACS custom repository
 
-1. Add this repository to HACS as an Integration repository.
-2. Install **Robbie Advanced Cleaning Control**.
-3. Restart Home Assistant.
-4. Add the integration under **Settings -> Devices & services**.
-5. After successful setup, open the **Dashboard setup** notification and add
-   the Card or Badge from Home Assistant's graphical editor.
+This project is currently installed as a **custom** HACS repository; the HACS
+Custom badge is not a claim that Robbie is in the HACS default store.
 
-The integration automatically registers the permanent JavaScript Module in
-Storage-mode dashboards and appends the installed version as a cache key:
+1. In HACS, open the top-right menu and select **Custom repositories**.
+2. Enter
+   `https://github.com/MrCharly169/robbie-advanced-cleaning-control`.
+3. Select **Integration** and choose **Add**.
+4. Open **Robbie Advanced Cleaning Control**, choose a release and download it.
+   Prefer the latest non-prerelease release unless you intentionally want beta.
+5. Restart Home Assistant.
+
+You can also open the HACS repository dialog through this
+[Home Assistant link](https://my.home-assistant.io/redirect/hacs_repository/?owner=MrCharly169&repository=robbie-advanced-cleaning-control&category=integration).
+
+HACS reads the integration from `custom_components/robbie_advanced_cc`. Release
+assets are named `robbie-advanced-cc-v<VERSION>.zip`; **Release downloads** in
+the badge row counts downloads of GitHub release assets, not HACS installations,
+users or devices.
+
+### Manual installation
+
+1. Download a release asset named `robbie-advanced-cc-v<VERSION>.zip` from
+   [GitHub Releases](https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases).
+2. Extract it so this file exists in your Home Assistant configuration:
+   `custom_components/robbie_advanced_cc/manifest.json`.
+3. Restart Home Assistant.
+4. Add the integration under **Settings → Devices & services**.
+
+Do not copy only the ZIP's repository root and do not rename the
+`robbie_advanced_cc` integration directory.
+
+## Set up the integration and frontend
+
+The setup assistant creates one logical planner for an apartment, floor or
+robot fleet. It asks for:
+
+- one or more existing `vacuum.*` entities;
+- optional presence entities (`person`, `device_tracker`, `binary_sensor`,
+  `input_boolean`, `zone`, numeric sensors/helpers and counters);
+- an optional vacation `input_boolean`;
+- an optional first mission, weekly time or existing `schedule.*` helper;
+- live room/profile choices for the first mission;
+- optional notification router, route helper, to-do binding and dashboard path.
+
+After setup, use **Settings → Devices & services → Robbie Advanced Cleaning
+Control → Configure** to edit connections or persisted missions.
+
+### Frontend resource
+
+The canonical JavaScript module is always:
 
 ```text
 /robbie_advanced_cc/cleaning-control.js
 ```
 
-For YAML-mode resources, add that URL manually with type **JavaScript Module**.
-Storage mode updates its version query automatically after every upgrade.
+- **Storage-mode dashboards:** Robbie registers or migrates this resource
+  automatically and shows a one-time dashboard setup notification.
+- **YAML-mode resources:** add it manually as a JavaScript module:
 
-### Manual installation
+  ```yaml
+  lovelace:
+    resources:
+      - url: /robbie_advanced_cc/cleaning-control.js
+        type: module
+  ```
 
-Copy `custom_components/robbie_advanced_cc` into Home Assistant's
-`custom_components` directory and restart Home Assistant.
+The legacy `/robbie_advanced_cc/robbie-advanced-card.js` URL is only a
+compatibility loader. Use the canonical URL for new dashboards.
 
-## Configuration
+## Card and Badge
 
-The four-step setup assistant creates one logical planner per apartment, floor,
-or robot fleet. It asks for:
+### Simple Card
 
-- one or more existing `vacuum.*` entities;
-- optional `person.*`, `device_tracker.*`, occupancy, Home-zone, or numeric
-  helper entities used to decide whether somebody is home; numeric `0` means
-  empty and a value above `0` means occupied;
-- an optional vacation `input_boolean`;
-- a precise first mission with weekdays, rooms, cleaning mode, strength,
-  water and passes, or an existing Home Assistant `schedule.*` helper;
-- an optional central notification `script` and route `input_text`;
-- an optional `todo.*` entity;
-- the dashboard path opened by notifications.
+The Simple Card is the daily view. It shows planner state, the next mission,
+condition readiness and narrow actions to run now, skip once or postpone by 60
+minutes. Its Advanced button opens the Control Center without changing the saved
+dashboard configuration.
 
-The adapter is selected automatically per vacuum. A Valetudo device continues
-to communicate through Valetudo's MQTT discovery; this integration adds
-planning rather than duplicating the device connection.
+### Advanced Card
 
-## Disposable Home Assistant lab
+The Advanced Card/Control Center adds:
 
-With Docker Desktop running on Windows, build and verify a fresh isolated lab:
+- a seven-day run overview;
+- per-mission condition chips and current values;
+- create, edit, enable/disable and remove flows;
+- robot-specific room/segment, mode, fan and water choices where exposed, plus
+  mission pass metadata bounded to 1–3;
+- immediate refresh when the selected robot changes.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\ha_e2e\run_lab.ps1 -Fresh
-```
+Room, fan and water selectors are omitted when those choices are not detected.
+Mode always has at least the portable `vacuum` default and passes always offers
+1–3. Important current limitation: `passes` is stored/displayed but neither
+adapter executes a repeat-pass command; the Generic adapter also does not apply
+arbitrary related mode or water selects. The Card uses German labels when the
+Home Assistant language starts with `de`; otherwise it uses English. Motion
+respects the browser's reduced-motion setting.
 
-The tested HA 2026.8.1 instance remains available only on
-`http://127.0.0.1:18123/lovelace/cleaning`. It contains deterministic Valetudo
-and cloud fixtures and never connects to a production HA, MQTT broker or
-vendor cloud. See `docs/DEVELOPMENT.md` for lifecycle and control commands.
-
-## Card
+To make Advanced the saved default:
 
 ```yaml
 type: custom:robbie-advanced-cleaning-card
-status_entity: sensor.cleaning_planner_planner_status
-mode: simple
+mode: advanced
 ```
 
-The Card discovers the matching next-mission and last-decision sensors through
-the config-entry ID. It renders in German when the Home Assistant language
-starts with `de`; otherwise it uses English. `simple` provides the compact
-SmartShading-style daily control. `advanced` adds the seven-day run overview,
-per-run condition status and an inline editor for weekdays, start time,
-optional `schedule.*` helpers, presence behavior, robot, rooms and cleaning
-profile. Each weekday has its own add button: Monday can therefore vacuum one
-room without water while Tuesday uses a different room, strength, mop mode or
-number of passes. The mode button switches between both views without changing
-the saved dashboard configuration.
+### Per-robot Badge
 
-The previous experimental resource remains a compatibility loader:
+`custom:robbie-vacuum-badge` uses Home Assistant's native 36 px badge element.
+It presents docked, idle, cleaning, returning, paused, waiting, vacation, error
+and unavailable states. While docked it can show the robot's next run. Activating
+the badge opens `navigation_path`.
 
-```text
-/robbie_advanced_cc/robbie-advanced-card.js
-```
-
-New dashboards must use the canonical resource.
-
-## Per-robot badge
-
-The same JavaScript resource registers a native-size, circular HA dashboard
-badge for every robot. It occupies the standard badge row and uses HA's own
-`ha-badge` element at the native 36 px size. It shows cleaning, return,
-station, sleeping, waiting, error, and unavailable states through the current
-SmartShading symbol pattern: a stable robot glyph plus a small colored status
-marker. While docked it can also show that robot's next run time. Clicking or
-keyboard activation opens the configured Cleaning Control path.
+For a specific robot in a multi-robot planner:
 
 ```yaml
-badges:
-  - type: custom:robbie-vacuum-badge
-    vacuum_entity: vacuum.robbie
-    status_entity: sensor.cleaning_planner_planner_status
-    navigation_path: /lovelace/cleaning
+type: custom:robbie-vacuum-badge
+vacuum_entity: vacuum.example_robot
+navigation_path: /lovelace/cleaning
 ```
 
-The badge is also available in Home Assistant's graphical badge picker.
+## Missions, weekly schedules and conditions
 
-## Mission example
+A mission contains a name, target vacuum, recurrence, optional rooms/segments,
+a portable cleaning profile, guards and an announcement lead time. Missions
+describe desired cleaning; adapters translate only the profile fields for which
+they have an implementation. Stored intent is not proof that every field was
+sent to the robot.
 
-Missions are persisted by the integration. The initial service API deliberately
-accepts a complete mission object so the Card, automations and future setup
-wizard all use the same contract.
+Weekly weekdays plus a local start time are the portable default. A mission may
+instead reference an existing Home Assistant `schedule.*` helper. Its off-to-on
+transition triggers the mission, and its `next_event` supplies the next-run time.
 
-```yaml
-action: robbie_advanced_cc.add_mission
-data:
-  entry_id: YOUR_CONFIG_ENTRY_ID
-  mission:
-    id: sunday_deep_clean
-    name: Sunday deep clean
-    vacuum_entity_id: vacuum.valetudo_robbie_haus1_et1
-    weekdays: [sun]
-    start_time: "05:00"
-    areas: [kitchen, living_room, bathroom]
-    profile:
-      mode: vacuum_and_mop
-      fan: low
-      water: medium
-      passes: 1
-    guards:
-      vacation: block
-      mop_missing: block
-      vacuum_unavailable: postpone
-      people_home: wait
-    announce_before_minutes: 1440
-```
+The fixed decision order is:
 
-`people_home: wait` keeps the occurrence pending and starts it as soon as all
-configured presence entities report an empty home. `allow` starts immediately;
-`skip` consumes that occurrence. To use a native Home Assistant Schedule helper
-instead of `weekdays` and `start_time`, add for example:
+1. mission enabled (the Planner Enabled switch separately controls automatic
+   scheduling);
+2. vacation;
+3. vacuum availability;
+4. required mop attachment, when detected;
+5. presence behavior;
+6. ready to run.
 
-```yaml
-    schedule_entity_id: schedule.robbie_weekly
-```
+See [the neutral service examples](examples/missions.yaml) for the complete
+mission object and service calls.
 
-Presence accepts both state-based and numeric entities. This includes the
-native `zone.home`, `input_number.*`, `number.*`, `counter.*` and numeric
-`sensor.*` entities. Unknown/unavailable values remain fail-safe occupied so a
-robot never starts merely because a presence source disappeared.
+### Presence, vacation, waiting, skipping and postponing
 
-Additional examples, including the migrated MeyersHaff schedule, live under
-`examples/`.
+| Situation | Behavior implemented by Robbie |
+|---|---|
+| Somebody is home + `wait` | The due mission remains pending and starts when every configured presence source reports an empty home. Pending mission IDs are persisted across restart. |
+| Somebody is home + `allow` | The mission can start immediately. |
+| Somebody is home + `skip` | That occurrence is consumed without starting the robot. |
+| Presence is unknown/unavailable | Fail-safe: treated as occupied, so `wait` does not start merely because a source disappeared. Numeric `0` is empty; values above `0` are occupied. |
+| Vacation is on | Global vacation state suppresses announcements and scheduled execution. When vacation ends, Robbie schedules the next eligible occurrence; it does not run a vacation backlog. |
+| Vacuum unavailable | The default guard postpones the mission by 60 minutes. The decision reason remains visible. |
+| Mop explicitly reported missing | Mop and vacuum-plus-mop missions use the configured mop guard (block by default). Unknown mop state is not treated as confirmed missing. |
+| **Skip once** | Arms the next mission ID, persists it and consumes it on exactly one occurrence without a device command. |
+| **Postpone** | Stores a replacement time. The Card uses 60 minutes; the service accepts 1–1440 minutes. |
+| Adapter command fails | Robbie sets a failed state/reason and raises the error; it does not report a successful start. |
 
-## Entities
+Planner status, next-mission and last-decision entities keep the current outcome
+inspectable. Waiting, postpone and skip-once state survive restart. Robbie does
+**not** currently maintain a durable audit log of every old blocked or skipped
+run; use Home Assistant history/automations if permanent run history is required.
 
-- Planner status and active mission
-- Next mission timestamp with rooms and profile
-- Last decision with resolution and stable reason code
-- Planner readiness and per-adapter diagnostics
-- Planner enabled switch
-- Run, skip-once and postpone buttons
+## Adapters and compatibility
 
-## Services
+![Comparison of Robbie's Generic adapter, Valetudo enhancement and an existing cloud integration, separating Robbie planning from delegated device communication](docs/images/adapter-comparison.svg)
 
-- `robbie_advanced_cc.add_mission`
-- `robbie_advanced_cc.remove_mission`
-- `robbie_advanced_cc.run_next`
-- `robbie_advanced_cc.skip_next`
-- `robbie_advanced_cc.postpone_next`
+| Path | Detection and mission execution | Directly handled by Robbie | Still handled elsewhere |
+|---|---|---|---|
+| **Generic Home Assistant adapter** | Used for any managed vacuum not detected as Valetudo. Reads standard `supported_features`, vacuum area mappings, fan presets and related same-device entities. Sets standard fan speed when supported, calls `vacuum.clean_area` for known areas, otherwise calls `vacuum.start`. It does not apply generic mode/water selects or repeat `passes`. | Planning, guards, capability projection and those standard HA service calls. | The installed vacuum integration transports commands and owns authentication. |
+| **Valetudo enhancement** | Selected when the vacuum entity ID or friendly name contains `valetudo`. Adds sibling discovery for mode, fan, water, mop attachment, segments/maps, locate/auto-empty capability signals and maintenance sensors. Applies exact Valetudo-style mode/fan/water sibling selects before the Generic start/area action. It does not execute `passes`. | Enhanced discovery, implemented profile translation and mop/maintenance projection. | Valetudo's existing MQTT-discovered HA entities and MQTT transport. Robbie does not connect to MQTT. |
+| **Existing cloud integration** | Uses the Generic adapter. Same-device room/profile entities can be discovered for presentation when the installed integration exposes them, but only standard Generic actions above are executed. | The same vendor-neutral planner and HA service boundary. | Vendor cloud transport, account login, tokens, rate limits and supported robot features. |
 
-## Development and release discipline
+Capability discovery does not manufacture support. Detected map, locate or
+auto-empty capability signals are diagnostics/discovery information unless a
+documented Robbie Card, entity or service actually exposes an action. The
+currently public Robbie services are only `add_mission`, `remove_mission`,
+`run_next`, `skip_next` and `postpone_next`.
 
-The repository follows the same delivery contract as Smart Shading:
+## Updates and uninstalling
 
-- `main` contains reviewed stable releases;
-- `develop` is the integration branch;
-- beta versions use `YYYY.M.PATCHbN` and stable versions use `YYYY.M.PATCH`;
-- tags add the `v` prefix;
-- the manifest is the only technical version source;
-- every user-visible change updates tests, documentation and `CHANGELOG.md`;
-- release preparation and release publication are separate maintainer gates.
+### Update
 
-See [Development](docs/DEVELOPMENT.md), [Architecture](docs/ARCHITECTURE.md),
-[Baseline](docs/BASELINE.md), and the [Regression matrix](docs/REGRESSION_MATRIX.md).
+- **HACS:** open Robbie in HACS, choose **Update** or **Redownload**, select the
+  intended stable/beta release, restart Home Assistant and refresh the dashboard.
+- **Manual:** replace `custom_components/robbie_advanced_cc` with the directory
+  from the new release asset, then restart Home Assistant.
 
-## License
+The frontend resource URL remains unversioned across upgrades. Do not add a
+`?v=` query manually.
 
-MIT
+### Uninstall
+
+1. Remove Robbie Cards and Badges from dashboards.
+2. Delete the Robbie config entry under **Settings → Devices & services**.
+3. Remove Robbie through HACS, or delete only
+   `custom_components/robbie_advanced_cc` for a manual installation.
+4. Remove `/robbie_advanced_cc/cleaning-control.js` from dashboard resources if
+   it remains (required for YAML resources and possibly after full removal).
+5. Restart Home Assistant.
+
+Robbie never deletes or renames the vacuum, presence, vacation, schedule,
+notification, route or to-do entities you selected. The current integration has
+no removal hook that deletes its `.storage/robbie_advanced_cc.<entry_id>` planner
+file; do not hand-edit `.storage` while Home Assistant is running. Back up Home
+Assistant before any manual storage cleanup.
+
+## Local-first, credentials and privacy
+
+- Robbie asks for entity IDs and service bindings, not manufacturer usernames,
+  passwords, API keys or tokens.
+- Manufacturer/cloud credentials remain inside the existing Home Assistant
+  integration that owns the robot connection.
+- Production code contains no vendor-cloud client, telemetry or analytics call.
+  It serves the Card locally and calls Home Assistant services.
+- Home Assistant storage holds mission definitions and planner one-shot state.
+  Config entries hold selected entity IDs, notification bindings and dashboard
+  path.
+- Optional notification-router scripts can send messages wherever *your script*
+  sends them; that external behavior is not controlled by Robbie.
+- Downloaded diagnostics redact the configured notification script and route,
+  but still include selected entity IDs and adapter capability information.
+  Review diagnostics before sharing them.
+
+## FAQ and troubleshooting
+
+### Does Robbie connect directly to my robot or its cloud?
+
+No. First install and configure the appropriate Home Assistant vacuum
+integration (or Valetudo/MQTT). Robbie plans against the entities it exposes.
+
+### Is manufacturer X supported?
+
+There is no manufacturer whitelist. A working standard `vacuum.*` entity can use
+the Generic adapter, but exact rooms and profile controls depend on what that
+entity and its related Home Assistant entities expose. Only Valetudo has a
+dedicated enhanced adapter today.
+
+### Why is a room, fan, water or mop control missing?
+
+Robbie omits room, fan and water selectors it cannot detect. Check the selected robot's
+`supported_features`, Home Assistant vacuum area mapping, fan presets and
+same-device select/sensor entities. A mission with no detected areas falls back
+to a full `vacuum.start`; it does not pretend that room cleaning succeeded.
+
+### Why did a scheduled run not start?
+
+Check, in order: Planner Enabled, vacation input, vacuum availability, mop
+attachment and presence sources. Then inspect the **Last decision** sensor and
+the Advanced Card condition chips. Unknown presence is intentionally treated as
+occupied.
+
+### The Card or Badge is missing
+
+1. Confirm Home Assistant 2026.6+ and restart after installation.
+2. Open dashboard resources and verify exactly one JavaScript module at
+   `/robbie_advanced_cc/cleaning-control.js`.
+3. For YAML resource mode, add it manually.
+4. Refresh the browser cache after confirming the resource.
+5. Use `entry_id` or `status_entity` when several planners make discovery
+   ambiguous.
+
+### Where can I get useful diagnostics?
+
+Open **Settings → Devices & services → Robbie → Download diagnostics**. Review
+entity IDs before attaching the file. Never post Home Assistant access tokens,
+manufacturer credentials, cookies, `.storage` auth files or full configuration
+backups.
+
+### Why did my selected mode, water level or passes not reach the robot?
+
+The Valetudo adapter applies its exact mode/fan/water sibling selects. The
+Generic adapter only applies standard Home Assistant fan speed, area cleaning
+and start. Repeat passes are currently metadata only in both adapters. This is a
+known functional boundary, not a successful device command.
+
+## Support, security and contributing
+
+- Search or open a [bug report](https://github.com/MrCharly169/robbie-advanced-cleaning-control/issues/new?template=bug_report.yml).
+- Propose a [feature](https://github.com/MrCharly169/robbie-advanced-cleaning-control/issues/new?template=feature_request.yml).
+- Read [Security](SECURITY.md) before reporting a vulnerability.
+- Contributions are welcome under [CONTRIBUTING.md](CONTRIBUTING.md) and the
+  [Code of Conduct](CODE_OF_CONDUCT.md).
+
+Reports should include the adapter, an anonymized vacuum entity ID, Home
+Assistant and Robbie versions, reproducible steps and reviewed diagnostics.
+They must never include credentials.
+
+## License and voluntary support
+
+Robbie Advanced Cleaning Control is open source under the [MIT License](LICENSE).
+Private and commercial use are permitted subject to the license, including its
+copyright/notice and warranty terms. There is no separate commercial license.
+
+Voluntary sponsorship is not a license fee. A verified sponsorship or Buy Me a
+Coffee URL has not yet been provided, so no donation badge or payment link is
+published. Once verified, voluntary support can help fund development, device
+compatibility work, testing and documentation.
+
+## Developer details
+
+Home Assistant entities and services are the public runtime contract. The
+manifest is the only version source, and release ZIPs preserve the existing HACS
+layout. Runtime, adapter and planner behavior is documented in:
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Supported baseline](docs/BASELINE.md)
+- [Development and disposable HA lab](docs/DEVELOPMENT.md)
+- [Regression matrix](docs/REGRESSION_MATRIX.md)
+- [Release history](CHANGELOG.md)
+- [Suggested GitHub metadata and manual settings](docs/GITHUB_METADATA.md)

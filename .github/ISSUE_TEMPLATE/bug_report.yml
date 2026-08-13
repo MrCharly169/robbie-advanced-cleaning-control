@@ -1,0 +1,119 @@
+name: Bug report
+description: Report reproducible Robbie planner, adapter, Card or Badge behavior
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Robbie. Search existing issues first. Never include Home Assistant tokens, manufacturer credentials, cookies, auth files or full backups.
+
+  - type: dropdown
+    id: install_method
+    attributes:
+      label: Installation method
+      options:
+        - HACS custom repository
+        - Manual release ZIP
+        - Development checkout
+    validations:
+      required: true
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.6.0"
+    validations:
+      required: true
+
+  - type: input
+    id: robbie_version
+    attributes:
+      label: Robbie version
+      description: Use the version shown in Settings → Devices & services or manifest.json.
+      placeholder: "2026.8.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: adapter
+    attributes:
+      label: Adapter path
+      options:
+        - Generic Home Assistant
+        - Valetudo enhancement
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: vacuum_entity
+    attributes:
+      label: Anonymized vacuum entity
+      description: Use a neutral replacement if the real entity ID contains a person, address or private room name.
+      placeholder: vacuum.example_robot
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      multiple: true
+      options:
+        - Setup or options flow
+        - Mission scheduling
+        - Conditions or decisions
+        - Capability detection
+        - Adapter or service call
+        - Simple Card
+        - Advanced Card or mission editor
+        - Badge
+        - Update, packaging or HACS
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest deterministic sequence.
+      placeholder: |
+        1. Configure ...
+        2. Create a mission ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and decision reason
+      description: Include the Last decision reason or visible Card condition when relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Reviewed diagnostics
+      description: Paste only the relevant, reviewed excerpt. Diagnostics can contain entity IDs. Do not attach credentials or complete .storage files.
+      render: text
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Privacy and checks
+      options:
+        - label: I searched existing issues and can reproduce this on the stated version.
+          required: true
+        - label: I reviewed the report and diagnostics and removed credentials and private identifiers.
+          required: true
