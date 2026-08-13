@@ -12,7 +12,7 @@ const COPY = {
     fan: "Vacuum strength", water: "Water level", dayRun: "Run for", perDayHint: "Each run keeps its own rooms and cleaning settings. Use the + on a weekday for a precise day profile.",
     liveChoices: "Live robot choices", unsupported: "Unsupported settings are hidden",
     enabled: "Enabled", name: "Run name", nativeSchedule: "Native HA schedule", weeklySchedule: "Weekly schedule",
-    planner_enabled: "Planner and run enabled", vacuum_available: "Robot available", vacation_inactive: "Vacation mode off", vacation: "Vacation",
+    planner_enabled: "Planner and run enabled", vacuum_available: "Robot available", vacation_inactive: "Vacation mode off", vacation_active: "Vacation mode active", vacation: "Vacation",
     mop_attached: "Mop attached", home_empty: "Nobody home", allow: "Start anyway", wait: "Wait until empty",
     skipPolicy: "Skip run", noConditions: "No additional conditions", configure: "Configure the planner status entity.",
     days: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
@@ -27,7 +27,7 @@ const COPY = {
     fan: "Saugstärke", water: "Wasserstufe", dayRun: "Lauf für", perDayHint: "Jeder Lauf speichert eigene Räume und Reinigungseinstellungen. Nutze das + am Wochentag für ein präzises Tagesprofil.",
     liveChoices: "Live-Auswahl des Roboters", unsupported: "Nicht unterstützte Einstellungen sind ausgeblendet",
     enabled: "Aktiviert", name: "Name des Laufs", nativeSchedule: "Nativer HA-Zeitplan", weeklySchedule: "Wochenplan",
-    planner_enabled: "Planer und Lauf aktiviert", vacuum_available: "Roboter verfügbar", vacation_inactive: "Urlaubsmodus aus", vacation: "Urlaub",
+    planner_enabled: "Planer und Lauf aktiviert", vacuum_available: "Roboter verfügbar", vacation_inactive: "Urlaubsmodus aus", vacation_active: "Urlaubsmodus aktiv", vacation: "Urlaub",
     mop_attached: "Wischmodul eingesetzt", home_empty: "Niemand zu Hause", allow: "Trotzdem starten",
     wait: "Auf leeres Zuhause warten", skipPolicy: "Lauf auslassen", noConditions: "Keine zusätzlichen Bedingungen",
     configure: "Bitte die Planerstatus-Entität auswählen.", days: ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
@@ -372,7 +372,10 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
   _condition(condition, t) {
     const visible = condition.enabled !== false;
     if (!visible) return "";
-    const label = t[condition.key] || condition.key;
+    const vacationActive = condition.key === "vacation_inactive"
+      && (this._plannerStatus()?.state === "vacation"
+        || this._plannerStatus()?.attributes?.vacation_active === true);
+    const label = vacationActive ? t.vacation_active : t[condition.key] || condition.key;
     const entity = condition.entity_name
       ? ` · ${condition.entity_name}: ${condition.entity_state ?? "unknown"}` : "";
     return `<span class="condition ${condition.passed ? "passed" : "pending"}">
@@ -500,8 +503,16 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
 
   _advanced(status, missions, t) {
     const info = this._statusInfo(status);
-    const passed = missions.reduce((count, mission) => count + (mission.conditions || []).filter((item) => item.enabled && item.passed).length, 0);
-    const total = missions.reduce((count, mission) => count + (mission.conditions || []).filter((item) => item.enabled).length, 0);
+    const conditionGroups = new Map();
+    for (const mission of missions) {
+      for (const condition of mission.conditions || []) {
+        if (condition.enabled === false) continue;
+        const key = condition.key || "unknown";
+        conditionGroups.set(key, (conditionGroups.get(key) ?? true) && Boolean(condition.passed));
+      }
+    }
+    const total = conditionGroups.size;
+    const passed = [...conditionGroups.values()].filter(Boolean).length;
     return `<ha-card data-card-mode="advanced" class="${info.tone}"><div class="advanced-wrap">
       <div class="advanced-header"><div><div class="title">${escapeHtml(this._config.title || t.title)}</div><div class="subtitle">${escapeHtml(t.advanced)} · ${missions.length} ${escapeHtml(t.missions)}</div></div>
         <div class="mode-pill">${this._robotLogo(info)}<span>${escapeHtml(t[info.state] || info.state)}</span></div></div>
@@ -678,7 +689,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       .week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.week-day{min-height:79px;padding:7px 4px;border-radius:12px;background:rgba(255,255,255,.028);text-align:center}.week-day.active{background:rgba(65,189,245,.08)}.week-day>strong{font-size:9px;text-transform:uppercase;opacity:.55}.week-day>div{display:grid;gap:3px;margin-top:5px}.week-day button{border:0;border-radius:9px;padding:4px 3px;background:rgba(65,189,245,.16);color:inherit;font-size:8px;cursor:pointer;display:grid;gap:1px}.week-day button b{font-size:8px}.week-day button small{font-size:7px;opacity:.62;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.week-day span{font-size:9px;opacity:.25}.week-day .day-add{width:20px;height:20px;margin:2px auto 0;border-radius:50%;padding:0;display:grid;place-items:center;background:rgba(255,255,255,.06);font-size:12px}
       .mission-list{display:grid;gap:7px}.mission{padding:11px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.045);display:grid;gap:9px}.mission.pending{border-color:rgba(242,169,59,.24)}.mission-head{display:flex;justify-content:space-between;gap:10px}.mission-head>div{display:grid;gap:2px}.mission-head strong{font-size:12px}.mission-head small{font-size:9px;opacity:.58}.mission-state{display:inline-flex;align-items:center;gap:4px;font-size:9px;white-space:nowrap}.mission.ready .mission-state{color:var(--success-color,#4caf50)}.mission.pending .mission-state{color:var(--warning-color,#f2a93b)}.conditions{display:flex;flex-wrap:wrap;gap:5px}.condition{display:inline-flex;align-items:center;gap:4px;padding:5px 7px;border-radius:999px;background:rgba(255,255,255,.05);font-size:9px}.condition.passed{color:var(--success-color,#4caf50)}.condition.pending{color:var(--warning-color,#f2a93b)}.muted,.empty{font-size:10px;opacity:.52}.mission-actions{display:flex;justify-content:flex-end;gap:6px}.mission-actions button{height:30px;border-radius:10px}.mission-actions .danger-button{color:var(--error-color,#ee5b64)}
       .mission-editor{padding:13px;border-radius:17px;background:rgba(255,255,255,.045);display:grid;gap:12px}.form-head{display:flex;align-items:center;justify-content:space-between}.form-head>strong{font-size:13px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.form-grid label{display:grid;gap:5px}.form-grid label>span,fieldset legend{font-size:9px;text-transform:uppercase;letter-spacing:.06em;opacity:.55}.form-grid input,.form-grid select{width:100%;height:36px;border:1px solid rgba(255,255,255,.10);border-radius:10px;padding:0 9px;background:rgba(0,0,0,.14);color:inherit}.form-grid select[multiple]{height:auto;min-height:72px;padding:5px 7px}.form-grid select[multiple] option{padding:5px 4px;border-radius:5px}fieldset{margin:0;padding:0;border:0;display:grid;gap:7px}.day-picker{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.day-choice input{position:absolute;opacity:0}.day-choice span{height:31px;display:grid;place-items:center;border-radius:9px;background:rgba(255,255,255,.045);font-size:9px;cursor:pointer}.day-choice input:checked+span{background:rgba(65,189,245,.20);color:var(--primary-color,#41bdf5);font-weight:800}.form-hint{display:flex;align-items:flex-start;gap:6px;font-size:9px;line-height:1.4;opacity:.62}.capability-hint{padding:8px;border-radius:10px;background:rgba(65,189,245,.08);color:var(--primary-color,#41bdf5);opacity:1}.enabled-choice{grid-template-columns:1fr auto!important;align-items:center}.enabled-choice input{width:20px!important;height:20px!important}.form-actions{display:flex;justify-content:flex-end;gap:7px}
-      ha-dialog[data-dialog-id]{--dialog-content-padding:0;--mdc-dialog-min-width:min(760px,calc(100vw - 24px));--mdc-dialog-max-width:min(760px,calc(100vw - 24px))}.dialog-shell{position:relative;width:min(720px,calc(100vw - 48px));color:var(--primary-text-color,#fff)}.dialog-scroll{max-height:min(78vh,760px);overflow:auto;overscroll-behavior:contain;padding:4px 2px 18px;scrollbar-gutter:stable}.dialog-close{position:sticky;z-index:3;top:0;margin:0 0 4px auto;width:36px;height:36px;border:0;border-radius:50%;display:grid;place-items:center;background:var(--secondary-background-color,rgba(255,255,255,.10));color:inherit;cursor:pointer}.dialog-scroll>ha-card{border-radius:18px}.dialog-scroll>.mission-editor{background:var(--ha-card-background,var(--card-background-color,#202020));border:1px solid var(--divider-color,rgba(255,255,255,.10))}
+      ha-dialog[data-dialog-id]{--dialog-content-padding:0 16px 16px;--mdc-dialog-min-width:min(752px,calc(100vw - 16px));--mdc-dialog-max-width:min(752px,calc(100vw - 16px))}.dialog-shell{position:relative;box-sizing:border-box;width:100%;max-width:720px;margin-inline:auto;color:var(--primary-text-color,#fff)}.dialog-scroll{max-height:min(78vh,760px);overflow:auto;overscroll-behavior:contain;padding:4px 2px 18px;scrollbar-gutter:stable}.dialog-close{position:sticky;z-index:3;top:0;margin:0 0 4px auto;width:36px;height:36px;border:0;border-radius:50%;display:grid;place-items:center;background:var(--secondary-background-color,rgba(255,255,255,.10));color:inherit;cursor:pointer}.dialog-scroll>ha-card{border-radius:18px}.dialog-scroll>.mission-editor{background:var(--ha-card-background,var(--card-background-color,#202020));border:1px solid var(--divider-color,rgba(255,255,255,.10))}
       @container robbie-card (max-width:520px){.easy-wrap,.advanced-wrap{padding:13px}.condition-summary span:last-child{display:none}.easy-next{grid-template-columns:30px minmax(0,1fr) auto}.week-grid{gap:3px}.week-day{padding:6px 2px}.form-grid{grid-template-columns:1fr}.mission-state{font-size:0}.mission-state .icon-box{display:grid}.mission-actions button{font-size:0;padding:0;width:30px}.mission-actions .icon-box{margin:0}.profile-grid{grid-template-columns:1fr 1fr}.easy-room,.title{font-size:17px}}
       @media (prefers-reduced-motion:reduce){.robbie-mark *{animation:none!important}}
     </style>`;

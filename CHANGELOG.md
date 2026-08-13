@@ -3,6 +3,15 @@
 ## Unreleased
 
 
+## 2026.8.0b11 - 2026-08-13
+
+### Changed
+
+- The Advanced overview counts each condition type once across all runs, so two runs sharing five conditions show `4/5` instead of `8/10` when Vacation mode blocks both.
+- An active Vacation condition is labelled `Vacation mode active` / `Urlaubsmodus aktiv` instead of incorrectly describing the required inactive state.
+- The Advanced Control Center uses symmetric mobile dialog padding and a centered, width-constrained content shell.
+
+
 ## 2026.8.0b10 - 2026-08-13
 
 ### Changed

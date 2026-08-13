@@ -31,7 +31,7 @@ const executablePath = [
 ].find((candidate) => candidate && fs.existsSync(candidate));
 const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
 const context = await browser.newContext({
-  viewport: { width: 900, height: 640 },
+  viewport: { width: 390, height: 844 },
   hasTouch: true,
   isMobile: true,
 });
@@ -40,7 +40,7 @@ const page = await context.newPage();
 try {
   await page.setContent(`<!doctype html><html><head><style>
     html,body{margin:0}#dashboard{height:420px;overflow:auto}#spacer{height:240px}
-    robbie-advanced-cleaning-card{display:block;width:620px;margin:0 auto 240px}
+    robbie-advanced-cleaning-card{display:block;width:min(620px,100%);margin:0 auto 240px}
     ha-card,ha-icon{display:block}
   </style></head><body><div id="dashboard"><div id="spacer"></div></div></body></html>`);
   await page.evaluate(() => {
@@ -64,8 +64,18 @@ try {
       id: "weekday", name: "Weekday", vacuum_entity_id: "vacuum.robot",
       weekdays: ["mon"], start_time: "09:00", areas: ["kitchen"], enabled: true,
       profile: { mode: "vacuum", fan: "low", passes: 1 },
-      guards: { people_home: "wait" }, all_conditions_met: true,
-      conditions: [{ key: "vacuum_available", enabled: true, passed: true }],
+      guards: { people_home: "wait" }, all_conditions_met: false,
+      conditions: [
+        { key: "planner_enabled", enabled: true, passed: true },
+        { key: "vacuum_available", enabled: true, passed: true },
+        { key: "vacation_inactive", enabled: true, passed: false },
+        { key: "mop_attached", enabled: true, passed: true },
+        { key: "home_empty", enabled: true, passed: true },
+      ],
+    };
+    const weekendMission = {
+      ...mission, id: "weekend", name: "Weekend", weekdays: ["sun"],
+      conditions: mission.conditions.map((condition) => ({ ...condition })),
     };
     window.__robbieServiceCalls = [];
     card.hass = {
@@ -73,9 +83,10 @@ try {
       callService: async (...args) => { window.__robbieServiceCalls.push(args); },
       states: {
         "sensor.planner_status": {
-          state: "idle",
+          state: "vacation",
           attributes: {
-            entry_id: "entry-1", managed_vacuums: ["vacuum.robot"], missions: [mission],
+            entry_id: "entry-1", vacation_active: true,
+            managed_vacuums: ["vacuum.robot"], missions: [mission, weekendMission],
             profile_options: {
               "vacuum.robot": {
                 areas: [{ value: "kitchen", label: "Kitchen" }],
@@ -108,9 +119,13 @@ try {
     const card = document.querySelector("robbie-advanced-cleaning-card");
     const root = card.shadowRoot.querySelector("[data-card-host] ha-card");
     const dialog = card.shadowRoot.querySelector("ha-dialog[data-dialog-id]");
+    const shellRect = dialog.querySelector(".dialog-shell").getBoundingClientRect();
     return {
       root, height: root.getBoundingClientRect().height, scrollTop: dashboard.scrollTop,
       simple: root.dataset.cardMode, dialogOpen: Boolean(dialog?.open),
+      summary: dialog.querySelector(".overview-chips").textContent.replace(/\s+/g, " ").trim(),
+      text: dialog.textContent.replace(/\s+/g, " ").trim(),
+      centerDelta: Math.abs(shellRect.left - (innerWidth - shellRect.right)),
       addPositions: [...dialog.querySelectorAll("button[data-add]")].map((item) => item.dataset.addPosition),
     };
   });
@@ -119,6 +134,10 @@ try {
   assert.equal(controlCenter.scrollTop, initial.scrollTop, "opening Advanced must not move the dashboard");
   assert.equal(controlCenter.simple, "simple");
   assert.equal(controlCenter.dialogOpen, true);
+  assert.match(controlCenter.summary, /4\/5/);
+  assert.doesNotMatch(controlCenter.summary, /8\/10/);
+  assert.match(controlCenter.text, /Vacation mode active/);
+  assert.ok(controlCenter.centerDelta <= 1, `Advanced dialog is off-center by ${controlCenter.centerDelta}px`);
   assert.deepEqual(controlCenter.addPositions.sort(), ["bottom", "top"]);
 
   await page.locator('robbie-advanced-cleaning-card ha-dialog button[data-add-position="bottom"]').tap();
@@ -141,7 +160,7 @@ try {
 
   await page.evaluate(() => {
     const card = document.querySelector("robbie-advanced-cleaning-card");
-    for (const state of ["waiting", "idle", "vacation"]) {
+    for (const state of ["idle", "vacation", "waiting"]) {
       card.hass = {
         ...card._hass,
         states: {
