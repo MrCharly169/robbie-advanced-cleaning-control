@@ -52,7 +52,7 @@ const frameCancel = globalThis.cancelAnimationFrame?.bind(globalThis)
 function domKey(node) {
   if (node?.nodeType !== 1) return "";
   const keys = [
-    "data-mission-id", "data-id", "data-edit", "data-add-day", "data-action",
+    "data-mission-id", "data-id", "data-dialog-id", "data-edit", "data-add-day", "data-add-position", "data-action",
     "data-run", "data-remove", "data-mode-toggle", "data-add", "data-cancel",
     "name", "data-day",
   ];
@@ -130,6 +130,10 @@ function patchHost(host, markup, options = {}) {
   template.innerHTML = markup;
   const desired = template.content.firstElementChild;
   const current = host.firstElementChild;
+  if (!desired) {
+    current?.remove();
+    return undefined;
+  }
   if (!current) host.append(desired.cloneNode(true));
   else morphNode(current, desired, options);
   return host.firstElementChild;
@@ -141,12 +145,8 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     this._renderFrame = null;
     this._lastRenderSignature = "";
     this._visibleRenderCount = 0;
-    this._boundButtons = new WeakSet();
-    this._boundProfileSelects = new WeakSet();
-    this._boundForms = new WeakSet();
-    this._handledClicks = new WeakSet();
-    this._handledChanges = new WeakSet();
-    this._handledSubmits = new WeakSet();
+    this._controlCenterOpen = false;
+    this._dialogRoot = undefined;
   }
 
   static getConfigElement() { return document.createElement("robbie-advanced-cleaning-card-editor"); }
@@ -166,7 +166,6 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
   }
 
   connectedCallback() {
-    this._bindHostClick();
     const request = new Event("context-request", { bubbles: true, composed: true });
     Object.assign(request, {
       context: "hassApi", contextTarget: this, subscribe: false,
@@ -291,6 +290,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       },
       ui: {
         mode: this._displayMode, mission: this._editingMissionId || "",
+        controlCenterOpen: Boolean(this._controlCenterOpen),
         weekday: this._editingWeekday || "", vacuum: this._editingVacuumId || "",
         robotChanged: Boolean(this._editingRobotChanged),
         placement: this._editingPlacement || "bottom",
@@ -502,17 +502,30 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     const info = this._statusInfo(status);
     const passed = missions.reduce((count, mission) => count + (mission.conditions || []).filter((item) => item.enabled && item.passed).length, 0);
     const total = missions.reduce((count, mission) => count + (mission.conditions || []).filter((item) => item.enabled).length, 0);
-    const editing = this._editingMissionId === "new" ? {} : missions.find((item) => item.id === this._editingMissionId);
     return `<ha-card data-card-mode="advanced" class="${info.tone}"><div class="advanced-wrap">
       <div class="advanced-header"><div><div class="title">${escapeHtml(this._config.title || t.title)}</div><div class="subtitle">${escapeHtml(t.advanced)} · ${missions.length} ${escapeHtml(t.missions)}</div></div>
         <div class="mode-pill">${this._robotLogo(info)}<span>${escapeHtml(t[info.state] || info.state)}</span></div></div>
       <div class="overview-chips"><span>${icon("mdi:robot-vacuum", "chip-icon")}${status?.attributes?.managed_vacuums?.length || 0}</span><span>${icon("mdi:calendar-check", "chip-icon")}${missions.length}</span><span class="${passed === total ? "good" : "warn"}">${icon(passed === total ? "mdi:check-all" : "mdi:clock-alert-outline", "chip-icon")}${passed}/${total}</span></div>
       <section><div class="section-title"><strong>${escapeHtml(t.weekly)}</strong><button class="round" data-add data-add-position="top" title="${escapeHtml(t.add)}">${icon("mdi:plus", "action-icon")}</button></div>${this._week(missions, t)}</section>
-      ${this._editingMissionId && this._editingPlacement === "top" ? this._editor(editing, status, t) : ""}
       <section><div class="section-title"><strong>${escapeHtml(t.missions)}</strong></div><div class="mission-list">${missions.map((mission) => this._missionCard(mission, t)).join("") || `<div class="empty">${escapeHtml(t.noMission)}</div>`}</div></section>
-      ${this._editingMissionId && this._editingPlacement !== "top" ? this._editor(editing, status, t) : ""}
       <div class="advanced-footer"><button class="round" data-mode-toggle title="${escapeHtml(t.simple)}">${icon("mdi:view-dashboard-outline", "action-icon")}</button><button class="advanced-add" data-add data-add-position="bottom">${icon("mdi:plus", "mini-icon")}${escapeHtml(t.add)}</button></div>
     </div></ha-card>`;
+  }
+
+  _dialog(status, missions, t) {
+    if (!this._controlCenterOpen && !this._editingMissionId) return "";
+    const editing = this._editingMissionId === "new"
+      ? {} : missions.find((item) => item.id === this._editingMissionId);
+    const title = this._editingMissionId
+      ? (this._editingMissionId === "new" ? t.add : t.edit) : t.advanced;
+    const content = this._editingMissionId
+      ? this._editor(editing, status, t) : this._advanced(status, missions, t);
+    return `<ha-dialog data-dialog-id="control-center" open heading="${escapeHtml(title)}">
+      <div class="dialog-shell">
+        <button type="button" class="dialog-close" data-close-dialog title="${escapeHtml(t.cancel)}">${icon("mdi:close", "action-icon")}</button>
+        <div class="dialog-scroll">${content}</div>
+      </div>
+    </ha-dialog>`;
   }
 
   async _saveForm(form) {
@@ -537,36 +550,22 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     this._render();
   }
 
-  _bind() {
-    const root = this.shadowRoot;
-    if (this._interactionRoot === root) return;
-    this._interactionRoot = root;
-    root.addEventListener("click", (event) => this._handleClick(event));
-    root.addEventListener("change", (event) => this._handleProfileChange(event));
-    root.addEventListener("submit", (event) => this._handleSubmit(event));
-  }
-
-  _bindHostClick() {
-    if (this._hostClickBound) return;
-    this._hostClickBound = true;
-    this.addEventListener("click", (event) => this._handleClick(event), { capture: true });
-  }
-
-  _handleClick(event) {
-    const control = event.composedPath?.().find((item) => item?.matches?.("button"));
-    if (!control) return;
-    this._activateControl(control, event);
-  }
-
   _activateControl(control, event) {
-    if (this._handledClicks.has(event)) return;
-    this._handledClicks.add(event);
     event.preventDefault?.();
     event.stopPropagation?.();
     if (control.matches('[data-action="run"]')) return void this._call("run_next");
     if (control.matches('[data-action="skip"]')) return void this._call("skip_next");
     if (control.matches('[data-action="postpone"]')) return void this._call("postpone_next", { minutes: 60 });
     if (control.matches("[data-mode-toggle]")) {
+      if (this._controlCenterOpen) {
+        this._controlCenterOpen = false;
+        this._editingMissionId = null;
+        return void this._render();
+      }
+      if (this._displayMode === "simple") {
+        this._controlCenterOpen = true;
+        return void this._render();
+      }
       this._displayMode = this._displayMode === "advanced" ? "simple" : "advanced";
       this._editingMissionId = null;
       return void this._render();
@@ -596,6 +595,14 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     }
     if (control.matches("[data-run]")) return void this._call("run_next", { mission_id: control.dataset.run });
     if (control.matches("[data-remove]")) return void this._call("remove_mission", { mission_id: control.dataset.remove });
+    if (control.matches("[data-close-dialog]")) {
+      this._controlCenterOpen = false;
+      this._editingMissionId = null;
+      this._editingWeekday = null;
+      this._editingVacuumId = null;
+      this._editingRobotChanged = false;
+      return void this._render();
+    }
     if (control.matches("[data-cancel]")) {
       this._editingMissionId = null;
       this._editingWeekday = null;
@@ -606,8 +613,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
   }
 
   _handleProfileChange(event, select = event.target) {
-    if (!select?.matches?.("[data-profile-vacuum]") || this._handledChanges.has(event)) return;
-    this._handledChanges.add(event);
+    if (!select?.matches?.("[data-profile-vacuum]")) return;
     event.stopPropagation?.();
     this._editingVacuumId = select.value;
     this._editingRobotChanged = true;
@@ -616,34 +622,41 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
   }
 
   _handleSubmit(event, form = event.target) {
-    if (!form?.matches?.("[data-mission-form]") || this._handledSubmits.has(event)) return;
-    this._handledSubmits.add(event);
+    if (!form?.matches?.("[data-mission-form]")) return;
     event.preventDefault?.();
     event.stopPropagation?.();
     void this._saveForm(form);
   }
 
   _bindInteractiveNodes() {
-    for (const button of this._mount?.querySelectorAll?.("button") || []) {
-      if (this._boundButtons.has(button)) continue;
-      this._boundButtons.add(button);
-      button.addEventListener("click", (event) => this._activateControl(button, event));
+    for (const root of [this._mount, this._dialogMount]) {
+      for (const button of root?.querySelectorAll?.("button") || []) {
+        button.onclick = (event) => this._activateControl(button, event);
+      }
+      for (const select of root?.querySelectorAll?.("[data-profile-vacuum]") || []) {
+        select.onchange = (event) => this._handleProfileChange(event, select);
+      }
+      for (const form of root?.querySelectorAll?.("[data-mission-form]") || []) {
+        form.onsubmit = (event) => this._handleSubmit(event, form);
+      }
     }
-    for (const select of this._mount?.querySelectorAll?.("[data-profile-vacuum]") || []) {
-      if (this._boundProfileSelects.has(select)) continue;
-      this._boundProfileSelects.add(select);
-      select.addEventListener("change", (event) => this._handleProfileChange(event, select));
-    }
-    for (const form of this._mount?.querySelectorAll?.("[data-mission-form]") || []) {
-      if (this._boundForms.has(form)) continue;
-      this._boundForms.add(form);
-      form.addEventListener("submit", (event) => this._handleSubmit(event, form));
+    const dialog = this._dialogMount?.querySelector?.("ha-dialog[data-dialog-id]");
+    if (dialog) {
+      dialog.open = true;
+      if (dialog.__robbieClosedHandler) return;
+      dialog.__robbieClosedHandler = true;
+      dialog.addEventListener?.("closed", () => {
+        if (dialog !== this._dialogRoot) return;
+        this._controlCenterOpen = false;
+        this._editingMissionId = null;
+        this._render();
+      });
     }
   }
 
   _styles() {
     return `<style>
-      :host{display:block;width:100%;min-width:0;font-family:var(--paper-font-body1_-_font-family,system-ui,sans-serif);container-type:inline-size;container-name:robbie-card}[data-card-host]{display:contents}*{box-sizing:border-box;min-width:0}
+      :host{display:block;width:100%;min-width:0;font-family:var(--paper-font-body1_-_font-family,system-ui,sans-serif);container-type:inline-size;container-name:robbie-card;overflow-anchor:none}[data-card-host],[data-dialog-host]{display:contents;overflow-anchor:none}*{box-sizing:border-box;min-width:0}
       ha-card{width:100%;overflow:hidden;border-radius:22px;border:1px solid rgba(255,255,255,.09);box-shadow:none;background:var(--ha-card-background,var(--card-background-color,#202020));color:var(--primary-text-color,#fff)}ha-card.active{background:linear-gradient(135deg,rgba(32,184,154,.16),rgba(24,34,31,.97))}ha-card.waiting{background:linear-gradient(135deg,rgba(242,169,59,.18),rgba(34,30,24,.97))}ha-card.vacation{background:linear-gradient(135deg,rgba(126,87,194,.25),rgba(29,25,39,.97))}ha-card.danger{background:linear-gradient(135deg,rgba(238,91,100,.23),rgba(36,24,26,.97))}
       .icon-box{width:18px;height:18px;display:grid;place-items:center;flex:0 0 18px;line-height:0}.icon-box>ha-icon{--mdc-icon-size:16px}.status-icon{width:17px;height:17px}.status-icon>ha-icon{--mdc-icon-size:15px}.chip-icon,.mini-icon,.condition-icon{width:15px;height:15px}.chip-icon>ha-icon,.mini-icon>ha-icon,.condition-icon>ha-icon{--mdc-icon-size:13px}.next-icon{width:34px;height:34px}.next-icon>ha-icon{--mdc-icon-size:27px}.action-icon>ha-icon{--mdc-icon-size:16px}
       button,input,select{font:inherit}.easy-wrap,.advanced-wrap{padding:16px;display:grid;gap:12px}.easy-header,.advanced-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.easy-brand{font-size:9px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;opacity:.45}.easy-room,.title{margin-top:3px;font-size:19px;font-weight:850;line-height:1.08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.subtitle{font-size:10px;opacity:.56;margin-top:4px}.easy-status,.mode-pill{height:30px;max-width:48%;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,.085);font-size:10px;font-weight:850;text-transform:uppercase;white-space:nowrap}
@@ -656,18 +669,18 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       .week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.week-day{min-height:79px;padding:7px 4px;border-radius:12px;background:rgba(255,255,255,.028);text-align:center}.week-day.active{background:rgba(65,189,245,.08)}.week-day>strong{font-size:9px;text-transform:uppercase;opacity:.55}.week-day>div{display:grid;gap:3px;margin-top:5px}.week-day button{border:0;border-radius:9px;padding:4px 3px;background:rgba(65,189,245,.16);color:inherit;font-size:8px;cursor:pointer;display:grid;gap:1px}.week-day button b{font-size:8px}.week-day button small{font-size:7px;opacity:.62;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.week-day span{font-size:9px;opacity:.25}.week-day .day-add{width:20px;height:20px;margin:2px auto 0;border-radius:50%;padding:0;display:grid;place-items:center;background:rgba(255,255,255,.06);font-size:12px}
       .mission-list{display:grid;gap:7px}.mission{padding:11px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.045);display:grid;gap:9px}.mission.pending{border-color:rgba(242,169,59,.24)}.mission-head{display:flex;justify-content:space-between;gap:10px}.mission-head>div{display:grid;gap:2px}.mission-head strong{font-size:12px}.mission-head small{font-size:9px;opacity:.58}.mission-state{display:inline-flex;align-items:center;gap:4px;font-size:9px;white-space:nowrap}.mission.ready .mission-state{color:var(--success-color,#4caf50)}.mission.pending .mission-state{color:var(--warning-color,#f2a93b)}.conditions{display:flex;flex-wrap:wrap;gap:5px}.condition{display:inline-flex;align-items:center;gap:4px;padding:5px 7px;border-radius:999px;background:rgba(255,255,255,.05);font-size:9px}.condition.passed{color:var(--success-color,#4caf50)}.condition.pending{color:var(--warning-color,#f2a93b)}.muted,.empty{font-size:10px;opacity:.52}.mission-actions{display:flex;justify-content:flex-end;gap:6px}.mission-actions button{height:30px;border-radius:10px}.mission-actions .danger-button{color:var(--error-color,#ee5b64)}
       .mission-editor{padding:13px;border-radius:17px;background:rgba(255,255,255,.045);display:grid;gap:12px}.form-head{display:flex;align-items:center;justify-content:space-between}.form-head>strong{font-size:13px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.form-grid label{display:grid;gap:5px}.form-grid label>span,fieldset legend{font-size:9px;text-transform:uppercase;letter-spacing:.06em;opacity:.55}.form-grid input,.form-grid select{width:100%;height:36px;border:1px solid rgba(255,255,255,.10);border-radius:10px;padding:0 9px;background:rgba(0,0,0,.14);color:inherit}.form-grid select[multiple]{height:auto;min-height:72px;padding:5px 7px}.form-grid select[multiple] option{padding:5px 4px;border-radius:5px}fieldset{margin:0;padding:0;border:0;display:grid;gap:7px}.day-picker{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.day-choice input{position:absolute;opacity:0}.day-choice span{height:31px;display:grid;place-items:center;border-radius:9px;background:rgba(255,255,255,.045);font-size:9px;cursor:pointer}.day-choice input:checked+span{background:rgba(65,189,245,.20);color:var(--primary-color,#41bdf5);font-weight:800}.form-hint{display:flex;align-items:flex-start;gap:6px;font-size:9px;line-height:1.4;opacity:.62}.capability-hint{padding:8px;border-radius:10px;background:rgba(65,189,245,.08);color:var(--primary-color,#41bdf5);opacity:1}.enabled-choice{grid-template-columns:1fr auto!important;align-items:center}.enabled-choice input{width:20px!important;height:20px!important}.form-actions{display:flex;justify-content:flex-end;gap:7px}
+      ha-dialog[data-dialog-id]{--dialog-content-padding:0;--mdc-dialog-min-width:min(760px,calc(100vw - 24px));--mdc-dialog-max-width:min(760px,calc(100vw - 24px))}.dialog-shell{position:relative;width:min(720px,calc(100vw - 48px));color:var(--primary-text-color,#fff)}.dialog-scroll{max-height:min(78vh,760px);overflow:auto;overscroll-behavior:contain;padding:4px 2px 18px;scrollbar-gutter:stable}.dialog-close{position:sticky;z-index:3;top:0;margin:0 0 4px auto;width:36px;height:36px;border:0;border-radius:50%;display:grid;place-items:center;background:var(--secondary-background-color,rgba(255,255,255,.10));color:inherit;cursor:pointer}.dialog-scroll>ha-card{border-radius:18px}.dialog-scroll>.mission-editor{background:var(--ha-card-background,var(--card-background-color,#202020));border:1px solid var(--divider-color,rgba(255,255,255,.10))}
       @container robbie-card (max-width:520px){.easy-wrap,.advanced-wrap{padding:13px}.condition-summary span:last-child{display:none}.easy-next{grid-template-columns:30px minmax(0,1fr) auto}.week-grid{gap:3px}.week-day{padding:6px 2px}.form-grid{grid-template-columns:1fr}.mission-state{font-size:0}.mission-state .icon-box{display:grid}.mission-actions button{font-size:0;padding:0;width:30px}.mission-actions .icon-box{margin:0}.profile-grid{grid-template-columns:1fr 1fr}.easy-room,.title{font-size:17px}}
       @media (prefers-reduced-motion:reduce){.robbie-mark *{animation:none!important}}
     </style>`;
   }
 
   _ensureShell() {
-    this._bindHostClick();
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
     if (this._mount) return;
-    this.shadowRoot.innerHTML = `${this._styles()}<div data-card-host></div>`;
+    this.shadowRoot.innerHTML = `${this._styles()}<div data-card-host></div><div data-dialog-host></div>`;
     this._mount = this.shadowRoot.querySelector("[data-card-host]");
-    this._bind();
+    this._dialogMount = this.shadowRoot.querySelector("[data-dialog-host]");
   }
 
   _commitRender() {
@@ -690,6 +703,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
         ? this._advanced(status, missions, t) : this._simple(status, next, missions, t);
     }
     this._cardRoot = patchHost(this._mount, content, { preserveEditor });
+    this._dialogRoot = patchHost(this._dialogMount, status ? this._dialog(status, missions, t) : "", { preserveEditor });
     this._bindInteractiveNodes();
     this._visibleRenderCount += 1;
   }

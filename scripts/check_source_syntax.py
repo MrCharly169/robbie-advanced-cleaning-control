@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import py_compile
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -41,8 +43,11 @@ def main() -> int:
             py_compile.compile(str(source), cfile=str(target), doraise=True)
     for source in json_files:
         json.loads(source.read_text(encoding="utf-8"))
+    node = os.environ.get("ROBBIE_NODE") or shutil.which("node")
+    if javascript_files and not node:
+        raise RuntimeError("Node.js was not found; set ROBBIE_NODE to its executable path")
     for source in javascript_files:
-        subprocess.run(["node", "--check", str(source)], cwd=ROOT, check=True)
+        subprocess.run([node, "--check", str(source)], cwd=ROOT, check=True)
     print(
         f"Source syntax valid: Python={len(python_files)}, "
         f"JavaScript={len(javascript_files)}, JSON={len(json_files)}"

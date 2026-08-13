@@ -3,6 +3,20 @@
 ## Unreleased
 
 
+## 2026.8.0b8 - 2026-08-13
+
+### Changed
+
+- The compact Card now opens its Advanced Control Center and mission editor in a native Home Assistant dialog, keeping the dashboard Card height stable.
+
+### Fixed
+
+- Card buttons, robot selectors, and mission forms now use idempotent native DOM handlers after every keyed patch instead of capture/delegation fallbacks that could be inactive in Home Assistant's nested Shadow DOM.
+- Opening Advanced or `Add run` no longer inserts large inline content into the dashboard layout; the Card opts out of browser scroll anchoring and keeps its `ha-card` root stable.
+- Top and bottom `Add run` controls now have distinct DOM keys, preventing the keyed patcher from moving or replacing the wrong button.
+- A real Chromium regression test now verifies native clicks, one render per update frame, stable dashboard scroll, stable Card/form/input nodes, preserved focus, and preserved unsaved form input.
+
+
 ## 2026.8.0b7 - 2026-08-13
 
 ### Fixed

@@ -40,13 +40,16 @@ class Element {
     };
     const cardMount = mount("ha-card");
     const badgeMount = mount("ha-badge");
+    const dialogMount = mount("ha-dialog");
     this.shadowRoot = {
-      get innerHTML() { return `${markup}${cardMount.innerHTML}${badgeMount.innerHTML}`; },
+      get innerHTML() { return `${markup}${cardMount.innerHTML}${dialogMount.innerHTML}${badgeMount.innerHTML}`; },
       set innerHTML(value) { markup = value; owner.shellWrites += 1; },
       addEventListener(type, callback) { owner.handlers[`shadow:${type}`] = callback; },
       querySelector(selector) {
         if (selector === "[data-card-host]") return cardMount;
+        if (selector === "[data-dialog-host]") return dialogMount;
         if (selector === "[data-badge-host]") return badgeMount;
+        if (selector.includes("ha-dialog")) return renderedRoot("ha-dialog");
         if (selector === "ha-badge") return renderedRoot("ha-badge");
         return { addEventListener(type, callback) { owner.handlers[`${selector}:${type}`] = callback; } };
       },
@@ -251,13 +254,11 @@ assert.match(card.shadowRoot.innerHTML, />Urlaub</);
 assert.match(card.shadowRoot.innerHTML, /data-action="run" disabled/);
 card.hass = nonVacationHass;
 flushFrame();
-const cardClick = (matches, dataset = {}) => card.handlers["shadow:click"]({
+const cardClick = (matches, dataset = {}) => card._activateControl({
+  matches: (selector) => selector === matches,
+  dataset,
+}, {
   preventDefault() {}, stopPropagation() {},
-  composedPath() { return [{ matches: (selector) => selector === "button" || selector === matches, dataset }]; },
-});
-const cardHostClick = (matches, dataset = {}) => card.handlers["host:click"]({
-  preventDefault() {}, stopPropagation() {},
-  composedPath() { return [{ matches: (selector) => selector === "button" || selector === matches, dataset }]; },
 });
 cardClick('[data-action="postpone"]');
 assert.equal(JSON.stringify(serviceCalls), JSON.stringify([{
@@ -274,23 +275,24 @@ assert.match(card.shadowRoot.innerHTML, /Home Zone: 0/);
 assert.match(card.shadowRoot.innerHTML, /data-add-day="mon"/);
 assert.match(card.shadowRoot.innerHTML, /data-add-position="top"/);
 assert.match(card.shadowRoot.innerHTML, /Vac\+Mop · kitchen/);
-assert.equal(card.getCardSize(), 9);
-cardHostClick("[data-add]", { addPosition: "bottom" });
+assert.equal(card.getCardSize(), 4, "the Advanced control center must not resize the dashboard Card");
+cardClick("[data-add]", { addPosition: "bottom" });
 assert.equal(card._editingMissionId, "new");
 assert.equal(card._editingPlacement, "bottom");
 assert.match(card.shadowRoot.innerHTML, /Live-Auswahl des Roboters/);
 assert.match(card.shadowRoot.innerHTML, /class="robbie-mark /);
 assert.match(card.shadowRoot.innerHTML, /class="robbie-machine"/);
 assert.match(source, /_bindInteractiveNodes\(\)/);
-assert.match(source, /button\.addEventListener\("click", \(event\) => this\._activateControl\(button, event\)\)/);
+assert.match(source, /button\.onclick = \(event\) => this\._activateControl\(button, event\)/);
+assert.doesNotMatch(source, /_bindHostClick/);
+assert.match(source, /<ha-dialog data-dialog-id="control-center" open/);
 assert.match(card.shadowRoot.innerHTML, /<select name="fan">/);
 assert.match(card.shadowRoot.innerHTML, /<select name="water">/);
 assert.match(card.shadowRoot.innerHTML, /<select name="passes">/);
 assert.match(card.shadowRoot.innerHTML, /<select name="areas" multiple/);
 assert.doesNotMatch(card.shadowRoot.innerHTML, /<input name="fan"/);
-card.handlers["shadow:change"]({
-  target: { value: "vacuum.cloud", matches: (selector) => selector === "[data-profile-vacuum]" },
-  stopPropagation() {},
+card._handleProfileChange({ stopPropagation() {} }, {
+  value: "vacuum.cloud", matches: (selector) => selector === "[data-profile-vacuum]",
 });
 assert.match(card.shadowRoot.innerHTML, /Cloud Robot/);
 assert.match(card.shadowRoot.innerHTML, />Turbo</);
