@@ -3,6 +3,14 @@
 ## Unreleased
 
 
+## 2026.8.0b9 - 2026-08-13
+
+### Fixed
+
+- `Save run` now preserves the submit button's native form action instead of cancelling it in the generic Card button handler, so the Card performs exactly one `robbie_advanced_cc.add_mission` service call.
+- The real Chromium regression now runs with touch input and verifies unchanged dashboard scroll and a stable `ha-card` root while opening Advanced, adding, editing, and saving a run.
+
+
 ## 2026.8.0b8 - 2026-08-13
 
 ### Changed

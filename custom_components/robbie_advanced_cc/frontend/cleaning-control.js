@@ -551,6 +551,15 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
   }
 
   _activateControl(control, event) {
+    // Submit buttons must retain their native form behavior. Binding every
+    // button is intentional (morphing can replace individual controls), but
+    // only Robbie action controls may cancel the click's default action.
+    if (![
+      '[data-action="run"]', '[data-action="skip"]', '[data-action="postpone"]',
+      '[data-mode-toggle]', '[data-add]', '[data-add-day]',
+      '[data-edit]', '[data-run]', '[data-remove]', '[data-close-dialog]',
+      '[data-cancel]',
+    ].some((selector) => control.matches(selector))) return;
     event.preventDefault?.();
     event.stopPropagation?.();
     if (control.matches('[data-action="run"]')) return void this._call("run_next");

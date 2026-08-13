@@ -30,7 +30,12 @@ const executablePath = [
   "/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser",
 ].find((candidate) => candidate && fs.existsSync(candidate));
 const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
-const page = await browser.newPage({ viewport: { width: 900, height: 640 } });
+const context = await browser.newContext({
+  viewport: { width: 900, height: 640 },
+  hasTouch: true,
+  isMobile: true,
+});
+const page = await context.newPage();
 
 try {
   await page.setContent(`<!doctype html><html><head><style>
@@ -62,9 +67,10 @@ try {
       guards: { people_home: "wait" }, all_conditions_met: true,
       conditions: [{ key: "vacuum_available", enabled: true, passed: true }],
     };
+    window.__robbieServiceCalls = [];
     card.hass = {
       language: "en",
-      callService: async () => undefined,
+      callService: async (...args) => { window.__robbieServiceCalls.push(args); },
       states: {
         "sensor.planner_status": {
           state: "idle",
@@ -96,8 +102,7 @@ try {
     return { root, height: root.getBoundingClientRect().height, scrollTop: dashboard.scrollTop };
   });
 
-  await page.evaluate(() => document.querySelector("robbie-advanced-cleaning-card")
-    .shadowRoot.querySelector("button[data-mode-toggle]").click());
+  await page.locator("robbie-advanced-cleaning-card button[data-mode-toggle]").tap();
   const controlCenter = await page.evaluate(() => {
     const dashboard = document.querySelector("#dashboard");
     const card = document.querySelector("robbie-advanced-cleaning-card");
@@ -116,8 +121,7 @@ try {
   assert.equal(controlCenter.dialogOpen, true);
   assert.deepEqual(controlCenter.addPositions.sort(), ["bottom", "top"]);
 
-  await page.evaluate(() => document.querySelector("robbie-advanced-cleaning-card")
-    .shadowRoot.querySelector('ha-dialog button[data-add-position="bottom"]').click());
+  await page.locator('robbie-advanced-cleaning-card ha-dialog button[data-add-position="bottom"]').tap();
   const editor = await page.evaluate(() => {
     const dashboard = document.querySelector("#dashboard");
     const card = document.querySelector("robbie-advanced-cleaning-card");
@@ -166,6 +170,35 @@ try {
   assert.equal(afterBurst.focused, true, "focus must survive hass bursts");
   assert.equal(afterBurst.scrollTop, initial.scrollTop);
   assert.equal(afterBurst.renders, editor.renders + 1, "a hass burst must render at most once per frame");
+
+  await page.evaluate(() => {
+    const card = document.querySelector("robbie-advanced-cleaning-card");
+    const form = card.shadowRoot.querySelector("ha-dialog form[data-mission-form]");
+    form.querySelector('input[name="name"]').value = "Saved browser run";
+  });
+  await page.locator('robbie-advanced-cleaning-card ha-dialog button[type="submit"]').tap();
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
+  const afterSave = await page.evaluate(() => {
+    const dashboard = document.querySelector("#dashboard");
+    const card = document.querySelector("robbie-advanced-cleaning-card");
+    return {
+      root: card.shadowRoot.querySelector("[data-card-host] ha-card"),
+      scrollTop: dashboard.scrollTop,
+      dialogOpen: Boolean(card.shadowRoot.querySelector("ha-dialog[data-dialog-id]")),
+      editorOpen: Boolean(card.shadowRoot.querySelector("form[data-mission-form]")),
+      calls: window.__robbieServiceCalls,
+    };
+  });
+  assert.equal(afterSave.root, initial.root, "saving a run must keep the ha-card root stable");
+  assert.equal(afterSave.scrollTop, initial.scrollTop, "saving a run must not move the dashboard");
+  assert.equal(afterSave.dialogOpen, true, "a successful save returns to the Advanced control center");
+  assert.equal(afterSave.editorOpen, false, "a successful save must close the mission editor");
+  assert.equal(afterSave.calls.length, 1, "Save run must perform exactly one service call");
+  assert.equal(afterSave.calls[0][0], "robbie_advanced_cc");
+  assert.equal(afterSave.calls[0][1], "add_mission");
+  assert.equal(afterSave.calls[0][2].entry_id, "entry-1");
+  assert.equal(afterSave.calls[0][2].mission.name, "Saved browser run");
+  assert.equal(afterSave.calls[0][2].mission.vacuum_entity_id, "vacuum.robot");
 
   console.log("Card browser regression passed");
 } finally {
