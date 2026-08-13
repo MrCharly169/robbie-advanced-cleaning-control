@@ -147,7 +147,9 @@ profile. Changing the robot refreshes those dropdowns immediately and hides
 unsupported settings. Each weekday has its own add button: Monday can therefore vacuum one
 room without water while Tuesday uses a different room, strength, mop mode or
 number of passes. The mode button switches between both views without changing
-the saved dashboard configuration.
+the saved dashboard configuration. The Robbie status mark animates subtly for
+cleaning, returning, waiting, vacation and error states and follows the browser's
+reduced-motion accessibility preference.
 
 The previous experimental resource remains a compatibility loader:
 

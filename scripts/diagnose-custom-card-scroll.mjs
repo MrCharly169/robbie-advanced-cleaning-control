@@ -92,11 +92,15 @@ try {
     card.hass = makeHass();
     await waitFrame();
     const firstRoot = card.shadowRoot.querySelector("ha-card");
-    card._displayMode = "advanced";
-    card._render();
+    card.shadowRoot.querySelector("[data-mode-toggle]").click();
     const advancedRoot = card.shadowRoot.querySelector("ha-card");
-    card._editingMissionId = mission.id;
-    card._render();
+    const bottomAdd = card.shadowRoot.querySelector('[data-add-position="bottom"]');
+    bottomAdd.click();
+    const addRunOpened = card._editingMissionId === "new"
+      && card._editingPlacement === "bottom"
+      && Boolean(card.shadowRoot.querySelector('form[data-mission-form][data-id=""]'));
+    card.shadowRoot.querySelector("[data-cancel]").click();
+    card.shadowRoot.querySelector(`[data-edit="${mission.id}"]`).click();
 
     const dashboard = document.querySelector("#dashboard");
     dashboard.scrollTop = 430;
@@ -165,9 +169,10 @@ try {
       dashboardStable: dashboard.scrollTop === before.dashboard,
     };
 
-    return { afterBurst, narrowSignature, badgeResult };
+    return { addRunOpened, afterBurst, narrowSignature, badgeResult };
   });
 
+  assert.equal(result.addRunOpened, true);
   assert.deepEqual(result.afterBurst, {
     oneRender: true, dashboardStable: true, rootStable: true, advancedRootStable: true,
     formStable: true, focusStable: true, inputStable: true, selectionStable: true,

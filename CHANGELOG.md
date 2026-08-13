@@ -3,6 +3,16 @@
 ## Unreleased
 
 
+## 2026.8.0b6 - 2026-08-13
+
+### Added
+
+- A compact animated Robbie status mark for Card and Badge with cleaning, returning, waiting, vacation, idle, and error motion plus `prefers-reduced-motion` support.
+
+### Fixed
+
+- `Add run` now uses a capture-safe host interaction fallback and opens the mission editor beside the top or bottom control that was activated.
+
 ## 2026.8.0b5 - 2026-08-12
 
 ### Added

@@ -160,6 +160,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
   }
 
   connectedCallback() {
+    this._bindHostClick();
     const request = new Event("context-request", { bubbles: true, composed: true });
     Object.assign(request, {
       context: "hassApi", contextTarget: this, subscribe: false,
@@ -286,6 +287,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
         mode: this._displayMode, mission: this._editingMissionId || "",
         weekday: this._editingWeekday || "", vacuum: this._editingVacuumId || "",
         robotChanged: Boolean(this._editingRobotChanged),
+        placement: this._editingPlacement || "bottom",
       },
       status: status ? { state: status.state, entry_id: status.attributes?.entry_id || "" } : null,
       next: next ? {
@@ -352,6 +354,15 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     return { state, icon: (map[state] || ["mdi:robot-vacuum", "muted"])[0], tone: (map[state] || ["", "muted"])[1] };
   }
 
+  _robotLogo(info) {
+    return `<span class="robbie-mark ${escapeHtml(info.tone)}" data-robbie-state="${escapeHtml(info.state)}" aria-hidden="true">
+      <span class="robbie-radar"></span>
+      <ha-icon class="robbie-machine" icon="mdi:robot-vacuum"></ha-icon>
+      <ha-icon class="robbie-state-mark" icon="${escapeHtml(info.icon)}"></ha-icon>
+      <span class="robbie-brush"></span>
+    </span>`;
+  }
+
   _condition(condition, t) {
     const visible = condition.enabled !== false;
     if (!visible) return "";
@@ -378,7 +389,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
         <div class="easy-header">
           <div class="heading"><div class="easy-brand">${escapeHtml(this._config.title || t.brand)}</div>
             <div class="easy-room">${escapeHtml(vacuum?.attributes?.friendly_name || missionName)}</div></div>
-          <div class="easy-status">${icon(info.icon, "status-icon")}<span>${escapeHtml(t[info.state] || info.state)}</span></div>
+          <div class="easy-status">${this._robotLogo(info)}<span>${escapeHtml(t[info.state] || info.state)}</span></div>
         </div>
         <div class="easy-next">
           ${icon("mdi:calendar-clock", "next-icon")}
@@ -403,7 +414,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
           const profile = mission.profile || {};
           const detail = [profile.mode === "vacuum" ? "Vac" : profile.mode === "mop" ? "Mop" : "Vac+Mop", (mission.areas || [])[0]].filter(Boolean).join(" · ");
           return `<button data-edit="${escapeHtml(mission.id)}" title="${escapeHtml(`${mission.name} · ${detail}`)}"><b>${escapeHtml(mission.start_time || "—")}</b><small>${escapeHtml(detail)}</small></button>`;
-        }).join("") || "<span>—</span>"}<button class="day-add" data-add-day="${day}" title="${escapeHtml(`${t.add} · ${t.days[index]}`)}">+</button></div></div>`;
+        }).join("") || "<span>—</span>"}<button class="day-add" data-add-day="${day}" data-add-position="top" title="${escapeHtml(`${t.add} · ${t.days[index]}`)}">+</button></div></div>`;
     }).join("")}</div>`;
   }
 
@@ -488,12 +499,13 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     const editing = this._editingMissionId === "new" ? {} : missions.find((item) => item.id === this._editingMissionId);
     return `<ha-card data-card-mode="advanced" class="${info.tone}"><div class="advanced-wrap">
       <div class="advanced-header"><div><div class="title">${escapeHtml(this._config.title || t.title)}</div><div class="subtitle">${escapeHtml(t.advanced)} · ${missions.length} ${escapeHtml(t.missions)}</div></div>
-        <div class="mode-pill">${icon(info.icon, "status-icon")}<span>${escapeHtml(t[info.state] || info.state)}</span></div></div>
+        <div class="mode-pill">${this._robotLogo(info)}<span>${escapeHtml(t[info.state] || info.state)}</span></div></div>
       <div class="overview-chips"><span>${icon("mdi:robot-vacuum", "chip-icon")}${status?.attributes?.managed_vacuums?.length || 0}</span><span>${icon("mdi:calendar-check", "chip-icon")}${missions.length}</span><span class="${passed === total ? "good" : "warn"}">${icon(passed === total ? "mdi:check-all" : "mdi:clock-alert-outline", "chip-icon")}${passed}/${total}</span></div>
-      <section><div class="section-title"><strong>${escapeHtml(t.weekly)}</strong><button class="round" data-add title="${escapeHtml(t.add)}">${icon("mdi:plus", "action-icon")}</button></div>${this._week(missions, t)}</section>
+      <section><div class="section-title"><strong>${escapeHtml(t.weekly)}</strong><button class="round" data-add data-add-position="top" title="${escapeHtml(t.add)}">${icon("mdi:plus", "action-icon")}</button></div>${this._week(missions, t)}</section>
+      ${this._editingMissionId && this._editingPlacement === "top" ? this._editor(editing, status, t) : ""}
       <section><div class="section-title"><strong>${escapeHtml(t.missions)}</strong></div><div class="mission-list">${missions.map((mission) => this._missionCard(mission, t)).join("") || `<div class="empty">${escapeHtml(t.noMission)}</div>`}</div></section>
-      ${this._editingMissionId ? this._editor(editing, status, t) : ""}
-      <div class="advanced-footer"><button class="round" data-mode-toggle title="${escapeHtml(t.simple)}">${icon("mdi:view-dashboard-outline", "action-icon")}</button><button class="advanced-add" data-add>${icon("mdi:plus", "mini-icon")}${escapeHtml(t.add)}</button></div>
+      ${this._editingMissionId && this._editingPlacement !== "top" ? this._editor(editing, status, t) : ""}
+      <div class="advanced-footer"><button class="round" data-mode-toggle title="${escapeHtml(t.simple)}">${icon("mdi:view-dashboard-outline", "action-icon")}</button><button class="advanced-add" data-add data-add-position="bottom">${icon("mdi:plus", "mini-icon")}${escapeHtml(t.add)}</button></div>
     </div></ha-card>`;
   }
 
@@ -523,49 +535,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     const root = this.shadowRoot;
     if (this._interactionRoot === root) return;
     this._interactionRoot = root;
-    root.addEventListener("click", (event) => {
-      const control = event.composedPath?.().find((item) => item?.matches?.("button"));
-      if (!control) return;
-      event.preventDefault?.();
-      event.stopPropagation?.();
-      if (control.matches('[data-action="run"]')) return void this._call("run_next");
-      if (control.matches('[data-action="skip"]')) return void this._call("skip_next");
-      if (control.matches('[data-action="postpone"]')) return void this._call("postpone_next", { minutes: 60 });
-      if (control.matches("[data-mode-toggle]")) {
-        this._displayMode = this._displayMode === "advanced" ? "simple" : "advanced";
-        this._editingMissionId = null;
-        return void this._render();
-      }
-      if (control.matches("[data-add]")) {
-        this._editingMissionId = "new";
-        this._editingWeekday = null;
-        this._editingVacuumId = null;
-        this._editingRobotChanged = false;
-        return void this._render();
-      }
-      if (control.matches("[data-add-day]")) {
-        this._editingMissionId = "new";
-        this._editingWeekday = control.dataset.addDay;
-        this._editingVacuumId = null;
-        this._editingRobotChanged = false;
-        return void this._render();
-      }
-      if (control.matches("[data-edit]")) {
-        this._editingMissionId = control.dataset.edit;
-        this._editingVacuumId = null;
-        this._editingRobotChanged = false;
-        return void this._render();
-      }
-      if (control.matches("[data-run]")) return void this._call("run_next", { mission_id: control.dataset.run });
-      if (control.matches("[data-remove]")) return void this._call("remove_mission", { mission_id: control.dataset.remove });
-      if (control.matches("[data-cancel]")) {
-        this._editingMissionId = null;
-        this._editingWeekday = null;
-        this._editingVacuumId = null;
-        this._editingRobotChanged = false;
-        return void this._render();
-      }
-    });
+    root.addEventListener("click", (event) => this._handleClick(event));
     root.addEventListener("change", (event) => {
       if (!event.target?.matches?.("[data-profile-vacuum]")) return;
       event.stopPropagation?.();
@@ -582,12 +552,75 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     });
   }
 
+  _bindHostClick() {
+    if (this._hostClickBound) return;
+    this._hostClickBound = true;
+    this.addEventListener("click", (event) => this._handleClick(event), { capture: true });
+  }
+
+  _handleClick(event) {
+    const control = event.composedPath?.().find((item) => item?.matches?.("button"));
+    if (!control) return;
+    this._activateControl(control, event);
+  }
+
+  _activateControl(control, event) {
+    this._handledClicks ||= new WeakSet();
+    if (this._handledClicks.has(event)) return;
+    this._handledClicks.add(event);
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    if (control.matches('[data-action="run"]')) return void this._call("run_next");
+    if (control.matches('[data-action="skip"]')) return void this._call("skip_next");
+    if (control.matches('[data-action="postpone"]')) return void this._call("postpone_next", { minutes: 60 });
+    if (control.matches("[data-mode-toggle]")) {
+      this._displayMode = this._displayMode === "advanced" ? "simple" : "advanced";
+      this._editingMissionId = null;
+      return void this._render();
+    }
+    if (control.matches("[data-add]")) {
+      this._editingMissionId = "new";
+      this._editingWeekday = null;
+      this._editingVacuumId = null;
+      this._editingRobotChanged = false;
+      this._editingPlacement = control.dataset.addPosition || "bottom";
+      return void this._render();
+    }
+    if (control.matches("[data-add-day]")) {
+      this._editingMissionId = "new";
+      this._editingWeekday = control.dataset.addDay;
+      this._editingVacuumId = null;
+      this._editingRobotChanged = false;
+      this._editingPlacement = control.dataset.addPosition || "top";
+      return void this._render();
+    }
+    if (control.matches("[data-edit]")) {
+      this._editingMissionId = control.dataset.edit;
+      this._editingVacuumId = null;
+      this._editingRobotChanged = false;
+      this._editingPlacement = "bottom";
+      return void this._render();
+    }
+    if (control.matches("[data-run]")) return void this._call("run_next", { mission_id: control.dataset.run });
+    if (control.matches("[data-remove]")) return void this._call("remove_mission", { mission_id: control.dataset.remove });
+    if (control.matches("[data-cancel]")) {
+      this._editingMissionId = null;
+      this._editingWeekday = null;
+      this._editingVacuumId = null;
+      this._editingRobotChanged = false;
+      return void this._render();
+    }
+  }
+
   _styles() {
     return `<style>
       :host{display:block;width:100%;min-width:0;font-family:var(--paper-font-body1_-_font-family,system-ui,sans-serif);container-type:inline-size;container-name:robbie-card}[data-card-host]{display:contents}*{box-sizing:border-box;min-width:0}
       ha-card{width:100%;overflow:hidden;border-radius:22px;border:1px solid rgba(255,255,255,.09);box-shadow:none;background:var(--ha-card-background,var(--card-background-color,#202020));color:var(--primary-text-color,#fff)}ha-card.active{background:linear-gradient(135deg,rgba(32,184,154,.16),rgba(24,34,31,.97))}ha-card.waiting{background:linear-gradient(135deg,rgba(242,169,59,.18),rgba(34,30,24,.97))}ha-card.vacation{background:linear-gradient(135deg,rgba(126,87,194,.25),rgba(29,25,39,.97))}ha-card.danger{background:linear-gradient(135deg,rgba(238,91,100,.23),rgba(36,24,26,.97))}
       .icon-box{width:18px;height:18px;display:grid;place-items:center;flex:0 0 18px;line-height:0}.icon-box>ha-icon{--mdc-icon-size:16px}.status-icon{width:17px;height:17px}.status-icon>ha-icon{--mdc-icon-size:15px}.chip-icon,.mini-icon,.condition-icon{width:15px;height:15px}.chip-icon>ha-icon,.mini-icon>ha-icon,.condition-icon>ha-icon{--mdc-icon-size:13px}.next-icon{width:34px;height:34px}.next-icon>ha-icon{--mdc-icon-size:27px}.action-icon>ha-icon{--mdc-icon-size:16px}
       button,input,select{font:inherit}.easy-wrap,.advanced-wrap{padding:16px;display:grid;gap:12px}.easy-header,.advanced-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.easy-brand{font-size:9px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;opacity:.45}.easy-room,.title{margin-top:3px;font-size:19px;font-weight:850;line-height:1.08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.subtitle{font-size:10px;opacity:.56;margin-top:4px}.easy-status,.mode-pill{height:30px;max-width:48%;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,.085);font-size:10px;font-weight:850;text-transform:uppercase;white-space:nowrap}
+      .robbie-mark{position:relative;width:23px;height:23px;display:grid;place-items:center;flex:0 0 23px;color:currentColor;isolation:isolate}.robbie-machine{--mdc-icon-size:18px;position:relative;z-index:2;transform-origin:50% 54%}.robbie-state-mark{--mdc-icon-size:8px;position:absolute;right:-2px;top:-1px;z-index:4;padding:1px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color,#202020))}.robbie-radar{position:absolute;inset:2px;border:1px solid currentColor;border-radius:50%;opacity:.18;z-index:0}.robbie-brush{position:absolute;right:1px;bottom:1px;width:6px;height:6px;z-index:3}.robbie-brush:before,.robbie-brush:after{content:"";position:absolute;left:2.5px;top:0;width:1px;height:6px;border-radius:2px;background:currentColor}.robbie-brush:after{transform:rotate(90deg)}
+      .robbie-mark.active{color:var(--success-color,#4caf50)}.robbie-mark.active .robbie-machine{animation:robbie-clean 2.6s ease-in-out infinite}.robbie-mark.active .robbie-radar{animation:robbie-scan 1.8s ease-out infinite}.robbie-mark.active .robbie-brush{animation:robbie-brush .7s linear infinite}.robbie-mark.waiting{color:var(--warning-color,#f2a93b)}.robbie-mark.waiting .robbie-machine{animation:robbie-breathe 1.8s ease-in-out infinite}.robbie-mark.vacation{color:var(--purple-color,#7e57c2)}.robbie-mark.vacation .robbie-machine{animation:robbie-float 3.4s ease-in-out infinite}.robbie-mark.danger{color:var(--error-color,#ee5b64)}.robbie-mark.danger .robbie-machine{animation:robbie-alert .48s ease-in-out infinite}.robbie-mark.calm .robbie-radar,.robbie-mark.muted .robbie-radar{animation:robbie-idle 3.8s ease-in-out infinite}
+      @keyframes robbie-clean{0%,100%{transform:translateX(-1px) rotate(-5deg)}50%{transform:translateX(1px) rotate(5deg)}}@keyframes robbie-scan{0%{transform:scale(.72);opacity:.38}80%,100%{transform:scale(1.28);opacity:0}}@keyframes robbie-brush{to{transform:rotate(360deg)}}@keyframes robbie-breathe{0%,100%{transform:scale(.94);opacity:.76}50%{transform:scale(1.06);opacity:1}}@keyframes robbie-float{0%,100%{transform:translateY(1px) rotate(-2deg)}50%{transform:translateY(-1px) rotate(2deg)}}@keyframes robbie-alert{0%,100%{transform:translateX(-1px)}50%{transform:translateX(1px)}}@keyframes robbie-idle{0%,100%{transform:scale(.88);opacity:.12}50%{transform:scale(1.04);opacity:.3}}
       .easy-next{position:relative;border-radius:17px;padding:11px 12px;background:rgba(255,255,255,.048);display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px}.easy-next-copy{display:grid;gap:1px}.easy-next-copy small{font-size:9px;text-transform:uppercase;letter-spacing:.08em;opacity:.48}.easy-next-copy strong{font-size:12px}.easy-next-copy>span{font-size:10px;opacity:.62}.condition-summary{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:760;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,.07)}.condition-summary.passed{color:var(--success-color,#4caf50)}.condition-summary.pending{color:var(--warning-color,#f2a93b)}
       .easy-actions,.advanced-footer{display:flex;align-items:center;justify-content:flex-end;gap:7px}.easy-action,.advanced-add,.mission-actions button,.form-actions button{height:36px;border:0;border-radius:12px;padding:0 11px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.075);color:inherit;font-size:10px;font-weight:760;cursor:pointer}.easy-action.primary,.advanced-add,.form-actions .save{background:var(--primary-color,#41bdf5);color:var(--text-primary-color,#fff)}button:disabled{opacity:.38;cursor:not-allowed}.round{width:36px;height:36px;border:0;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.075);color:inherit;cursor:pointer;padding:0}.round:hover,.mission-actions button:hover{background:rgba(255,255,255,.14)}
       .overview-chips,.mission-chips{display:flex;flex-wrap:wrap;gap:6px}.overview-chips>span,.mission-chips>span{min-height:26px;display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.065);font-size:10px}.overview-chips .good{color:var(--success-color,#4caf50)}.overview-chips .warn{color:var(--warning-color,#f2a93b)}section{display:grid;gap:8px}.section-title{display:flex;align-items:center;justify-content:space-between}.section-title>strong{font-size:13px}
@@ -595,10 +628,12 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       .mission-list{display:grid;gap:7px}.mission{padding:11px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.045);display:grid;gap:9px}.mission.pending{border-color:rgba(242,169,59,.24)}.mission-head{display:flex;justify-content:space-between;gap:10px}.mission-head>div{display:grid;gap:2px}.mission-head strong{font-size:12px}.mission-head small{font-size:9px;opacity:.58}.mission-state{display:inline-flex;align-items:center;gap:4px;font-size:9px;white-space:nowrap}.mission.ready .mission-state{color:var(--success-color,#4caf50)}.mission.pending .mission-state{color:var(--warning-color,#f2a93b)}.conditions{display:flex;flex-wrap:wrap;gap:5px}.condition{display:inline-flex;align-items:center;gap:4px;padding:5px 7px;border-radius:999px;background:rgba(255,255,255,.05);font-size:9px}.condition.passed{color:var(--success-color,#4caf50)}.condition.pending{color:var(--warning-color,#f2a93b)}.muted,.empty{font-size:10px;opacity:.52}.mission-actions{display:flex;justify-content:flex-end;gap:6px}.mission-actions button{height:30px;border-radius:10px}.mission-actions .danger-button{color:var(--error-color,#ee5b64)}
       .mission-editor{padding:13px;border-radius:17px;background:rgba(255,255,255,.045);display:grid;gap:12px}.form-head{display:flex;align-items:center;justify-content:space-between}.form-head>strong{font-size:13px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.form-grid label{display:grid;gap:5px}.form-grid label>span,fieldset legend{font-size:9px;text-transform:uppercase;letter-spacing:.06em;opacity:.55}.form-grid input,.form-grid select{width:100%;height:36px;border:1px solid rgba(255,255,255,.10);border-radius:10px;padding:0 9px;background:rgba(0,0,0,.14);color:inherit}.form-grid select[multiple]{height:auto;min-height:72px;padding:5px 7px}.form-grid select[multiple] option{padding:5px 4px;border-radius:5px}fieldset{margin:0;padding:0;border:0;display:grid;gap:7px}.day-picker{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.day-choice input{position:absolute;opacity:0}.day-choice span{height:31px;display:grid;place-items:center;border-radius:9px;background:rgba(255,255,255,.045);font-size:9px;cursor:pointer}.day-choice input:checked+span{background:rgba(65,189,245,.20);color:var(--primary-color,#41bdf5);font-weight:800}.form-hint{display:flex;align-items:flex-start;gap:6px;font-size:9px;line-height:1.4;opacity:.62}.capability-hint{padding:8px;border-radius:10px;background:rgba(65,189,245,.08);color:var(--primary-color,#41bdf5);opacity:1}.enabled-choice{grid-template-columns:1fr auto!important;align-items:center}.enabled-choice input{width:20px!important;height:20px!important}.form-actions{display:flex;justify-content:flex-end;gap:7px}
       @container robbie-card (max-width:520px){.easy-wrap,.advanced-wrap{padding:13px}.condition-summary span:last-child{display:none}.easy-next{grid-template-columns:30px minmax(0,1fr) auto}.week-grid{gap:3px}.week-day{padding:6px 2px}.form-grid{grid-template-columns:1fr}.mission-state{font-size:0}.mission-state .icon-box{display:grid}.mission-actions button{font-size:0;padding:0;width:30px}.mission-actions .icon-box{margin:0}.profile-grid{grid-template-columns:1fr 1fr}.easy-room,.title{font-size:17px}}
+      @media (prefers-reduced-motion:reduce){.robbie-mark *{animation:none!important}}
     </style>`;
   }
 
   _ensureShell() {
+    this._bindHostClick();
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
     if (this._mount) return;
     this.shadowRoot.innerHTML = `${this._styles()}<div data-card-host></div>`;
@@ -793,6 +828,9 @@ class RobbieVacuumBadge extends HTMLElement {
       .next-time{position:absolute;left:50%;bottom:-1px;transform:translateX(-50%);font-size:6px;font-weight:850;line-height:1;letter-spacing:-.05em;white-space:nowrap;color:var(--badge-color)}
       .state-marker{position:absolute;right:-4px;bottom:-4px;display:grid;place-items:center;width:12px;height:12px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color,#fff));box-shadow:0 0 0 1px var(--ha-card-border-color,var(--divider-color,#ddd));color:var(--badge-color)}
       .state-marker ha-icon{--mdc-icon-size:9px}
+      ha-badge[data-mode="cleaning"] .robot-symbol{animation:badge-clean 2.6s ease-in-out infinite}ha-badge[data-mode="cleaning"] .state-marker{animation:badge-pulse 1.4s ease-in-out infinite}ha-badge[data-mode="returning"] .robot-symbol{animation:badge-return 2s ease-in-out infinite}ha-badge[data-mode="waiting"] .robot-symbol{animation:badge-breathe 1.8s ease-in-out infinite}ha-badge[data-mode="vacation"] .robot-symbol{animation:badge-float 3.4s ease-in-out infinite}ha-badge[data-mode="error"] .robot-symbol{animation:badge-alert .48s ease-in-out infinite}
+      @keyframes badge-clean{0%,100%{transform:translateX(-1px) rotate(-5deg)}50%{transform:translateX(1px) rotate(5deg)}}@keyframes badge-pulse{50%{transform:scale(1.16)}}@keyframes badge-return{0%,100%{transform:translateX(-1px)}50%{transform:translateX(1px)}}@keyframes badge-breathe{50%{transform:scale(.9);opacity:.72}}@keyframes badge-float{0%,100%{transform:translateY(1px)}50%{transform:translateY(-1px)}}@keyframes badge-alert{0%,100%{transform:translateX(-1px)}50%{transform:translateX(1px)}}
+      @media (prefers-reduced-motion:reduce){.robot-symbol,.state-marker{animation:none!important}}
     </style>`;
   }
 

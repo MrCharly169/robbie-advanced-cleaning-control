@@ -53,6 +53,7 @@ class Element {
     };
     return this.shadowRoot;
   }
+  addEventListener(type, callback) { this.handlers[`host:${type}`] = callback; }
   dispatchEvent(event) { this.lastEvent = event; }
 }
 
@@ -254,6 +255,10 @@ const cardClick = (matches, dataset = {}) => card.handlers["shadow:click"]({
   preventDefault() {}, stopPropagation() {},
   composedPath() { return [{ matches: (selector) => selector === "button" || selector === matches, dataset }]; },
 });
+const cardHostClick = (matches, dataset = {}) => card.handlers["host:click"]({
+  preventDefault() {}, stopPropagation() {},
+  composedPath() { return [{ matches: (selector) => selector === "button" || selector === matches, dataset }]; },
+});
 cardClick('[data-action="postpone"]');
 assert.equal(JSON.stringify(serviceCalls), JSON.stringify([{
   domain: "robbie_advanced_cc",
@@ -267,11 +272,15 @@ assert.match(card.shadowRoot.innerHTML, /kitchen/);
 assert.match(card.shadowRoot.innerHTML, /Roboter verfügbar/);
 assert.match(card.shadowRoot.innerHTML, /Home Zone: 0/);
 assert.match(card.shadowRoot.innerHTML, /data-add-day="mon"/);
+assert.match(card.shadowRoot.innerHTML, /data-add-position="top"/);
 assert.match(card.shadowRoot.innerHTML, /Vac\+Mop · kitchen/);
 assert.equal(card.getCardSize(), 9);
-card._editingMissionId = "new";
-card._render();
+cardHostClick("[data-add]", { addPosition: "bottom" });
+assert.equal(card._editingMissionId, "new");
+assert.equal(card._editingPlacement, "bottom");
 assert.match(card.shadowRoot.innerHTML, /Live-Auswahl des Roboters/);
+assert.match(card.shadowRoot.innerHTML, /class="robbie-mark /);
+assert.match(card.shadowRoot.innerHTML, /class="robbie-machine"/);
 assert.match(card.shadowRoot.innerHTML, /<select name="fan">/);
 assert.match(card.shadowRoot.innerHTML, /<select name="water">/);
 assert.match(card.shadowRoot.innerHTML, /<select name="passes">/);
