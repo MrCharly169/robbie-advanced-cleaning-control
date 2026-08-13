@@ -1,0 +1,66 @@
+# Neutral examples for Developer Tools -> Actions. Replace the config entry ID
+# and vacuum entity with values from your own Home Assistant instance. Area and
+# profile values must be choices detected for that robot; an empty area list is
+# a full clean. The Generic adapter applies fan/area/start, not arbitrary
+# mode/water selects or repeat passes.
+
+- action: robbie_advanced_cc.add_mission
+  data:
+    entry_id: YOUR_CONFIG_ENTRY_ID
+    mission:
+      id: weekday_kitchen
+      name: Weekday kitchen
+      vacuum_entity_id: vacuum.example_robot
+      weekdays: [mon, wed, fri]
+      start_time: "09:00"
+      areas: [kitchen]
+      profile:
+        mode: vacuum
+        fan: low
+        water: null
+        passes: 1
+      guards:
+        vacation: block
+        mop_missing: block
+        vacuum_unavailable: postpone
+        people_home: wait
+      announce_before_minutes: 60
+
+# A native Home Assistant Schedule helper replaces weekdays/start_time as the
+# trigger. Keep the fields valid for mission portability even though the helper
+# supplies the next event.
+- action: robbie_advanced_cc.add_mission
+  data:
+    entry_id: YOUR_CONFIG_ENTRY_ID
+    mission:
+      id: schedule_helper_clean
+      name: Schedule helper clean
+      vacuum_entity_id: vacuum.example_robot
+      weekdays: []
+      start_time: "09:00"
+      schedule_entity_id: schedule.example_cleaning
+      areas: []
+      profile:
+        mode: vacuum
+        fan: null
+        water: null
+        passes: 1
+      guards:
+        vacation: block
+        mop_missing: block
+        vacuum_unavailable: postpone
+        people_home: allow
+      announce_before_minutes: 0
+
+- action: robbie_advanced_cc.run_next
+  data:
+    entry_id: YOUR_CONFIG_ENTRY_ID
+
+- action: robbie_advanced_cc.skip_next
+  data:
+    entry_id: YOUR_CONFIG_ENTRY_ID
+
+- action: robbie_advanced_cc.postpone_next
+  data:
+    entry_id: YOUR_CONFIG_ENTRY_ID
+    minutes: 60

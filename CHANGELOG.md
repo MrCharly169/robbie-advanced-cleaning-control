@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Documentation
+
+- Reworked the public English README and added a complete German customer guide,
+  verified product boundaries, installation/uninstall guidance, real lab
+  screenshots, architecture/adapter visuals, community templates, security and
+  repository metadata guidance.
+
 
 ## 2026.8.0b11 - 2026-08-13
 

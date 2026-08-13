@@ -12,7 +12,10 @@
 ## Behavior contract
 
 - Mission intent remains independent of vendor transport.
-- Unsupported capabilities are omitted and never simulated as successful.
+- Missing room, fan and water choices are omitted and device commands are never
+  simulated as successful. Portable mode/pass metadata can still exist without
+  an execution mapping; the Generic adapter does not apply arbitrary mode/water
+  selects, and neither current adapter executes repeat passes.
 - Vacation, unavailable vacuum and missing mop guards remain deterministic.
 - Skip-once, postponements and missions survive restarts.
 - Generic vacuums retain full-clean support even without areas or profile

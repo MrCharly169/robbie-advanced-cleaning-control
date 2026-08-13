@@ -1,0 +1,46 @@
+# Neutral legacy migration example. Replace both placeholders before using it.
+# Mode/water choices require an adapter execution mapping; currently only exact
+# Valetudo sibling selects are applied. The Generic adapter does not apply them,
+# and neither current adapter executes repeat passes.
+
+- action: robbie_advanced_cc.add_mission
+  data:
+    entry_id: YOUR_CONFIG_ENTRY_ID
+    mission:
+      id: monday_room
+      name: Monday room clean
+      vacuum_entity_id: vacuum.example_robot
+      weekdays: [mon]
+      start_time: "09:00"
+      areas: [example_room]
+      profile: {mode: vacuum, fan: medium, water: null, passes: 1}
+      guards: {people_home: wait, vacation: block, vacuum_unavailable: postpone}
+      announce_before_minutes: 60
+
+- action: robbie_advanced_cc.add_mission
+  data:
+    entry_id: YOUR_CONFIG_ENTRY_ID
+    mission:
+      id: wednesday_standard
+      name: Wednesday standard clean
+      vacuum_entity_id: vacuum.example_robot
+      weekdays: [wed]
+      start_time: "07:30"
+      areas: []
+      profile: {mode: vacuum, fan: medium, water: null, passes: 1}
+      guards: {people_home: allow, vacation: block, vacuum_unavailable: postpone}
+      announce_before_minutes: 60
+
+- action: robbie_advanced_cc.add_mission
+  data:
+    entry_id: YOUR_CONFIG_ENTRY_ID
+    mission:
+      id: friday_mop
+      name: Friday vacuum and mop
+      vacuum_entity_id: vacuum.example_robot
+      weekdays: [fri]
+      start_time: "09:00"
+      areas: []
+      profile: {mode: vacuum_and_mop, fan: low, water: medium, passes: 1}
+      guards: {people_home: wait, vacation: block, mop_missing: block, vacuum_unavailable: postpone}
+      announce_before_minutes: 60

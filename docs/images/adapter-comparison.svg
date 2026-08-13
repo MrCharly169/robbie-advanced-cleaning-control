@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="560" viewBox="0 0 1400 560" role="img" aria-labelledby="title desc">
+  <title id="title">Robbie adapter and device communication comparison</title>
+  <desc id="desc">Three columns compare the Generic adapter, Valetudo enhancement and an existing cloud integration while separating Robbie's local planning from delegated device transport.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07182e"/>
+      <stop offset="1" stop-color="#123b5d"/>
+    </linearGradient>
+    <linearGradient id="rob" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#173f63"/>
+      <stop offset="1" stop-color="#14546b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1400" height="560" rx="28" fill="url(#bg)"/>
+  <text x="60" y="64" fill="#fff" font-family="system-ui,Segoe UI,sans-serif" font-size="30" font-weight="750">One planner boundary, three connection paths</text>
+  <text x="60" y="98" fill="#aac9e3" font-family="system-ui,Segoe UI,sans-serif" font-size="18">Blue-green: Robbie acts locally · Gray: device communication remains delegated</text>
+
+  <g font-family="system-ui,Segoe UI,sans-serif">
+    <g transform="translate(55 135)">
+      <rect width="410" height="365" rx="22" fill="#0d2945" stroke="#4bb8ff" stroke-width="2"/>
+      <circle cx="44" cy="44" r="22" fill="#174467"/>
+      <text x="44" y="51" text-anchor="middle" fill="#65c8ff" font-size="22" font-weight="800">G</text>
+      <text x="82" y="42" fill="#fff" font-size="22" font-weight="750">Generic Adapter</text>
+      <text x="82" y="66" fill="#aac9e3" font-size="15">Standard Home Assistant contract</text>
+      <rect x="24" y="95" width="362" height="155" rx="16" fill="url(#rob)"/>
+      <text x="44" y="126" fill="#70edd0" font-size="15" font-weight="800">ROBBIE DIRECTLY</text>
+      <text x="44" y="158" fill="#fff" font-size="17">• Plans and evaluates conditions</text>
+      <text x="44" y="188" fill="#fff" font-size="17">• Reads HA features and area mapping</text>
+      <text x="44" y="218" fill="#fff" font-size="17">• Calls fan, clean_area or start</text>
+      <rect x="24" y="268" width="362" height="72" rx="16" fill="#263b50"/>
+      <text x="44" y="296" fill="#c4d2df" font-size="15" font-weight="800">DELEGATED</text>
+      <text x="44" y="323" fill="#fff" font-size="17">Installed HA integration → robot</text>
+    </g>
+
+    <g transform="translate(495 135)">
+      <rect width="410" height="365" rx="22" fill="#0d2945" stroke="#2fd6bf" stroke-width="2"/>
+      <circle cx="44" cy="44" r="22" fill="#14546b"/>
+      <text x="44" y="51" text-anchor="middle" fill="#70edd0" font-size="21" font-weight="800">V</text>
+      <text x="82" y="42" fill="#fff" font-size="22" font-weight="750">Valetudo</text>
+      <text x="82" y="66" fill="#aac9e3" font-size="15">Enhanced capability detection</text>
+      <rect x="24" y="95" width="362" height="155" rx="16" fill="url(#rob)"/>
+      <text x="44" y="126" fill="#70edd0" font-size="15" font-weight="800">ROBBIE DIRECTLY</text>
+      <text x="44" y="158" fill="#fff" font-size="17">• Finds supported sibling entities</text>
+      <text x="44" y="188" fill="#fff" font-size="17">• Applies mode, fan and water selects</text>
+      <text x="44" y="218" fill="#fff" font-size="17">• Projects mop and maintenance state</text>
+      <rect x="24" y="268" width="362" height="72" rx="16" fill="#263b50"/>
+      <text x="44" y="296" fill="#c4d2df" font-size="15" font-weight="800">DELEGATED</text>
+      <text x="44" y="323" fill="#fff" font-size="17">Valetudo HA entities / MQTT → robot</text>
+    </g>
+
+    <g transform="translate(935 135)">
+      <rect width="410" height="365" rx="22" fill="#0d2945" stroke="#91a9be" stroke-width="2"/>
+      <circle cx="44" cy="44" r="22" fill="#324a60"/>
+      <path d="M33 49c-8-16 18-23 22-8 12-2 16 16 3 18H37c-8 0-10-8-4-10z" fill="none" stroke="#c4d2df" stroke-width="3"/>
+      <text x="82" y="42" fill="#fff" font-size="22" font-weight="750">Existing cloud integration</text>
+      <text x="82" y="66" fill="#aac9e3" font-size="15">Still uses Robbie's Generic path</text>
+      <rect x="24" y="95" width="362" height="155" rx="16" fill="url(#rob)"/>
+      <text x="44" y="126" fill="#70edd0" font-size="15" font-weight="800">ROBBIE DIRECTLY</text>
+      <text x="44" y="158" fill="#fff" font-size="17">• Plans vendor-neutral missions</text>
+      <text x="44" y="188" fill="#fff" font-size="17">• Reads exposed same-device entities</text>
+      <text x="44" y="218" fill="#fff" font-size="17">• Calls standard HA services</text>
+      <rect x="24" y="268" width="362" height="72" rx="16" fill="#263b50"/>
+      <text x="44" y="296" fill="#c4d2df" font-size="15" font-weight="800">DELEGATED</text>
+      <text x="44" y="323" fill="#fff" font-size="17">Vendor integration + credentials → cloud/robot</text>
+    </g>
+  </g>
+  <text x="700" y="535" text-anchor="middle" fill="#9fbdd7" font-family="system-ui,Segoe UI,sans-serif" font-size="16">Robbie never becomes the manufacturer transport or credential store.</text>
+</svg>

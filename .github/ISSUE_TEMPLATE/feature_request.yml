@@ -1,0 +1,87 @@
+name: Feature request
+description: Propose a vendor-neutral planner, adapter or UI improvement
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the user problem before the solution. Robbie delegates robot transport and authentication to existing Home Assistant integrations. Never include credentials.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: What cannot be accomplished today, and who benefits?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain the expected mission, condition, capability, adapter or UI behavior.
+    validations:
+      required: true
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.6.0"
+    validations:
+      required: true
+
+  - type: input
+    id: robbie_version
+    attributes:
+      label: Robbie version
+      placeholder: "2026.8.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: adapter
+    attributes:
+      label: Relevant adapter path
+      options:
+        - Generic Home Assistant
+        - Valetudo enhancement
+        - New vendor-neutral capability
+        - Not adapter-specific
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: vacuum_entity
+    attributes:
+      label: Anonymized vacuum entity
+      description: Enter "not applicable" when the request is not robot-specific.
+      placeholder: vacuum.example_robot
+    validations:
+      required: true
+
+  - type: textarea
+    id: ha_contract
+    attributes:
+      label: Existing Home Assistant entities or services
+      description: Which standard entity, supported feature, select or service already exposes the needed behavior?
+      placeholder: vacuum.clean_area and select.example_robot_mode
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Reviewed capability/diagnostic information
+      description: Optional. Paste only a reviewed excerpt with credentials and private identifiers removed.
+      render: text
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Scope and privacy
+      options:
+        - label: This request keeps manufacturer transport and credentials in the existing Home Assistant integration.
+          required: true
+        - label: I removed credentials and private identifiers from this request.
+          required: true

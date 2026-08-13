@@ -61,6 +61,11 @@ adapter discovers optional MQTT-created sibling entities and translates mode,
 fan and water profile values before delegating start/area cleaning to the
 generic HA contract.
 
+The Generic adapter does not apply arbitrary related mode or water selects.
+`passes` is bounded mission metadata and is displayed by the current setup/Card,
+but neither current adapter sends a repeat-pass command. Capability projection
+must therefore not be confused with execution support.
+
 `capabilities.py` projects Home Assistant vacuum area mappings, Valetudo-style
 sibling selects and same-device cloud entities into one JSON-safe profile-choice
 contract. The config flow and Planner Status sensor consume that same contract;
