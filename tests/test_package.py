@@ -27,7 +27,7 @@ class PackageTests(unittest.TestCase):
     def test_manifest_owns_the_august_calver(self):
         manifest = json.loads((COMPONENT / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["domain"], "robbie_advanced_cc")
-        self.assertRegex(manifest["version"], r"^2026\.8\.\d+(?:b\d+)?$")
+        self.assertRegex(manifest["version"], r"^2026\.8\.\d+(?:b[0-9])?$")
 
     def test_translations_have_identical_contract(self):
         english = json.loads((COMPONENT / "translations" / "en.json").read_text(encoding="utf-8"))
@@ -52,6 +52,8 @@ class PackageTests(unittest.TestCase):
         constants = (COMPONENT / "const.py").read_text(encoding="utf-8")
         self.assertIn("SensorDeviceClass.ENUM", sensor)
         self.assertIn("_attr_options = PLANNER_STATUS_OPTIONS", sensor)
+        self.assertIn('"waiting": "mdi:account-clock-outline"', sensor)
+        self.assertIn('"failed": "mdi:alert"', sensor)
         for state in ("idle", "announced", "preparing", "running", "dock_service", "completed", "skipped", "postponed", "waiting", "vacation", "blocked", "failed"):
             self.assertIn(f'STATE_{state.upper()}: Final = "{state}"', constants)
 
@@ -124,6 +126,9 @@ class PackageTests(unittest.TestCase):
         self.assertNotIn("state_override_entity", dashboard_setup)
         self.assertIn("visibility", dashboard_setup)
         self.assertIn("status.entity_id", dashboard_setup)
+        self.assertIn('{ type: "entity", entity: status.entity_id', dashboard_setup)
+        self.assertNotIn('type: "custom:robbie-vacuum-badge"', dashboard_setup)
+        self.assertIn('setupNotification.message.includes("type: entity")', dashboard_setup)
         self.assertIn("did not auto-register its canonical Card resource", dashboard_setup)
 
 

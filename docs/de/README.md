@@ -102,15 +102,21 @@ type: custom:robbie-advanced-cleaning-card
 mode: simple
 ```
 
-Minimales Badge, wenn genau ein Planer/Roboter automatisch erkannt wird:
+Minimales natives Badge:
 
 ```yaml
-type: custom:robbie-vacuum-badge
-navigation_path: /lovelace/cleaning
+type: entity
+entity: sensor.example_planner_status
+show_name: false
+show_icon: true
+show_state: true
+color: state
+tap_action:
+  action: navigate
+  navigation_path: /lovelace/cleaning
 ```
 
-Setze `entry_id`, `status_entity` oder `vacuum_entity` nur, wenn die automatische
-Erkennung mehrdeutig ist, beispielsweise bei mehreren Planern und Robotern.
+Wähle den von dieser Integration erstellten Planer-Statussensor.
 
 ## Installation
 
@@ -223,20 +229,13 @@ type: custom:robbie-advanced-cleaning-card
 mode: advanced
 ```
 
-### Badge je Roboter
+### Natives Planer-Badge
 
-`custom:robbie-vacuum-badge` verwendet das native 36-px-Badge von Home
-Assistant. Es zeigt Station, Schlafen, Reinigen, Rückfahrt, Pause, Warten,
-Urlaub, Fehler und Nicht verfügbar. In der Station kann es den nächsten Lauf
-anzeigen. Aktivieren öffnet `navigation_path`.
-
-Für einen bestimmten Roboter in einem Multi-Roboter-Planer:
-
-```yaml
-type: custom:robbie-vacuum-badge
-vacuum_entity: vacuum.example_robot
-navigation_path: /lovelace/cleaning
-```
+Verwende Home Assistants normales Entität-Badge mit dem Planer-Statussensor.
+Robbie liefert den vollständigen Enum-Vertrag und ein zustandsabhängiges Symbol.
+Das Badge kann über seine native Tipp-Aktion zum Reinigungsdashboard navigieren.
+Roboterspezifische Details bleiben in der Card oder in separaten nativen
+Entität-Badges verfügbar.
 
 Derselbe Badge-Typ kann in zwei Dashboard-Ansichten unabhängig konfiguriert
 werden. Ohne `visibility` bleibt er in der Area View immer sichtbar. Im
@@ -245,18 +244,28 @@ Assistant und der Enum-Status des Planers verwendet:
 
 ```yaml
 # Area View
-type: custom:robbie-vacuum-badge
+type: entity
 entity: sensor.example_planner_status
-vacuum_entity: vacuum.example_robot
-navigation_path: /lovelace/cleaning
+show_name: false
+show_icon: true
+show_state: true
+color: state
+tap_action:
+  action: navigate
+  navigation_path: /lovelace/cleaning
 ```
 
 ```yaml
 # Hauptdashboard
-type: custom:robbie-vacuum-badge
+type: entity
 entity: sensor.example_planner_status
-vacuum_entity: vacuum.example_robot
-navigation_path: /lovelace/cleaning
+show_name: false
+show_icon: true
+show_state: true
+color: state
+tap_action:
+  action: navigate
+  navigation_path: /lovelace/cleaning
 visibility:
   - condition: or
     conditions:

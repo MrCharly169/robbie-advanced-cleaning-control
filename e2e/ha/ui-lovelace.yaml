@@ -4,14 +4,25 @@ views:
     path: cleaning
     icon: mdi:robot-vacuum
     badges:
-      - type: custom:robbie-vacuum-badge
-        vacuum_entity: vacuum.valetudo_fixture_robot
+      - type: entity
         entity: sensor.robbie_e2e_planner_planner_status
-        navigation_path: /lovelace/cleaning
-      - type: custom:robbie-vacuum-badge
-        vacuum_entity: vacuum.cloud_fixture_robot
+        show_name: false
+        show_icon: true
+        show_state: true
+        color: state
+        tap_action:
+          action: navigate
+          navigation_path: /lovelace/cleaning
+      - type: entity
         entity: sensor.robbie_e2e_planner_planner_status
-        navigation_path: /lovelace/cleaning
+        show_name: false
+        show_icon: true
+        show_state: true
+        color: state
+        visibility:
+          - condition: state
+            entity: sensor.robbie_e2e_planner_planner_status
+            state: waiting
     cards:
       - type: custom:robbie-advanced-cleaning-card
         status_entity: sensor.robbie_e2e_planner_planner_status
