@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+
+## 2026.8.0b12 - 2026-08-19
+
 ### Added
 
 - Card status details now explain why a run is waiting or why an active run
@@ -29,7 +32,6 @@
   verified product boundaries, installation/uninstall guidance, real lab
   screenshots, architecture/adapter visuals, community templates, security and
   repository metadata guidance.
-
 
 ## 2026.8.0b11 - 2026-08-13
 
