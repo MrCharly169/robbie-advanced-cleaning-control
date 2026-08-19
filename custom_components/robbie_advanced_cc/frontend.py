@@ -92,21 +92,17 @@ entry_id: {entry.entry_id}
 mode: simple
 ```
 
-Add a native Entity Badge at the top of the view with:
+Add the Robbie Custom Badge at the top of the view with:
 
 ```yaml
-type: entity
+type: custom:robbie-vacuum-badge
 entity: sensor.example_planner_status
-show_name: false
-show_icon: true
-show_state: true
-color: state
 tap_action:
   action: navigate
   navigation_path: {dashboard_path}
 ```
 
-Select this planner's status sensor in Home Assistant's graphical Badge editor. Configure conditional display only through its native Visibility tab.
+Select this planner's status sensor in Home Assistant's graphical Badge editor. Configure navigation under the native Interactions tab and conditional display only through its native Visibility tab.
 
 Open the [Cleaning Control dashboard]({dashboard_path}). Switch the Card to **Advanced** to create a separate run for each weekday, room, vacuum/mop mode, fan strength, water level and number of passes.
 """

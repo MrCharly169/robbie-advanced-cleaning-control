@@ -77,8 +77,8 @@ Card-Ressource.
 
 | Missionseditor | Badge je Roboter |
 |---|---|
-| ![Robbie-Missionseditor mit neutralem Zeitplan und Reinigungsprofil](../images/mission-editor.png) | ![Natives Home-Assistant-Roboter-Badge mit Stationsstatus und nächstem Lauf](../images/robot-badge.png) |
-| Zeitpunkt, Anwesenheitsverhalten, Roboter, Räume und unterstützte Profilwerte bearbeiten. | Natives 36-px-Badge mit Live-Status und optionaler Zeit des nächsten Laufs. |
+| ![Robbie-Missionseditor mit neutralem Zeitplan und Reinigungsprofil](../images/mission-editor.png) | ![Hybrides Home-Assistant-Roboter-Badge mit Stationsstatus und nächstem Lauf](../images/robot-badge.png) |
+| Zeitpunkt, Anwesenheitsverhalten, Roboter, Räume und unterstützte Profilwerte bearbeiten. | Hybrides 36-px-Custom-Badge mit nativer Konfiguration, Live-Status und optionaler Zeit des nächsten Laufs. |
 
 ## Schnellstart
 
@@ -102,15 +102,11 @@ type: custom:robbie-advanced-cleaning-card
 mode: simple
 ```
 
-Minimales natives Badge:
+Minimales Custom Badge mit nativer Home-Assistant-Konfiguration:
 
 ```yaml
-type: entity
+type: custom:robbie-vacuum-badge
 entity: sensor.example_planner_status
-show_name: false
-show_icon: true
-show_state: true
-color: state
 tap_action:
   action: navigate
   navigation_path: /lovelace/cleaning
@@ -229,13 +225,13 @@ type: custom:robbie-advanced-cleaning-card
 mode: advanced
 ```
 
-### Natives Planer-Badge
+### Hybrides Planer-Badge
 
-Verwende Home Assistants normales Entität-Badge mit dem Planer-Statussensor.
-Robbie liefert den vollständigen Enum-Vertrag und ein zustandsabhängiges Symbol.
-Das Badge kann über seine native Tipp-Aktion zum Reinigungsdashboard navigieren.
-Roboterspezifische Details bleiben in der Card oder in separaten nativen
-Entität-Badges verfügbar.
+Verwende Robbies Custom Badge mit dem nativen Planer-Statussensor.
+Robbies Custom Badge verbindet Roboterlogo, Zustandsmarker, nächste Startzeit,
+Animation und semantische Farbe. Entity, Navigation und bedingte Anzeige werden
+weiterhin über Home Assistants nativen Entity-Selector sowie die Tabs
+Interaktionen und Sichtbarkeit konfiguriert.
 
 Derselbe Badge-Typ kann in zwei Dashboard-Ansichten unabhängig konfiguriert
 werden. Ohne `visibility` bleibt er in der Area View immer sichtbar. Im
@@ -244,12 +240,8 @@ Assistant und der Enum-Status des Planers verwendet:
 
 ```yaml
 # Area View
-type: entity
+type: custom:robbie-vacuum-badge
 entity: sensor.example_planner_status
-show_name: false
-show_icon: true
-show_state: true
-color: state
 tap_action:
   action: navigate
   navigation_path: /lovelace/cleaning
@@ -257,12 +249,8 @@ tap_action:
 
 ```yaml
 # Hauptdashboard
-type: entity
+type: custom:robbie-vacuum-badge
 entity: sensor.example_planner_status
-show_name: false
-show_icon: true
-show_state: true
-color: state
 tap_action:
   action: navigate
   navigation_path: /lovelace/cleaning
@@ -280,9 +268,10 @@ visibility:
         state: failed
 ```
 
-Der Badge-Editor besitzt keine eigene Zustands- oder Sichtbarkeitsliste. Das
-native Dropdown von Home Assistant erhält alle Werte direkt vom Enum-Sensor.
-Jede Lovelace-Ansicht besitzt weiterhin ihre eigene Badge-Instanz.
+Der Badge-Editor besitzt keine eigene Saugroboter-, Navigate-, Hidden-,
+Zustands- oder Sichtbarkeitsliste. Das native Dropdown von Home Assistant erhält
+alle Werte direkt vom Enum-Sensor. Jede Lovelace-Ansicht besitzt weiterhin ihre
+eigene Badge-Instanz.
 
 ## Missionen, Wochenpläne und Bedingungen
 

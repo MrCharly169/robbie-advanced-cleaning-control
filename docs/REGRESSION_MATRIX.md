@@ -20,7 +20,7 @@
 | Dashboard editing | The local lab persists its dashboard through Lovelace Storage mode | `tests/test_package.py`, runtime E2E |
 | Card onboarding | The canonical module auto-registers once and the setup notification contains Card and Badge instructions | package/runtime E2E |
 | Per-day profiles | Every weekday can open a preselected editor with independent room, mode, fan, water and passes | `tests/test_card_runtime.js`, runtime E2E |
-| Badge runtime | Native 36 px `ha-badge` combines robot glyph, state marker and docked next run; mouse/keyboard open Cleaning Control | `tests/test_card_runtime.js` |
+| Badge runtime | Hybrid Custom Badge combines robot glyph, state marker and docked next run; mouse/keyboard delegate the native `tap_action` through `hass-action` | `tests/test_card_runtime.js` |
 | Badge simulation | Disposable lab can select every badge state and return to live robot state | package/runtime E2E, `tests/test_card_runtime.js` |
 | Packaging | Manifest, HACS metadata, permanent resource and ZIP agree | `tests/test_package.py` |
 

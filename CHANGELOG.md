@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 2026.8.2b0 - 2026-08-19
+
+### Hybrid native Custom Badge
+
+- Restored the Robbie Custom Badge so robot logo, planner marker, next-run time,
+  animation and semantic color remain available.
+- Removed the Badge's own Vacuum, Planner-state and Navigation-path controls;
+  the editor now uses Home Assistant's native entity selector.
+- Delegated navigation through Home Assistant's `hass-action` contract and kept
+  conditional display exclusively in the native Visibility tab.
+- Adopted Home Assistant ecosystem policy 1.1 for the shared hybrid Badge contract.
+
 ### Home Assistant ecosystem governance
 
 - Adopted the shared MeyersHaff Home Assistant ecosystem policy v1 and its
