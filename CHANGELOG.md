@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+
+## 2026.8.0b14 - 2026-08-19
+
 ### Fixed
 
 - Restored `waiting` as the effective native Planner status after a restart whenever persisted missions are still waiting, so Home Assistant Visibility conditions recognize the state reliably.
