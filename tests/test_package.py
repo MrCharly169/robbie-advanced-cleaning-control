@@ -47,6 +47,10 @@ class PackageTests(unittest.TestCase):
         self.assertNotIn("State override", canonical)
         self.assertIn("native editors", canonical)
         self.assertIn('new CustomEvent("hass-action"', canonical)
+        self.assertIn('this._performNativeAction("hold")', canonical)
+        self.assertIn('this._performNativeAction("double_tap")', canonical)
+        self.assertIn('"touchstart"', canonical)
+        self.assertIn("_performContextHold", canonical)
         badge_editor = canonical.split("class RobbieVacuumBadgeEditor", 1)[1].split("if (!customElements.get", 1)[0]
         self.assertIn('<ha-form>', badge_editor)
         self.assertNotIn("Navigation path", badge_editor)

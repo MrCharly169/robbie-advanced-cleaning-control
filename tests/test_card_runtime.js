@@ -406,6 +406,7 @@ badge.setConfig({
   entity: "sensor.planner_status",
   state_override_entity: "input_select.badge_state_simulator",
   navigation_path: "/lovelace/cleaning",
+  hold_action: { action: "more-info" },
   visibility: [{ condition: "state", entity: "sensor.planner_status", state: "waiting" }],
 });
 badge.hass = card._hass;
@@ -491,7 +492,39 @@ assert.equal(badge.lastEvent.detail.action, "tap");
 assert.equal(badge.lastEvent.detail.config.entity, "sensor.planner_status");
 assert.equal(badge.lastEvent.detail.config.tap_action.action, "navigate");
 assert.equal(badge.lastEvent.detail.config.tap_action.navigation_path, "/lovelace/cleaning");
+assert.equal(badge.lastEvent.detail.config.hold_action.action, "more-info");
 assert.equal(badge.lastEvent.detail.config.visibility[0].state, "waiting");
+badge.handlers["ha-badge:pointerdown"]({});
+assert.equal(flushTimers(), 1);
+assert.equal(badge.lastEvent.type, "hass-action");
+assert.equal(badge.lastEvent.detail.action, "hold");
+assert.equal(badge.lastEvent.detail.config.entity, "sensor.planner_status");
+badge.handlers["ha-badge:click"]({ stopPropagation() {} });
+assert.equal(badge.lastEvent.detail.action, "hold", "the synthetic click after a hold must be ignored");
+badge.handlers["ha-badge:click"]({ stopPropagation() {} });
+badge.handlers["ha-badge:touchstart"]({});
+assert.equal(flushTimers(), 1);
+assert.equal(badge.lastEvent.detail.action, "hold", "touch fallback must dispatch a native hold");
+badge.handlers["ha-badge:click"]({ stopPropagation() {} });
+let contextPrevented = false;
+let contextStopped = false;
+badge.handlers["ha-badge:contextmenu"]({
+  preventDefault() { contextPrevented = true; },
+  stopPropagation() { contextStopped = true; },
+});
+assert.equal(contextPrevented, true);
+assert.equal(contextStopped, true);
+assert.equal(badge.lastEvent.detail.action, "hold", "iOS context-menu fallback must dispatch a native hold");
+badge.handlers["ha-badge:click"]({ stopPropagation() {} });
+badge.setConfig({
+  entity: "sensor.planner_status",
+  tap_action: { action: "navigate", navigation_path: "/lovelace/cleaning" },
+  hold_action: { action: "more-info" },
+  double_tap_action: { action: "more-info" },
+});
+badge.handlers["ha-badge:click"]({ stopPropagation() {} });
+badge.handlers["ha-badge:click"]({ stopPropagation() {} });
+assert.equal(badge.lastEvent.detail.action, "double_tap");
 let keyPrevented = false;
 badge.handlers["ha-badge:keydown"]({ key: "Enter", preventDefault() { keyPrevented = true; } });
 assert.equal(keyPrevented, true);

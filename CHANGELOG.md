@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed
+
+- Delegated native long-press and double-tap Badge interactions through Home
+  Assistant's `hass-action` contract, including suppression of the synthetic
+  click that follows a completed long press.
+- Added Touch Events and the iOS context-menu gesture as long-press fallbacks,
+  and stopped cancelling a valid hold merely because the pointer left the
+  Badge's small visual bounds.
+
 ## 2026.8.2b0 - 2026-08-19
 
 ### Hybrid native Custom Badge
