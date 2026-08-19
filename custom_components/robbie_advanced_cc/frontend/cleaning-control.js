@@ -1,6 +1,5 @@
 const DOMAIN = "robbie_advanced_cc";
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-const BADGE_ATTENTION_STATES = ["cleaning", "returning", "paused", "waiting", "vacation", "error", "unavailable"];
 
 const COPY = {
   en: {
@@ -815,12 +814,12 @@ class RobbieVacuumBadge extends HTMLElement {
   static getStubConfig(hass) {
     const status = Object.values(hass?.states ?? {}).find((state) =>
       Array.isArray(state.attributes?.managed_vacuums));
-    return { entry_id: status?.attributes?.entry_id, navigation_path: "/lovelace/cleaning", display_mode: "always" };
+    return { entity: status?.entity_id, entry_id: status?.attributes?.entry_id, navigation_path: "/lovelace/cleaning" };
   }
 
   setConfig(config = {}) {
     if (!config || typeof config !== "object") throw new Error("Badge configuration must be an object");
-    this._config = { navigation_path: "/lovelace/cleaning", display_mode: "always", ...config };
+    this._config = { navigation_path: "/lovelace/cleaning", ...config };
     this._lastRenderSignature = "";
     if (this._hass) this._scheduleRender();
   }
@@ -850,7 +849,7 @@ class RobbieVacuumBadge extends HTMLElement {
   }
 
   _status() {
-    const configured = this._hass?.states?.[this._config?.status_entity];
+    const configured = this._hass?.states?.[this._config?.entity || this._config?.status_entity];
     if (configured && Array.isArray(configured.attributes?.managed_vacuums)) return configured;
     const candidates = Object.values(this._hass?.states ?? {}).filter((state) =>
       Array.isArray(state.attributes?.managed_vacuums));
@@ -942,11 +941,11 @@ class RobbieVacuumBadge extends HTMLElement {
 
   _badgeStyles() {
     return `<style>
-      :host{display:block;width:var(--ha-badge-size,36px);height:var(--ha-badge-size,36px)}:host([data-robbie-hidden]){display:none!important;width:0!important;height:0!important;margin:0!important}
+      :host{display:block;width:var(--ha-badge-size,36px);height:var(--ha-badge-size,36px)}
       [data-badge-host]{display:contents}
-      .badge-symbol{position:relative;display:grid;place-items:center;width:24px;height:24px;color:var(--badge-color);overflow:visible}.robot-symbol{--mdc-icon-size:18px}
+      .badge-symbol{position:relative;display:grid;place-items:center;width:22px;height:22px;color:var(--badge-color);overflow:visible}.robot-symbol{--mdc-icon-size:18px}
       .next-time{position:absolute;left:50%;bottom:1px;transform:translateX(-50%);font-size:6px;font-weight:850;line-height:1;letter-spacing:-.04em;white-space:nowrap;color:var(--badge-color)}
-      .state-marker{position:absolute;right:0;bottom:0;display:grid;place-items:center;width:11px;height:11px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color,#fff));box-shadow:0 0 0 1px var(--ha-card-border-color,var(--divider-color,#ddd));color:var(--badge-color)}
+      .state-marker{position:absolute;right:-1px;bottom:-1px;display:grid;place-items:center;width:12px;height:12px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color,#fff));box-shadow:0 0 0 1px var(--ha-card-border-color,var(--divider-color,#ddd));color:var(--badge-color)}
       .state-marker ha-icon{--mdc-icon-size:8px}
       ha-badge[data-mode="cleaning"] .robot-symbol{animation:badge-clean 2.6s ease-in-out infinite}ha-badge[data-mode="cleaning"] .state-marker{animation:badge-pulse 1.4s ease-in-out infinite}ha-badge[data-mode="returning"] .robot-symbol{animation:badge-return 2s ease-in-out infinite}ha-badge[data-mode="waiting"] .robot-symbol{animation:badge-breathe 1.8s ease-in-out infinite}ha-badge[data-mode="vacation"] .robot-symbol{animation:badge-float 3.4s ease-in-out infinite}ha-badge[data-mode="error"] .robot-symbol{animation:badge-alert .48s ease-in-out infinite}
       @keyframes badge-clean{0%,100%{transform:translateX(-1px) rotate(-5deg)}50%{transform:translateX(1px) rotate(5deg)}}@keyframes badge-pulse{50%{transform:scale(1.16)}}@keyframes badge-return{0%,100%{transform:translateX(-1px)}50%{transform:translateX(1px)}}@keyframes badge-breathe{50%{transform:scale(.9);opacity:.72}}@keyframes badge-float{0%,100%{transform:translateY(1px)}50%{transform:translateY(-1px)}}@keyframes badge-alert{0%,100%{transform:translateX(-1px)}50%{transform:translateX(1px)}}
@@ -973,14 +972,10 @@ class RobbieVacuumBadge extends HTMLElement {
     const plannerRuntime = activeMission && ["running", "preparing"].includes(plannerState)
       ? "cleaning" : activeMission && plannerState === "failed" ? "error" : "";
     const state = vacation ? "vacation" : this._stateOverride() || (waiting ? "waiting" : plannerRuntime || raw);
-    const configuredVisible = Array.isArray(this._config.visible_states)
-      ? this._config.visible_states : String(this._config.visible_states || "").split(",").map((item) => item.trim()).filter(Boolean);
-    const visibleStates = configuredVisible.length ? configuredVisible : BADGE_ATTENTION_STATES;
-    const visible = this._config.display_mode !== "attention" || visibleStates.includes(state);
     const nextRun = status?.attributes?.next_runs?.[vacuumEntityId];
     return {
       language: String(this._hass?.language || "en").toLowerCase().startsWith("de") ? "de" : "en",
-      vacuumEntityId: vacuumEntityId || "", available: Boolean(vacuum), state, visible,
+      vacuumEntityId: vacuumEntityId || "", available: Boolean(vacuum), state,
       name: this._config.name || vacuum?.attributes?.friendly_name || vacuumEntityId || "",
       nextScheduled: nextRun?.scheduled || "", nextMission: nextRun?.mission || "",
       navigation: this._config.navigation_path || "",
@@ -991,9 +986,6 @@ class RobbieVacuumBadge extends HTMLElement {
     if (!this._config || !this._hass) return;
     this._ensureShell();
     const view = this._badgeViewModel();
-    this._attentionHidden = !view.visible;
-    if (view.visible) this.removeAttribute?.("data-robbie-hidden");
-    else this.setAttribute?.("data-robbie-hidden", "");
     const signature = JSON.stringify(view);
     if (signature === this._lastRenderSignature) return;
     this._lastRenderSignature = signature;
@@ -1031,7 +1023,7 @@ class RobbieVacuumBadge extends HTMLElement {
 }
 
 class RobbieVacuumBadgeEditor extends HTMLElement {
-  setConfig(config) { this._config = { navigation_path: "/lovelace/cleaning", display_mode: "always", ...config }; this._render(); }
+  setConfig(config) { this._config = { navigation_path: "/lovelace/cleaning", ...config }; this._render(); }
   set hass(value) { this._hass = value; this._render(); }
   _emit(key, value) { this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: { ...this._config, [key]: value } }, bubbles: true, composed: true })); }
   _render() {
@@ -1041,16 +1033,11 @@ class RobbieVacuumBadgeEditor extends HTMLElement {
     const statuses = Object.keys(this._hass.states).filter((id) => id.startsWith("sensor.") && Array.isArray(this._hass.states[id]?.attributes?.managed_vacuums));
     const overrides = Object.keys(this._hass.states).filter((id) => id.startsWith("input_select.") || id.startsWith("select."));
     const options = (items, selected) => items.map((id) => `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(this._hass.states[id]?.attributes?.friendly_name || id)}</option>`).join("");
-    const visibleStates = Array.isArray(this._config.visible_states) && this._config.visible_states.length ? this._config.visible_states : BADGE_ATTENTION_STATES;
-    this.shadowRoot.innerHTML = `<div class="editor"><label>Vacuum<select data-vacuum><option value="">Automatic from setup</option>${options(vacuums, this._config.vacuum_entity)}</select></label><label>Planner status<select data-status><option value="">Automatic from setup</option>${options(statuses, this._config.status_entity)}</select></label><label>State override (optional)<select data-override><option value="">Live robot state</option>${options(overrides, this._config.state_override_entity)}</select></label><label>Visibility<select data-display-mode><option value="always" ${this._config.display_mode !== "attention" ? "selected" : ""}>Always visible (Area view)</option><option value="attention" ${this._config.display_mode === "attention" ? "selected" : ""}>Attention states only (main dashboard)</option></select></label><fieldset data-visible-states ${this._config.display_mode === "attention" ? "" : "hidden"}><legend>Visible attention states</legend><div class="states">${BADGE_ATTENTION_STATES.map((state) => `<label><input type="checkbox" value="${state}" ${visibleStates.includes(state) ? "checked" : ""}><span>${state}</span></label>`).join("")}</div></fieldset><label>Navigation path<input data-path value="${escapeHtml(this._config.navigation_path)}"></label><small>Card and Badge automatically use the entities selected in the setup assistant. Add the same Badge to two views: always visible in the Area view and attention-only in the main dashboard.</small></div><style>.editor{display:grid;gap:13px;padding:16px}label{display:grid;gap:6px}select,input{padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}fieldset{border:0;padding:0;margin:0}.states{display:flex;flex-wrap:wrap;gap:8px}.states label{display:flex;align-items:center;gap:4px;padding:6px 8px;border-radius:999px;background:var(--secondary-background-color)}.states input{padding:0}small{opacity:.58}</style>`;
+    const selectedStatus = this._config.entity || this._config.status_entity;
+    this.shadowRoot.innerHTML = `<div class="editor"><label>Vacuum<select data-vacuum><option value="">Automatic from setup</option>${options(vacuums, this._config.vacuum_entity)}</select></label><label>Planner status<select data-status><option value="">Automatic from setup</option>${options(statuses, selectedStatus)}</select></label><label>State override (optional)<select data-override><option value="">Live robot state</option>${options(overrides, this._config.state_override_entity)}</select></label><label>Navigation path<input data-path value="${escapeHtml(this._config.navigation_path)}"></label><small>Card and Badge automatically use the entities selected in the setup assistant. Configure hiding and state conditions only in Home Assistant's native Visibility tab.</small></div><style>.editor{display:grid;gap:13px;padding:16px}label{display:grid;gap:6px}select,input{padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}small{opacity:.58}</style>`;
     this.shadowRoot.querySelector("[data-vacuum]")?.addEventListener("change", (event) => this._emit("vacuum_entity", event.target.value));
-    this.shadowRoot.querySelector("[data-status]")?.addEventListener("change", (event) => this._emit("status_entity", event.target.value));
+    this.shadowRoot.querySelector("[data-status]")?.addEventListener("change", (event) => this._emit("entity", event.target.value));
     this.shadowRoot.querySelector("[data-override]")?.addEventListener("change", (event) => this._emit("state_override_entity", event.target.value || undefined));
-    this.shadowRoot.querySelector("[data-display-mode]")?.addEventListener("change", (event) => this._emit("display_mode", event.target.value));
-    this.shadowRoot.querySelector("[data-visible-states]")?.addEventListener("change", (event) => {
-      const values = [...event.currentTarget.querySelectorAll('input:checked')].map((item) => item.value);
-      this._emit("visible_states", values);
-    });
     this.shadowRoot.querySelector("[data-path]")?.addEventListener("change", (event) => this._emit("navigation_path", event.target.value));
   }
 }

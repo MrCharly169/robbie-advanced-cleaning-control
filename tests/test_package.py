@@ -40,6 +40,18 @@ class PackageTests(unittest.TestCase):
         self.assertIn('customElements.define("robbie-advanced-cleaning-card"', canonical)
         self.assertEqual(legacy.strip(), 'import "./cleaning-control.js";')
         self.assertNotRegex(canonical, r"2026\.\d+")
+        self.assertNotIn("BADGE_ATTENTION_STATES", canonical)
+        self.assertNotIn("data-display-mode", canonical)
+        self.assertNotIn("data-visible-states", canonical)
+        self.assertIn("native Visibility tab", canonical)
+
+    def test_planner_status_is_a_native_enum(self):
+        sensor = (COMPONENT / "sensor.py").read_text(encoding="utf-8")
+        constants = (COMPONENT / "const.py").read_text(encoding="utf-8")
+        self.assertIn("SensorDeviceClass.ENUM", sensor)
+        self.assertIn("_attr_options = PLANNER_STATUS_OPTIONS", sensor)
+        for state in ("idle", "announced", "preparing", "running", "dock_service", "completed", "skipped", "postponed", "waiting", "vacation", "blocked", "failed"):
+            self.assertIn(f'STATE_{state.upper()}: Final = "{state}"', constants)
 
     def test_card_resource_and_numeric_presence_are_first_class(self):
         frontend = (COMPONENT / "frontend.py").read_text(encoding="utf-8")

@@ -392,7 +392,7 @@ const attentionBadge = new Badge();
 attentionBadge.setConfig({ display_mode: "attention" });
 attentionBadge.hass = card._hass;
 flushFrame();
-assert.equal(attentionBadge._attentionHidden, true, "an attention Badge must hide its docked state");
+assert.notEqual(attentionBadge.hasAttribute?.("data-robbie-hidden"), true, "legacy display_mode must not hide the Badge internally");
 attentionBadge.hass = {
   ...card._hass,
   states: {
@@ -401,11 +401,11 @@ attentionBadge.hass = {
   },
 };
 flushFrame();
-assert.equal(attentionBadge._attentionHidden, false, "an attention Badge must reveal a cleaning robot");
+assert.notEqual(attentionBadge.hasAttribute?.("data-robbie-hidden"), true, "Badge visibility belongs to Home Assistant");
 const badge = new Badge();
 badge.setConfig({
   vacuum_entity: "vacuum.robot",
-  status_entity: "sensor.planner_status",
+  entity: "sensor.planner_status",
   state_override_entity: "input_select.badge_state_simulator",
   navigation_path: "/lovelace/cleaning",
 });

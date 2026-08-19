@@ -98,7 +98,7 @@
   },
   "entity": {
     "sensor": {
-      "planner_status": {"name": "Planner status"}, "next_mission": {"name": "Next mission"},
+      "planner_status": {"name": "Planner status", "state": {"idle": "Idle", "announced": "Announced", "preparing": "Preparing", "running": "Running", "dock_service": "Dock service", "completed": "Completed", "skipped": "Skipped", "postponed": "Postponed", "waiting": "Waiting", "vacation": "Vacation", "blocked": "Blocked", "failed": "Failed"}}, "next_mission": {"name": "Next mission"},
       "last_decision": {"name": "Last decision"}, "maintenance": {"name": "Maintenance"}
     },
     "binary_sensor": {"planner_ready": {"name": "Planner ready"}},

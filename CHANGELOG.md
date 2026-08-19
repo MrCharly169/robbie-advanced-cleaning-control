@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Native dashboard visibility
+
+- The planner status sensor is now a native enum sensor, so every supported planner state is available in Home Assistant's state-condition dropdown.
+- Robbie Badges no longer hide themselves through `display_mode` or `visible_states`; visibility is configured exclusively with Home Assistant's native Visibility tab.
+- The Badge now uses the standard `entity` field for its planner status sensor while remaining compatible with existing `status_entity` configurations.
+- Robbie's Badge geometry now matches the shared 36 px integration-badge style.
+
 
 ## 2026.8.0b12 - 2026-08-19
 
