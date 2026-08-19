@@ -4,21 +4,16 @@ views:
     path: cleaning
     icon: mdi:robot-vacuum
     badges:
-      - type: entity
+      - type: custom:robbie-vacuum-badge
         entity: sensor.robbie_e2e_planner_planner_status
-        show_name: false
-        show_icon: true
-        show_state: true
-        color: state
         tap_action:
           action: navigate
           navigation_path: /lovelace/cleaning
-      - type: entity
+      - type: custom:robbie-vacuum-badge
         entity: sensor.robbie_e2e_planner_planner_status
-        show_name: false
-        show_icon: true
-        show_state: true
-        color: state
+        tap_action:
+          action: navigate
+          navigation_path: /lovelace/cleaning
         visibility:
           - condition: state
             entity: sensor.robbie_e2e_planner_planner_status

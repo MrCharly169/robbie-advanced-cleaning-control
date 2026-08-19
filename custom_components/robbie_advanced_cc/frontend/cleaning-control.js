@@ -812,14 +812,22 @@ class RobbieVacuumBadge extends HTMLElement {
 
   static async getConfigElement() { return document.createElement("robbie-vacuum-badge-editor"); }
   static getStubConfig(hass) {
-    const status = Object.values(hass?.states ?? {}).find((state) =>
+    const status = Object.entries(hass?.states ?? {}).find(([, state]) =>
       Array.isArray(state.attributes?.managed_vacuums));
-    return { entity: status?.entity_id, entry_id: status?.attributes?.entry_id, navigation_path: "/lovelace/cleaning" };
+    return {
+      entity: status?.[0],
+      tap_action: { action: "navigate", navigation_path: "/lovelace/cleaning" },
+    };
   }
 
   setConfig(config = {}) {
     if (!config || typeof config !== "object") throw new Error("Badge configuration must be an object");
-    this._config = { navigation_path: "/lovelace/cleaning", ...config };
+    const legacyPath = config.navigation_path || "/lovelace/cleaning";
+    this._config = {
+      ...config,
+      tap_action: config.tap_action || { action: "navigate", navigation_path: legacyPath },
+    };
+    delete this._config.navigation_path;
     this._lastRenderSignature = "";
     if (this._hass) this._scheduleRender();
   }
@@ -850,14 +858,7 @@ class RobbieVacuumBadge extends HTMLElement {
 
   _status() {
     const configured = this._hass?.states?.[this._config?.entity || this._config?.status_entity];
-    if (configured && Array.isArray(configured.attributes?.managed_vacuums)) return configured;
-    const candidates = Object.values(this._hass?.states ?? {}).filter((state) =>
-      Array.isArray(state.attributes?.managed_vacuums));
-    const entryId = this._config?.entry_id;
-    const vacuumEntityId = this._config?.vacuum_entity;
-    return candidates.find((state) => entryId && state.attributes?.entry_id === entryId)
-      || candidates.find((state) => vacuumEntityId && state.attributes.managed_vacuums.includes(vacuumEntityId))
-      || candidates[0];
+    return configured && Array.isArray(configured.attributes?.managed_vacuums) ? configured : undefined;
   }
 
   _vacuumEntityId(status = this._status()) {
@@ -869,11 +870,14 @@ class RobbieVacuumBadge extends HTMLElement {
       || configured;
   }
 
-  _navigate() {
-    const path = this._config?.navigation_path;
-    if (!path) return;
-    if (window.history?.pushState) window.history.pushState(null, "", path);
-    if (typeof window.dispatchEvent === "function") window.dispatchEvent(new CustomEvent("location-changed"));
+  _performNativeTapAction() {
+    const entityId = String(this._config?.entity || this._config?.status_entity || "");
+    if (!entityId) return;
+    this.dispatchEvent(new CustomEvent("hass-action", {
+      bubbles: true,
+      composed: true,
+      detail: { action: "tap", config: { ...this._config, entity: entityId } },
+    }));
   }
 
   _bindInteraction() {
@@ -883,12 +887,12 @@ class RobbieVacuumBadge extends HTMLElement {
     this._interactionBadge = badge;
     badge.addEventListener?.("click", (event) => {
       event.stopPropagation?.();
-      this._navigate();
+      this._performNativeTapAction();
     });
     badge.addEventListener?.("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault?.();
-      this._navigate();
+      this._performNativeTapAction();
     });
   }
 
@@ -973,7 +977,7 @@ class RobbieVacuumBadge extends HTMLElement {
       vacuumEntityId: vacuumEntityId || "", available: Boolean(vacuum), state,
       name: this._config.name || vacuum?.attributes?.friendly_name || vacuumEntityId || "",
       nextScheduled: nextRun?.scheduled || "", nextMission: nextRun?.mission || "",
-      navigation: this._config.navigation_path || "",
+      tapAction: this._config.tap_action || null,
     };
   }
 
@@ -1018,20 +1022,40 @@ class RobbieVacuumBadge extends HTMLElement {
 }
 
 class RobbieVacuumBadgeEditor extends HTMLElement {
-  setConfig(config) { this._config = { navigation_path: "/lovelace/cleaning", ...config }; this._render(); }
+  setConfig(config = {}) {
+    const legacyPath = config.navigation_path || "/lovelace/cleaning";
+    this._config = {
+      ...config,
+      tap_action: config.tap_action || { action: "navigate", navigation_path: legacyPath },
+    };
+    delete this._config.navigation_path;
+    this._render();
+  }
   set hass(value) { this._hass = value; this._render(); }
-  _emit(key, value) { this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: { ...this._config, [key]: value } }, bubbles: true, composed: true })); }
+  _emit() { this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: { ...this._config } }, bubbles: true, composed: true })); }
   _render() {
     if (!this._hass || !this._config) return;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
-    const vacuums = Object.keys(this._hass.states).filter((id) => id.startsWith("vacuum."));
-    const statuses = Object.keys(this._hass.states).filter((id) => id.startsWith("sensor.") && Array.isArray(this._hass.states[id]?.attributes?.managed_vacuums));
-    const options = (items, selected) => items.map((id) => `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(this._hass.states[id]?.attributes?.friendly_name || id)}</option>`).join("");
-    const selectedStatus = this._config.entity || this._config.status_entity;
-    this.shadowRoot.innerHTML = `<div class="editor"><label>Vacuum<select data-vacuum><option value="">Automatic from setup</option>${options(vacuums, this._config.vacuum_entity)}</select></label><label>Planner status<select data-status><option value="">Automatic from setup</option>${options(statuses, selectedStatus)}</select></label><label>Navigation path<input data-path value="${escapeHtml(this._config.navigation_path)}"></label><small>The Badge reads its lifecycle only from the native Planner status enum. Configure hiding and state conditions only in Home Assistant's native Visibility tab.</small></div><style>.editor{display:grid;gap:13px;padding:16px}label{display:grid;gap:6px}select,input{padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}small{opacity:.58}</style>`;
-    this.shadowRoot.querySelector("[data-vacuum]")?.addEventListener("change", (event) => this._emit("vacuum_entity", event.target.value));
-    this.shadowRoot.querySelector("[data-status]")?.addEventListener("change", (event) => this._emit("entity", event.target.value));
-    this.shadowRoot.querySelector("[data-path]")?.addEventListener("change", (event) => this._emit("navigation_path", event.target.value));
+    const de = String(this._hass.language || "en").toLowerCase().startsWith("de");
+    this.shadowRoot.innerHTML = `<ha-form></ha-form><small>${de
+      ? "Roboterlogo, Zusatzsymbol, nächste Zeit und Farbe folgen dem Planerstatus. Entität, Interaktion und Sichtbarkeit werden mit Home Assistants nativen Editoren konfiguriert; dieses Badge besitzt keine eigenen Navigate-, Hidden- oder Zustandslisten."
+      : "Robot logo, marker, next time and color follow the planner status. Configure the entity, interaction and visibility with Home Assistant's native editors; this Badge has no separate Navigate, Hidden or state lists."}</small><style>:host{display:block;padding:4px 0}small{display:block;margin-top:12px;line-height:1.4;color:var(--secondary-text-color)}</style>`;
+    const form = this.shadowRoot.querySelector?.("ha-form");
+    if (!form) return;
+    form.hass = this._hass;
+    form.data = this._config;
+    form.schema = [
+      { name: "entity", required: true, selector: { entity: { domain: "sensor", integration: "robbie_advanced_cc" } } },
+      { name: "name", selector: { text: {} } },
+    ];
+    form.computeLabel = (schema) => ({
+      entity: de ? "Planerstatus-Entität" : "Planner status entity",
+      name: de ? "Name im Tooltip (optional)" : "Tooltip name (optional)",
+    }[schema.name] || schema.name);
+    form.addEventListener("value-changed", (event) => {
+      this._config = { ...this._config, ...(event.detail?.value || {}) };
+      this._emit();
+    });
   }
 }
 

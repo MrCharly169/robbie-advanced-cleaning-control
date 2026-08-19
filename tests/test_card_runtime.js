@@ -109,7 +109,9 @@ const sandbox = {
   cancelAnimationFrame,
   setTimeout,
   clearTimeout,
-  CustomEvent: class {},
+  CustomEvent: class {
+    constructor(type, options = {}) { this.type = type; this.detail = options.detail; Object.assign(this, options); }
+  },
   Event: class {
     constructor(type, options) { this.type = type; Object.assign(this, options); }
   },
@@ -377,15 +379,16 @@ assert.equal(recovered._visibleRenderCount, 1, "a late-upgraded Card should reco
 homeAssistant = undefined;
 
 const Badge = registry.get("robbie-vacuum-badge");
-assert.equal(Badge.getStubConfig(card._hass).entry_id, "entry-1");
+assert.equal(Badge.getStubConfig(card._hass).entity, "sensor.planner_status");
+assert.equal(Badge.getStubConfig(card._hass).tap_action.action, "navigate");
 const automaticBadge = new Badge();
-automaticBadge.setConfig({ navigation_path: "/lovelace/cleaning" });
+automaticBadge.setConfig({ entity: "sensor.planner_status", tap_action: { action: "navigate", navigation_path: "/lovelace/cleaning" } });
 automaticBadge.hass = card._hass;
 flushFrame();
 assert.match(automaticBadge.shadowRoot.innerHTML, /data-mode="docked"/);
 assert.match(automaticBadge.shadowRoot.innerHTML, /Robbie/);
 const attentionBadge = new Badge();
-attentionBadge.setConfig({ display_mode: "attention" });
+attentionBadge.setConfig({ entity: "sensor.planner_status", display_mode: "attention" });
 attentionBadge.hass = card._hass;
 flushFrame();
 assert.notEqual(attentionBadge.hasAttribute?.("data-robbie-hidden"), true, "legacy display_mode must not hide the Badge internally");
@@ -400,10 +403,10 @@ flushFrame();
 assert.notEqual(attentionBadge.hasAttribute?.("data-robbie-hidden"), true, "Badge visibility belongs to Home Assistant");
 const badge = new Badge();
 badge.setConfig({
-  vacuum_entity: "vacuum.robot",
   entity: "sensor.planner_status",
   state_override_entity: "input_select.badge_state_simulator",
   navigation_path: "/lovelace/cleaning",
+  visibility: [{ condition: "state", entity: "sensor.planner_status", state: "waiting" }],
 });
 badge.hass = card._hass;
 flushFrame();
@@ -482,8 +485,13 @@ assert.match(badge.shadowRoot.innerHTML, /Urlaub/);
 let clickStopped = false;
 badge.handlers["ha-badge:click"]({ stopPropagation() { clickStopped = true; } });
 assert.equal(clickStopped, true);
-assert.equal(sandbox.navigatedTo, "/lovelace/cleaning");
-assert.equal(sandbox.windowEvent.constructor.name, "CustomEvent");
+assert.equal(sandbox.navigatedTo, undefined, "Badge must not navigate outside Home Assistant's action contract");
+assert.equal(badge.lastEvent.type, "hass-action");
+assert.equal(badge.lastEvent.detail.action, "tap");
+assert.equal(badge.lastEvent.detail.config.entity, "sensor.planner_status");
+assert.equal(badge.lastEvent.detail.config.tap_action.action, "navigate");
+assert.equal(badge.lastEvent.detail.config.tap_action.navigation_path, "/lovelace/cleaning");
+assert.equal(badge.lastEvent.detail.config.visibility[0].state, "waiting");
 let keyPrevented = false;
 badge.handlers["ha-badge:keydown"]({ key: "Enter", preventDefault() { keyPrevented = true; } });
 assert.equal(keyPrevented, true);

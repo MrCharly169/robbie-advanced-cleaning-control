@@ -52,13 +52,14 @@ beta images. Card layout or interaction changes additionally require a real HA
 browser run.
 
 The lab writes its default Lovelace dashboard through the Storage API, so it
-remains editable in Home Assistant. It starts with the Simple Card and native
-badges; `configure_dashboard.mjs --card-mode advanced` is available for direct
+remains editable in Home Assistant. It starts with the Simple Card and hybrid
+Custom Badges; `configure_dashboard.mjs --card-mode advanced` is available for direct
 visual inspection of the weekly planner.
 
-The lab badges read their lifecycle from the real native Planner status enum.
-The main-dashboard example uses a native Lovelace Visibility condition; no
-simulator, state override or Badge-owned visibility menu is involved.
+The lab badges read their lifecycle from the real native Planner status enum,
+delegate interactions through `hass-action`, and use native Lovelace Visibility.
+No simulator, state override, navigation field or Badge-owned visibility menu
+is involved.
 
 ## Releases
 

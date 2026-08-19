@@ -73,7 +73,7 @@ const notifications = await call("persistent_notification/get");
 const setupNotification = notifications.find((item) => item.notification_id === `robbie_advanced_cc_setup_${state.entry_id}`);
 if (checkOnboarding && (
   !setupNotification?.message?.includes("registered automatically")
-  || !setupNotification.message.includes("type: entity")
+  || !setupNotification.message.includes("type: custom:robbie-vacuum-badge")
   || !setupNotification.message.includes("native Visibility tab")
 )) {
   throw new Error(`Dashboard setup notification is incomplete: ${JSON.stringify(setupNotification)}`);
@@ -86,10 +86,10 @@ const dashboard = {
     path: "cleaning",
     icon: "mdi:robot-vacuum",
     badges: [
-      // Both are standard Home Assistant Entity Badges consuming the canonical
-      // Planner enum. Only the second uses native Lovelace Visibility.
-      { type: "entity", entity: status.entity_id, show_name: false, show_icon: true, show_state: true, color: "state", tap_action: { action: "navigate", navigation_path: "/lovelace/cleaning" } },
-      { type: "entity", entity: status.entity_id, show_name: false, show_icon: true, show_state: true, color: "state", tap_action: { action: "navigate", navigation_path: "/lovelace/cleaning" }, visibility: [{ condition: "state", entity: status.entity_id, state: "waiting" }] },
+      // Both are Robbie Custom Badges consuming the canonical Planner enum.
+      // Actions and Visibility remain native Home Assistant configuration.
+      { type: "custom:robbie-vacuum-badge", entity: status.entity_id, tap_action: { action: "navigate", navigation_path: "/lovelace/cleaning" } },
+      { type: "custom:robbie-vacuum-badge", entity: status.entity_id, tap_action: { action: "navigate", navigation_path: "/lovelace/cleaning" }, visibility: [{ condition: "state", entity: status.entity_id, state: "waiting" }] },
     ],
     cards: [
       // Deliberately omit status_entity: the Card must discover its planner
@@ -105,6 +105,9 @@ if (saved?.views?.[0]?.cards?.[0]?.type !== "custom:robbie-advanced-cleaning-car
 }
 if (saved?.views?.[0]?.badges?.[0]?.entity !== status.entity_id) {
   throw new Error("Badge Planner enum entity was not persisted");
+}
+if (saved?.views?.[0]?.badges?.[0]?.type !== "custom:robbie-vacuum-badge") {
+  throw new Error("Robbie Custom Badge type was not persisted");
 }
 if (saved?.views?.[0]?.badges?.[1]?.visibility?.[0]?.entity !== status.entity_id) {
   throw new Error("Native Badge Visibility condition was not persisted");

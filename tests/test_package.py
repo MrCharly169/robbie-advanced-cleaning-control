@@ -45,7 +45,12 @@ class PackageTests(unittest.TestCase):
         self.assertNotIn("data-visible-states", canonical)
         self.assertNotIn("data-override", canonical)
         self.assertNotIn("State override", canonical)
-        self.assertIn("native Visibility tab", canonical)
+        self.assertIn("native editors", canonical)
+        self.assertIn('new CustomEvent("hass-action"', canonical)
+        badge_editor = canonical.split("class RobbieVacuumBadgeEditor", 1)[1].split("if (!customElements.get", 1)[0]
+        self.assertIn('<ha-form>', badge_editor)
+        self.assertNotIn("Navigation path", badge_editor)
+        self.assertNotIn("<select", badge_editor)
 
     def test_planner_status_is_a_native_enum(self):
         sensor = (COMPONENT / "sensor.py").read_text(encoding="utf-8")
@@ -126,9 +131,8 @@ class PackageTests(unittest.TestCase):
         self.assertNotIn("state_override_entity", dashboard_setup)
         self.assertIn("visibility", dashboard_setup)
         self.assertIn("status.entity_id", dashboard_setup)
-        self.assertIn('{ type: "entity", entity: status.entity_id', dashboard_setup)
-        self.assertNotIn('type: "custom:robbie-vacuum-badge"', dashboard_setup)
-        self.assertIn('setupNotification.message.includes("type: entity")', dashboard_setup)
+        self.assertIn('{ type: "custom:robbie-vacuum-badge", entity: status.entity_id', dashboard_setup)
+        self.assertIn('setupNotification.message.includes("type: custom:robbie-vacuum-badge")', dashboard_setup)
         self.assertIn("did not auto-register its canonical Card resource", dashboard_setup)
 
 
