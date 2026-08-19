@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Added
+
+- Card status details now explain why a run is waiting or why an active run
+  failed, with localized Home/presence, robot, Vacation and mop reasons.
+- The native Robbie Badge supports `display_mode: attention` and configurable
+  `visible_states`, allowing an always-on Area Badge and a main-dashboard Badge
+  that only appears for actionable states.
+
+### Changed
+
+- Cleaning modes use explicit localized labels, and a new mission defaults to
+  Vacuum even when the robot's current live mode is Mop or Vacuum + Mop.
+- Card and Badge robot marks use centered, bounded state markers with corrected
+  proportions.
+
+### Fixed
+
+- Idle robot `unavailable` events no longer mark an unrelated planned run as
+  failed. Error state is now reserved for an active mission being prepared or
+  executed.
+
 ### Documentation
 
 - Reworked the public English README and added a complete German customer guide,

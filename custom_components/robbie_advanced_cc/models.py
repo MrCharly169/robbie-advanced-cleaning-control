@@ -136,6 +136,26 @@ class MissionDecision:
     reason: str
 
 
+def vacuum_runtime_transition(
+    planner_state: str,
+    vacuum_state: str,
+    active_mission_id: str | None,
+) -> tuple[str, str, bool] | None:
+    """Return a planner transition for a robot state change.
+
+    A robot can briefly be unavailable during startup, MQTT reconnects, or a
+    Home Assistant reload.  That is not a failed cleaning run unless a mission
+    is actually being prepared or executed.
+    """
+    if vacuum_state == "cleaning":
+        return ("running", "vacuum_cleaning", False)
+    if vacuum_state == "docked" and planner_state == "running":
+        return ("completed", "mission_completed", True)
+    if vacuum_state in {"error", "unavailable"} and active_mission_id is not None:
+        return ("failed", f"vacuum_{vacuum_state}", False)
+    return None
+
+
 def decide_mission(
     mission: CleaningMission, context: PlannerContext
 ) -> MissionDecision:

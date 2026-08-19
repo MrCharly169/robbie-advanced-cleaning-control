@@ -72,6 +72,17 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
             "vacation_active": self.planner.vacation_active,
             "vacation_entity_id": self.planner.config.get(CONF_VACATION_ENTITY),
             "active_mission_id": self.planner.active_mission_id,
+            "last_reason": self.planner.last_reason,
+            "last_resolution": (
+                self.planner.last_decision.resolution
+                if self.planner.last_decision
+                else None
+            ),
+            "last_allowed": (
+                self.planner.last_decision.allowed
+                if self.planner.last_decision
+                else None
+            ),
             "managed_vacuums": self.planner.vacuums,
             "profile_options": {
                 entity_id: discover_profile_options(self.planner.hass, entity_id)

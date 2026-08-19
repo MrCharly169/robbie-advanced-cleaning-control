@@ -35,7 +35,13 @@ from .const import (
     STATE_VACATION,
     STATE_WAITING,
 )
-from .models import CleaningMission, MissionDecision, PlannerContext, decide_mission
+from .models import (
+    CleaningMission,
+    MissionDecision,
+    PlannerContext,
+    decide_mission,
+    vacuum_runtime_transition,
+)
 from .storage import PlannerStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -560,15 +566,12 @@ class CleaningPlanner:
                     await self.async_run(mission_id)
                 return
         if entity_id in self.vacuums and new_state is not None:
-            if new_state.state == "cleaning":
-                self.state = STATE_RUNNING
-                self.last_reason = "vacuum_cleaning"
-            elif new_state.state == "docked" and self.state == STATE_RUNNING:
-                self.state = STATE_COMPLETED
-                self.last_reason = "mission_completed"
-                self.active_mission_id = None
-            elif new_state.state in {"error", "unavailable"}:
-                self.state = STATE_FAILED
-                self.last_reason = f"vacuum_{new_state.state}"
+            transition = vacuum_runtime_transition(
+                self.state, new_state.state, self.active_mission_id
+            )
+            if transition:
+                self.state, self.last_reason, clear_active = transition
+                if clear_active:
+                    self.active_mission_id = None
         self._notify_listeners()
         self._schedule_next()

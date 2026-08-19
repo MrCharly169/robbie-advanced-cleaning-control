@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/actions/workflows/validate.yml"><img alt="Validate status" src="https://img.shields.io/github/actions/workflow/status/MrCharly169/robbie-advanced-cleaning-control/validate.yml?branch=main&amp;style=flat-square&amp;label=Validate"></a>
-  <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases/tag/v2026.8.0b11"><img alt="Current beta release v2026.8.0b11" src="https://img.shields.io/badge/Release-v2026.8.0b11-2ea44f?style=flat-square"></a>
+  <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases/tag/v2026.8.0b12"><img alt="Current beta release v2026.8.0b12" src="https://img.shields.io/badge/Release-v2026.8.0b12-2ea44f?style=flat-square"></a>
   <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/MrCharly169/robbie-advanced-cleaning-control?style=flat-square&amp;label=Stars"></a>
   <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases"><img alt="GitHub release downloads" src="https://img.shields.io/github/downloads/MrCharly169/robbie-advanced-cleaning-control/total?style=flat-square&amp;label=Release%20downloads"></a>
   <a href="#hacs-custom-repository"><img alt="HACS Custom" src="https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat-square"></a>
@@ -231,6 +231,38 @@ type: custom:robbie-vacuum-badge
 vacuum_entity: vacuum.example_robot
 navigation_path: /lovelace/cleaning
 ```
+
+The same Badge can be configured independently in two dashboard views. Keep it
+permanently visible in an Area view (the backward-compatible default), and use
+attention mode in the main dashboard so it occupies no Badge slot while the
+robot is docked or sleeping:
+
+```yaml
+# Area view
+type: custom:robbie-vacuum-badge
+vacuum_entity: vacuum.example_robot
+display_mode: always
+navigation_path: /lovelace/cleaning
+```
+
+```yaml
+# Main dashboard
+type: custom:robbie-vacuum-badge
+vacuum_entity: vacuum.example_robot
+display_mode: attention
+visible_states:
+  - cleaning
+  - returning
+  - paused
+  - waiting
+  - vacation
+  - error
+  - unavailable
+navigation_path: /lovelace/cleaning
+```
+
+The visual editor exposes both settings. Each Lovelace view still owns its own
+Badge instance; one instance cannot move between views.
 
 ## Missions, weekly schedules and conditions
 

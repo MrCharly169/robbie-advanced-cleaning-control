@@ -76,6 +76,26 @@ class MissionModelTests(unittest.TestCase):
         self.assertEqual(decision.resolution, "wait")
         self.assertEqual(decision.reason, "people_home")
 
+    def test_unavailable_robot_does_not_fail_an_idle_plan(self):
+        self.assertIsNone(
+            models.vacuum_runtime_transition("idle", "unavailable", None)
+        )
+
+    def test_robot_error_only_fails_an_active_run(self):
+        self.assertEqual(
+            models.vacuum_runtime_transition("preparing", "error", "mission-1"),
+            ("failed", "vacuum_error", False),
+        )
+        self.assertIsNone(
+            models.vacuum_runtime_transition("running", "error", None)
+        )
+
+    def test_docking_completes_a_running_mission(self):
+        self.assertEqual(
+            models.vacuum_runtime_transition("running", "docked", "mission-1"),
+            ("completed", "mission_completed", True),
+        )
+
     def test_round_trip_retains_portable_contract(self):
         mission = self.mission(areas=["kitchen", "bathroom"])
         self.assertEqual(models.CleaningMission.from_dict(mission.as_dict()), mission)

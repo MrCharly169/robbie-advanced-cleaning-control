@@ -89,9 +89,12 @@ const dashboard = {
     icon: "mdi:robot-vacuum",
     badges: [
       // The first Badge proves the zero-entity setup path. The second only
-      // overrides the robot because this lab intentionally manages two.
+      // overrides the robot because this lab intentionally manages two. The
+      // third uses the same robot as an attention-only main-dashboard Badge;
+      // it must consume no layout slot while docked or idle.
       { type: "custom:robbie-vacuum-badge", entry_id: status.attributes.entry_id, state_override_entity: "input_select.badge_state_simulator", navigation_path: "/lovelace/cleaning" },
       { type: "custom:robbie-vacuum-badge", vacuum_entity: "vacuum.cloud_fixture_robot", navigation_path: "/lovelace/cleaning" },
+      { type: "custom:robbie-vacuum-badge", entry_id: status.attributes.entry_id, state_override_entity: "input_select.badge_state_simulator", display_mode: "attention", navigation_path: "/lovelace/cleaning" },
     ],
     cards: [
       // Deliberately omit status_entity: the Card must discover its planner
@@ -113,6 +116,9 @@ if (saved?.views?.[0]?.cards?.[0]?.type !== "custom:robbie-advanced-cleaning-car
 }
 if (saved?.views?.[0]?.badges?.[0]?.state_override_entity !== "input_select.badge_state_simulator") {
   throw new Error("Badge state simulator was not persisted");
+}
+if (saved?.views?.[0]?.badges?.[2]?.display_mode !== "attention") {
+  throw new Error("Attention-only Badge configuration was not persisted");
 }
 socket.close();
 console.log(`Editable Lovelace dashboard configured with ${status.entity_id}`);

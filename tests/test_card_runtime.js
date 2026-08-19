@@ -147,15 +147,17 @@ card.hass = {
       state: "idle",
       attributes: {
         entry_id: "entry-1",
+        active_mission_id: null,
+        last_reason: "not_evaluated",
         managed_vacuums: ["vacuum.robot", "vacuum.cloud"],
         profile_options: {
           "vacuum.robot": {
             areas: [{ value: "kitchen", label: "Kitchen" }, { value: "bathroom", label: "Bathroom" }],
-            modes: [{ value: "vacuum", label: "Vacuum" }, { value: "vacuum_and_mop", label: "Vacuum + Mop" }],
+            modes: [{ value: "vacuum_and_mop", label: "Vacuum + Mop" }, { value: "mop", label: "Mop" }, { value: "vacuum", label: "Vacuum" }],
             fan_speeds: [{ value: "low", label: "Low" }, { value: "high", label: "High" }],
             water_levels: [{ value: "low", label: "Low" }, { value: "high", label: "High" }],
             passes: [{ value: "1", label: "1" }, { value: "2", label: "2" }],
-            current: { mode: "vacuum", fan: "low", water: "low", passes: "1" },
+            current: { mode: "vacuum_and_mop", fan: "low", water: "low", passes: "1" },
           },
           "vacuum.cloud": {
             areas: [{ value: "hall", label: "Hall" }],
@@ -185,6 +187,7 @@ card.hass = {
       attributes: {
         entry_id: "entry-1",
         mission: "Sunday clean",
+        mission_id: "sunday",
         vacuum_entity_id: "vacuum.robot",
         areas: ["kitchen"],
         profile: { mode: "vacuum_and_mop", fan: "low" },
@@ -274,7 +277,7 @@ assert.match(card.shadowRoot.innerHTML, /Roboter verfügbar/);
 assert.match(card.shadowRoot.innerHTML, /Home Zone: 0/);
 assert.match(card.shadowRoot.innerHTML, /data-add-day="mon"/);
 assert.match(card.shadowRoot.innerHTML, /data-add-position="top"/);
-assert.match(card.shadowRoot.innerHTML, /Vac\+Mop · kitchen/);
+assert.match(card.shadowRoot.innerHTML, /Saugen \+ Wischen · kitchen/);
 assert.equal(card.getCardSize(), 4, "the Advanced control center must not resize the dashboard Card");
 cardClick("[data-add]", { addPosition: "bottom" });
 assert.equal(card._editingMissionId, "new");
@@ -291,6 +294,53 @@ assert.match(card.shadowRoot.innerHTML, /<select name="water">/);
 assert.match(card.shadowRoot.innerHTML, /<select name="passes">/);
 assert.match(card.shadowRoot.innerHTML, /<select name="areas" multiple/);
 assert.doesNotMatch(card.shadowRoot.innerHTML, /<input name="fan"/);
+assert.match(card.shadowRoot.innerHTML, /<option value="vacuum" selected>Vacuum<\/option>/, "a new run must default to vacuum even when the robot currently mops");
+
+const staleFailureHass = {
+  ...card._hass,
+  states: {
+    ...card._hass.states,
+    "sensor.planner_status": {
+      ...card._hass.states["sensor.planner_status"],
+      state: "failed",
+      attributes: {
+        ...card._hass.states["sensor.planner_status"].attributes,
+        active_mission_id: null,
+        last_reason: "vacuum_unavailable",
+        waiting_mission_ids: ["sunday"],
+        missions: card._hass.states["sensor.planner_status"].attributes.missions.map((mission) => ({
+          ...mission, waiting: true, all_conditions_met: false,
+          conditions: mission.conditions.map((condition) => condition.key === "home_empty"
+            ? { ...condition, passed: false, resolution: "wait", entity_state: "2" } : condition),
+        })),
+      },
+    },
+  },
+};
+card.hass = staleFailureHass;
+flushFrame();
+assert.match(card.shadowRoot.innerHTML, />Wartet</);
+assert.match(card.shadowRoot.innerHTML, /Wartet, bis niemand zu Hause ist/);
+assert.doesNotMatch(card.shadowRoot.innerHTML, />Fehler</);
+
+card.hass = {
+  ...staleFailureHass,
+  states: {
+    ...staleFailureHass.states,
+    "sensor.planner_status": {
+      ...staleFailureHass.states["sensor.planner_status"],
+      attributes: {
+        ...staleFailureHass.states["sensor.planner_status"].attributes,
+        active_mission_id: "sunday", last_reason: "vacuum_error",
+      },
+    },
+  },
+};
+flushFrame();
+assert.match(card.shadowRoot.innerHTML, />Fehler</);
+assert.match(card.shadowRoot.innerHTML, /Der Roboter meldet einen Fehler/);
+card.hass = nonVacationHass;
+flushFrame();
 card._handleProfileChange({ stopPropagation() {} }, {
   value: "vacuum.cloud", matches: (selector) => selector === "[data-profile-vacuum]",
 });
@@ -338,6 +388,20 @@ automaticBadge.hass = card._hass;
 flushFrame();
 assert.match(automaticBadge.shadowRoot.innerHTML, /data-mode="docked"/);
 assert.match(automaticBadge.shadowRoot.innerHTML, /Robbie/);
+const attentionBadge = new Badge();
+attentionBadge.setConfig({ display_mode: "attention" });
+attentionBadge.hass = card._hass;
+flushFrame();
+assert.equal(attentionBadge._attentionHidden, true, "an attention Badge must hide its docked state");
+attentionBadge.hass = {
+  ...card._hass,
+  states: {
+    ...card._hass.states,
+    "vacuum.robot": { ...card._hass.states["vacuum.robot"], state: "cleaning" },
+  },
+};
+flushFrame();
+assert.equal(attentionBadge._attentionHidden, false, "an attention Badge must reveal a cleaning robot");
 const badge = new Badge();
 badge.setConfig({
   vacuum_entity: "vacuum.robot",
