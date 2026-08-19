@@ -12,7 +12,6 @@ from homeassistant.const import CONF_ID, CONF_URL
 from homeassistant.core import HomeAssistant
 
 from .const import (
-    BADGE_TYPE,
     CARD_RESOURCE_URL,
     CARD_TYPE,
     CONF_DASHBOARD_PATH,
@@ -93,15 +92,21 @@ entry_id: {entry.entry_id}
 mode: simple
 ```
 
-Add the native-size robot Badge at the top of the view with:
+Add a native Entity Badge at the top of the view with:
 
 ```yaml
-type: {BADGE_TYPE}
-entry_id: {entry.entry_id}
-navigation_path: {dashboard_path}
+type: entity
+entity: sensor.example_planner_status
+show_name: false
+show_icon: true
+show_state: true
+color: state
+tap_action:
+  action: navigate
+  navigation_path: {dashboard_path}
 ```
 
-Card and Badge discover the entities selected in the setup assistant automatically. Only select a specific robot in the visual Badge editor when this planner manages more than one robot.
+Select this planner's status sensor in Home Assistant's graphical Badge editor. Configure conditional display only through its native Visibility tab.
 
 Open the [Cleaning Control dashboard]({dashboard_path}). Switch the Card to **Advanced** to create a separate run for each weekday, room, vacuum/mop mode, fan strength, water level and number of passes.
 """

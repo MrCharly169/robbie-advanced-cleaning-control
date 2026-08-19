@@ -8,7 +8,6 @@ from homeassistant.core import HomeAssistant
 from .adapters import adapter_for
 from .capabilities import discover_profile_options
 from .const import (
-    BADGE_TYPE,
     CARD_RESOURCE_URL,
     CARD_TYPE,
     CONF_VACATION_ENTITY,
@@ -45,6 +44,23 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
     @property
     def native_value(self) -> str:
         return self.planner.effective_state
+
+    @property
+    def icon(self) -> str:
+        return {
+            "idle": "mdi:robot-vacuum-variant",
+            "announced": "mdi:calendar-clock",
+            "preparing": "mdi:progress-wrench",
+            "running": "mdi:robot-vacuum",
+            "dock_service": "mdi:home-wrench",
+            "completed": "mdi:check-circle-outline",
+            "skipped": "mdi:skip-next",
+            "postponed": "mdi:clock-plus-outline",
+            "waiting": "mdi:account-clock-outline",
+            "vacation": "mdi:palm-tree",
+            "blocked": "mdi:shield-alert-outline",
+            "failed": "mdi:alert",
+        }.get(self.native_value, "mdi:robot-vacuum")
 
     @property
     def extra_state_attributes(self):
@@ -106,7 +122,7 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
                     self.planner.hass.data.get(f"{DOMAIN}_resource_registered")
                 ),
                 "card_type": CARD_TYPE,
-                "badge_type": BADGE_TYPE,
+                "badge_type": "entity",
             },
         }
 

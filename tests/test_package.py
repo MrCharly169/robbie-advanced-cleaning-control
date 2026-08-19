@@ -52,6 +52,8 @@ class PackageTests(unittest.TestCase):
         constants = (COMPONENT / "const.py").read_text(encoding="utf-8")
         self.assertIn("SensorDeviceClass.ENUM", sensor)
         self.assertIn("_attr_options = PLANNER_STATUS_OPTIONS", sensor)
+        self.assertIn('"waiting": "mdi:account-clock-outline"', sensor)
+        self.assertIn('"failed": "mdi:alert"', sensor)
         for state in ("idle", "announced", "preparing", "running", "dock_service", "completed", "skipped", "postponed", "waiting", "vacation", "blocked", "failed"):
             self.assertIn(f'STATE_{state.upper()}: Final = "{state}"', constants)
 

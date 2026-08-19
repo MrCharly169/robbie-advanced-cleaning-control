@@ -99,15 +99,21 @@ type: custom:robbie-advanced-cleaning-card
 mode: simple
 ```
 
-Minimal Badge when one planner/robot can be discovered automatically:
+Minimal native Badge:
 
 ```yaml
-type: custom:robbie-vacuum-badge
-navigation_path: /lovelace/cleaning
+type: entity
+entity: sensor.example_planner_status
+show_name: false
+show_icon: true
+show_state: true
+color: state
+tap_action:
+  action: navigate
+  navigation_path: /lovelace/cleaning
 ```
 
-Set `entry_id`, `status_entity` or `vacuum_entity` only when automatic discovery
-is ambiguous, for example when several Robbie planners manage several robots.
+Select the planner status sensor created by this integration.
 
 ## Installation
 
@@ -217,20 +223,12 @@ type: custom:robbie-advanced-cleaning-card
 mode: advanced
 ```
 
-### Per-robot Badge
+### Native planner Badge
 
-`custom:robbie-vacuum-badge` uses Home Assistant's native 36 px badge element.
-It presents docked, idle, cleaning, returning, paused, waiting, vacation, error
-and unavailable states. While docked it can show the robot's next run. Activating
-the badge opens `navigation_path`.
-
-For a specific robot in a multi-robot planner:
-
-```yaml
-type: custom:robbie-vacuum-badge
-vacuum_entity: vacuum.example_robot
-navigation_path: /lovelace/cleaning
-```
+Use Home Assistant's standard Entity Badge with the planner status sensor. Robbie
+provides the complete enum contract and a state-dependent icon. The Badge can
+navigate to the cleaning dashboard through its native tap action. Robot-specific
+details remain available in the Card or as separate native entity Badges.
 
 The same Badge can be configured independently in two dashboard views. Omit
 `visibility` in an Area view so it remains permanently visible. In a main
@@ -239,18 +237,28 @@ status enum:
 
 ```yaml
 # Area view
-type: custom:robbie-vacuum-badge
+type: entity
 entity: sensor.example_planner_status
-vacuum_entity: vacuum.example_robot
-navigation_path: /lovelace/cleaning
+show_name: false
+show_icon: true
+show_state: true
+color: state
+tap_action:
+  action: navigate
+  navigation_path: /lovelace/cleaning
 ```
 
 ```yaml
 # Main dashboard
-type: custom:robbie-vacuum-badge
+type: entity
 entity: sensor.example_planner_status
-vacuum_entity: vacuum.example_robot
-navigation_path: /lovelace/cleaning
+show_name: false
+show_icon: true
+show_state: true
+color: state
+tap_action:
+  action: navigate
+  navigation_path: /lovelace/cleaning
 visibility:
   - condition: or
     conditions:
@@ -265,9 +273,9 @@ visibility:
         state: failed
 ```
 
-The Badge editor has no separate state or visibility list. Home Assistant's
-native dropdown receives all values from the enum sensor. Each Lovelace view
-still owns its own Badge instance; one instance cannot move between views.
+Home Assistant's native state and Visibility dropdowns receive all values from
+the enum sensor. Each Lovelace view still owns its own Badge instance; one
+instance cannot move between views.
 
 ## Missions, weekly schedules and conditions
 
