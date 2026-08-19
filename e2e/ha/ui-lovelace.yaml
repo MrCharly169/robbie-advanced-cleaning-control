@@ -6,20 +6,13 @@ views:
     badges:
       - type: custom:robbie-vacuum-badge
         vacuum_entity: vacuum.valetudo_fixture_robot
-        status_entity: sensor.robbie_e2e_planner_planner_status
-        state_override_entity: input_select.badge_state_simulator
+        entity: sensor.robbie_e2e_planner_planner_status
         navigation_path: /lovelace/cleaning
       - type: custom:robbie-vacuum-badge
         vacuum_entity: vacuum.cloud_fixture_robot
-        status_entity: sensor.robbie_e2e_planner_planner_status
+        entity: sensor.robbie_e2e_planner_planner_status
         navigation_path: /lovelace/cleaning
     cards:
       - type: custom:robbie-advanced-cleaning-card
         status_entity: sensor.robbie_e2e_planner_planner_status
         mode: simple
-      - type: entities
-        title: Badge Simulator · Lab only
-        show_header_toggle: false
-        entities:
-          - entity: input_select.badge_state_simulator
-            name: Valetudo badge state

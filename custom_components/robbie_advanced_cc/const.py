@@ -59,3 +59,20 @@ PLANNER_STATUS_OPTIONS: Final = [
     STATE_BLOCKED,
     STATE_FAILED,
 ]
+
+
+def planner_presentation_state(
+    runtime_state: str,
+    *,
+    vacation_active: bool,
+    has_pending_missions: bool,
+    has_active_mission: bool,
+) -> str:
+    """Return the canonical status exposed to dashboards and automations."""
+    if vacation_active:
+        return STATE_VACATION
+    if has_active_mission or runtime_state in {STATE_BLOCKED, STATE_FAILED}:
+        return runtime_state
+    if has_pending_missions:
+        return STATE_WAITING
+    return runtime_state

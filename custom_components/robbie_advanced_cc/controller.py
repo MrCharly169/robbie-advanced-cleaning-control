@@ -34,6 +34,7 @@ from .const import (
     STATE_SKIPPED,
     STATE_VACATION,
     STATE_WAITING,
+    planner_presentation_state,
 )
 from .models import (
     CleaningMission,
@@ -88,8 +89,13 @@ class CleaningPlanner:
 
     @property
     def effective_state(self) -> str:
-        """Expose vacation as the global presentation state without losing runtime state."""
-        return STATE_VACATION if self.vacation_active else self.state
+        """Expose the canonical planner state without losing runtime details."""
+        return planner_presentation_state(
+            self.state,
+            vacation_active=self.vacation_active,
+            has_pending_missions=bool(self.pending_mission_ids),
+            has_active_mission=bool(self.active_mission_id),
+        )
 
     async def async_setup(self) -> None:
         self.missions, persisted = await self.store.async_load()

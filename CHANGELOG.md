@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- Restored `waiting` as the effective native Planner status after a restart whenever persisted missions are still waiting, so Home Assistant Visibility conditions recognize the state reliably.
+- Removed the Badge state-override selector and ignored legacy override configuration; the Badge lifecycle now comes only from the native Planner status enum.
+- Mapped every actionable Planner lifecycle directly to the Badge presentation, including Waiting, Preparing, Running, Dock service, Blocked and Failed.
 
 ## 2026.8.0b13 - 2026-08-19
 

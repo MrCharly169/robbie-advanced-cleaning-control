@@ -869,11 +869,6 @@ class RobbieVacuumBadge extends HTMLElement {
       || configured;
   }
 
-  _stateOverride() {
-    const value = this._hass?.states?.[this._config?.state_override_entity]?.state;
-    return ["docked", "idle", "cleaning", "returning", "paused", "waiting", "vacation", "error", "unavailable"].includes(value) ? value : "";
-  }
-
   _navigate() {
     const path = this._config?.navigation_path;
     if (!path) return;
@@ -964,14 +959,14 @@ class RobbieVacuumBadge extends HTMLElement {
     const status = this._status();
     const vacuumEntityId = this._vacuumEntityId(status);
     const vacuum = this._hass?.states?.[vacuumEntityId];
-    const waiting = status?.attributes?.waiting_vacuums?.includes(vacuumEntityId);
-    const vacation = status?.state === "vacation" || status?.attributes?.vacation_active === true;
     const raw = vacuum?.state || "unavailable";
-    const activeMission = Boolean(status?.attributes?.active_mission_id);
     const plannerState = status?.state || "";
-    const plannerRuntime = activeMission && ["running", "preparing"].includes(plannerState)
-      ? "cleaning" : activeMission && plannerState === "failed" ? "error" : "";
-    const state = vacation ? "vacation" : this._stateOverride() || (waiting ? "waiting" : plannerRuntime || raw);
+    const plannerRuntime = ({
+      announced: "waiting", preparing: "cleaning", running: "cleaning",
+      dock_service: "returning", waiting: "waiting", vacation: "vacation",
+      blocked: "error", failed: "error",
+    })[plannerState] || "";
+    const state = plannerRuntime || raw;
     const nextRun = status?.attributes?.next_runs?.[vacuumEntityId];
     return {
       language: String(this._hass?.language || "en").toLowerCase().startsWith("de") ? "de" : "en",
@@ -1031,13 +1026,11 @@ class RobbieVacuumBadgeEditor extends HTMLElement {
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
     const vacuums = Object.keys(this._hass.states).filter((id) => id.startsWith("vacuum."));
     const statuses = Object.keys(this._hass.states).filter((id) => id.startsWith("sensor.") && Array.isArray(this._hass.states[id]?.attributes?.managed_vacuums));
-    const overrides = Object.keys(this._hass.states).filter((id) => id.startsWith("input_select.") || id.startsWith("select."));
     const options = (items, selected) => items.map((id) => `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(this._hass.states[id]?.attributes?.friendly_name || id)}</option>`).join("");
     const selectedStatus = this._config.entity || this._config.status_entity;
-    this.shadowRoot.innerHTML = `<div class="editor"><label>Vacuum<select data-vacuum><option value="">Automatic from setup</option>${options(vacuums, this._config.vacuum_entity)}</select></label><label>Planner status<select data-status><option value="">Automatic from setup</option>${options(statuses, selectedStatus)}</select></label><label>State override (optional)<select data-override><option value="">Live robot state</option>${options(overrides, this._config.state_override_entity)}</select></label><label>Navigation path<input data-path value="${escapeHtml(this._config.navigation_path)}"></label><small>Card and Badge automatically use the entities selected in the setup assistant. Configure hiding and state conditions only in Home Assistant's native Visibility tab.</small></div><style>.editor{display:grid;gap:13px;padding:16px}label{display:grid;gap:6px}select,input{padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}small{opacity:.58}</style>`;
+    this.shadowRoot.innerHTML = `<div class="editor"><label>Vacuum<select data-vacuum><option value="">Automatic from setup</option>${options(vacuums, this._config.vacuum_entity)}</select></label><label>Planner status<select data-status><option value="">Automatic from setup</option>${options(statuses, selectedStatus)}</select></label><label>Navigation path<input data-path value="${escapeHtml(this._config.navigation_path)}"></label><small>The Badge reads its lifecycle only from the native Planner status enum. Configure hiding and state conditions only in Home Assistant's native Visibility tab.</small></div><style>.editor{display:grid;gap:13px;padding:16px}label{display:grid;gap:6px}select,input{padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}small{opacity:.58}</style>`;
     this.shadowRoot.querySelector("[data-vacuum]")?.addEventListener("change", (event) => this._emit("vacuum_entity", event.target.value));
     this.shadowRoot.querySelector("[data-status]")?.addEventListener("change", (event) => this._emit("entity", event.target.value));
-    this.shadowRoot.querySelector("[data-override]")?.addEventListener("change", (event) => this._emit("state_override_entity", event.target.value || undefined));
     this.shadowRoot.querySelector("[data-path]")?.addEventListener("change", (event) => this._emit("navigation_path", event.target.value));
   }
 }
