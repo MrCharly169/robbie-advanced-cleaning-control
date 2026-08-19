@@ -197,10 +197,6 @@ card.hass = {
       state: "ready",
       attributes: { entry_id: "entry-1" },
     },
-    "input_select.badge_state_simulator": {
-      state: "live",
-      attributes: { friendly_name: "Badge State Simulator" },
-    },
     "vacuum.robot": { state: "docked", attributes: { friendly_name: "Robbie" } },
     "vacuum.cloud": { state: "docked", attributes: { friendly_name: "Cloud Robot" } },
   },
@@ -411,6 +407,7 @@ badge.setConfig({
 });
 badge.hass = card._hass;
 flushFrame();
+assert.match(badge.shadowRoot.innerHTML, /data-mode="docked"/, "legacy state overrides must be ignored");
 assert.match(badge.shadowRoot.innerHTML, /In Station/);
 assert.match(badge.shadowRoot.innerHTML, /Nächster Start/);
 assert.match(badge.shadowRoot.innerHTML, /ha-badge/);
@@ -443,30 +440,29 @@ flushFrame();
 assert.equal(badge._visibleRenderCount, badgeBeforeBurst + 1, "a visible Badge burst must render once");
 assert.equal(badge._badgeRoot, stableBadgeRoot, "the ha-badge root must remain stable");
 assert.equal(badge.shellWrites, 1, "the Badge shadow shell must only be created once");
-const simulatedStates = {
-  docked: "mdi:home",
-  idle: "mdi:power-sleep",
-  cleaning: "mdi:play",
-  returning: "mdi:home-import-outline",
-  paused: "mdi:pause",
-  waiting: "mdi:account-clock-outline",
-  vacation: "mdi:palm-tree",
-  error: "mdi:alert",
-  unavailable: "mdi:alert-circle-outline",
+const plannerStates = {
+  announced: ["waiting", "mdi:account-clock-outline"],
+  preparing: ["cleaning", "mdi:play"],
+  running: ["cleaning", "mdi:play"],
+  dock_service: ["returning", "mdi:home-import-outline"],
+  waiting: ["waiting", "mdi:account-clock-outline"],
+  vacation: ["vacation", "mdi:palm-tree"],
+  blocked: ["error", "mdi:alert"],
+  failed: ["error", "mdi:alert"],
 };
-for (const [state, stateIcon] of Object.entries(simulatedStates)) {
+for (const [plannerState, [badgeState, stateIcon]] of Object.entries(plannerStates)) {
   badge.hass = {
     ...card._hass,
     states: {
       ...card._hass.states,
-      "input_select.badge_state_simulator": {
-        state,
-        attributes: { friendly_name: "Badge State Simulator" },
+      "sensor.planner_status": {
+        ...card._hass.states["sensor.planner_status"],
+        state: plannerState,
       },
     },
   };
   flushFrame();
-  assert.match(badge.shadowRoot.innerHTML, new RegExp(`data-mode="${state}"`));
+  assert.match(badge.shadowRoot.innerHTML, new RegExp(`data-mode="${badgeState}"`));
   assert.match(badge.shadowRoot.innerHTML, new RegExp(`icon="${stateIcon}"`));
 }
 badge.hass = {
@@ -478,7 +474,6 @@ badge.hass = {
       state: "vacation",
       attributes: { ...card._hass.states["sensor.planner_status"].attributes, vacation_active: true },
     },
-    "input_select.badge_state_simulator": { state: "cleaning", attributes: {} },
   },
 };
 flushFrame();

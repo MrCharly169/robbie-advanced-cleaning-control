@@ -56,10 +56,9 @@ remains editable in Home Assistant. It starts with the Simple Card and native
 badges; `configure_dashboard.mjs --card-mode advanced` is available for direct
 visual inspection of the weekly planner.
 
-The `Badge Simulator · Lab only` entities card controls the first vacuum badge.
-Choose any supported state to inspect its icon and color immediately, or select
-`live` to return to the real fixture state. The override is configured only in
-the disposable lab dashboard and never changes planner or vacuum state.
+The lab badges read their lifecycle from the real native Planner status enum.
+The main-dashboard example uses a native Lovelace Visibility condition; no
+simulator, state override or Badge-owned visibility menu is involved.
 
 ## Releases
 

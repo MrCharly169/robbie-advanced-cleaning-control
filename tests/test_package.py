@@ -43,6 +43,8 @@ class PackageTests(unittest.TestCase):
         self.assertNotIn("BADGE_ATTENTION_STATES", canonical)
         self.assertNotIn("data-display-mode", canonical)
         self.assertNotIn("data-visible-states", canonical)
+        self.assertNotIn("data-override", canonical)
+        self.assertNotIn("State override", canonical)
         self.assertIn("native Visibility tab", canonical)
 
     def test_planner_status_is_a_native_enum(self):
@@ -118,9 +120,10 @@ class PackageTests(unittest.TestCase):
         self.assertIn('call("lovelace/config/save"', dashboard_setup)
         self.assertIn('const cardMode = args["card-mode"] === "advanced" ? "advanced" : "simple"', dashboard_setup)
         self.assertIn("mode: cardMode", dashboard_setup)
-        self.assertIn("input_select:\n  badge_state_simulator:", configuration)
-        self.assertIn('state_override_entity: "input_select.badge_state_simulator"', dashboard_setup)
-        self.assertIn("Badge Simulator · Lab only", dashboard_setup)
+        self.assertNotIn("badge_state_simulator", configuration)
+        self.assertNotIn("state_override_entity", dashboard_setup)
+        self.assertIn("visibility", dashboard_setup)
+        self.assertIn("status.entity_id", dashboard_setup)
         self.assertIn("did not auto-register its canonical Card resource", dashboard_setup)
 
 

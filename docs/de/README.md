@@ -239,37 +239,41 @@ navigation_path: /lovelace/cleaning
 ```
 
 Derselbe Badge-Typ kann in zwei Dashboard-Ansichten unabhängig konfiguriert
-werden. In der Area View bleibt er immer sichtbar (abwärtskompatibler Standard),
-im Hauptdashboard belegt er im Aufmerksamkeitsmodus bei Station oder Schlafen
-keinen Badge-Platz:
+werden. Ohne `visibility` bleibt er in der Area View immer sichtbar. Im
+Hauptdashboard werden ausschließlich der native Sichtbarkeit-Tab von Home
+Assistant und der Enum-Status des Planers verwendet:
 
 ```yaml
 # Area View
 type: custom:robbie-vacuum-badge
+entity: sensor.example_planner_status
 vacuum_entity: vacuum.example_robot
-display_mode: always
 navigation_path: /lovelace/cleaning
 ```
 
 ```yaml
 # Hauptdashboard
 type: custom:robbie-vacuum-badge
+entity: sensor.example_planner_status
 vacuum_entity: vacuum.example_robot
-display_mode: attention
-visible_states:
-  - cleaning
-  - returning
-  - paused
-  - waiting
-  - vacation
-  - error
-  - unavailable
 navigation_path: /lovelace/cleaning
+visibility:
+  - condition: or
+    conditions:
+      - condition: state
+        entity: sensor.example_planner_status
+        state: waiting
+      - condition: state
+        entity: sensor.example_planner_status
+        state: running
+      - condition: state
+        entity: sensor.example_planner_status
+        state: failed
 ```
 
-Der grafische Editor bietet beide Einstellungen an. Jede Lovelace-Ansicht
-besitzt dennoch ihre eigene Badge-Instanz; eine Instanz kann nicht zwischen
-Ansichten wechseln.
+Der Badge-Editor besitzt keine eigene Zustands- oder Sichtbarkeitsliste. Das
+native Dropdown von Home Assistant erhält alle Werte direkt vom Enum-Sensor.
+Jede Lovelace-Ansicht besitzt weiterhin ihre eigene Badge-Instanz.
 
 ## Missionen, Wochenpläne und Bedingungen
 

@@ -6,6 +6,13 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+CONST_SPEC = importlib.util.spec_from_file_location(
+    "racc_const",
+    ROOT / "custom_components" / "robbie_advanced_cc" / "const.py",
+)
+constants = importlib.util.module_from_spec(CONST_SPEC)
+assert CONST_SPEC and CONST_SPEC.loader
+CONST_SPEC.loader.exec_module(constants)
 SPEC = importlib.util.spec_from_file_location(
     "racc_models",
     ROOT / "custom_components" / "robbie_advanced_cc" / "models.py",
@@ -18,6 +25,25 @@ SPEC.loader.exec_module(models)
 
 
 class MissionModelTests(unittest.TestCase):
+    def test_persisted_waiting_mission_restores_effective_waiting_state(self):
+        cases = (
+            ("idle", False, True, False, "waiting"),
+            ("running", False, True, True, "running"),
+            ("failed", False, True, False, "failed"),
+            ("idle", True, True, False, "vacation"),
+        )
+        for runtime, vacation, pending, active, expected in cases:
+            with self.subTest(expected=expected):
+                self.assertEqual(
+                    constants.planner_presentation_state(
+                        runtime,
+                        vacation_active=vacation,
+                        has_pending_missions=pending,
+                        has_active_mission=active,
+                    ),
+                    expected,
+                )
+
     def mission(self, **overrides):
         raw = {
             "id": "sunday",

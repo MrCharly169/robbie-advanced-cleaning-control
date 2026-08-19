@@ -232,37 +232,42 @@ vacuum_entity: vacuum.example_robot
 navigation_path: /lovelace/cleaning
 ```
 
-The same Badge can be configured independently in two dashboard views. Keep it
-permanently visible in an Area view (the backward-compatible default), and use
-attention mode in the main dashboard so it occupies no Badge slot while the
-robot is docked or sleeping:
+The same Badge can be configured independently in two dashboard views. Omit
+`visibility` in an Area view so it remains permanently visible. In a main
+dashboard, use only Home Assistant's native Visibility tab and the Planner
+status enum:
 
 ```yaml
 # Area view
 type: custom:robbie-vacuum-badge
+entity: sensor.example_planner_status
 vacuum_entity: vacuum.example_robot
-display_mode: always
 navigation_path: /lovelace/cleaning
 ```
 
 ```yaml
 # Main dashboard
 type: custom:robbie-vacuum-badge
+entity: sensor.example_planner_status
 vacuum_entity: vacuum.example_robot
-display_mode: attention
-visible_states:
-  - cleaning
-  - returning
-  - paused
-  - waiting
-  - vacation
-  - error
-  - unavailable
 navigation_path: /lovelace/cleaning
+visibility:
+  - condition: or
+    conditions:
+      - condition: state
+        entity: sensor.example_planner_status
+        state: waiting
+      - condition: state
+        entity: sensor.example_planner_status
+        state: running
+      - condition: state
+        entity: sensor.example_planner_status
+        state: failed
 ```
 
-The visual editor exposes both settings. Each Lovelace view still owns its own
-Badge instance; one instance cannot move between views.
+The Badge editor has no separate state or visibility list. Home Assistant's
+native dropdown receives all values from the enum sensor. Each Lovelace view
+still owns its own Badge instance; one instance cannot move between views.
 
 ## Missions, weekly schedules and conditions
 

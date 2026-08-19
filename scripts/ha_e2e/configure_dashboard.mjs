@@ -21,12 +21,6 @@ const status = states.find((item) =>
   item.entity_id.startsWith("sensor.") && item.attributes?.entry_id === state.entry_id
   && Array.isArray(item.attributes?.managed_vacuums));
 if (!status) throw new Error("Planner status entity was not found");
-const simulator = states.find((item) => item.entity_id === "input_select.badge_state_simulator");
-const simulatorStates = ["live", "docked", "idle", "cleaning", "returning", "paused", "waiting", "vacation", "error", "unavailable"];
-if (!simulator || simulatorStates.some((value) => !simulator.attributes?.options?.includes(value))) {
-  throw new Error("Badge state simulator does not expose every supported badge state");
-}
-
 const wsUrl = `${baseUrl.replace(/^http/, "ws")}/api/websocket`;
 const socket = new WebSocket(wsUrl);
 let nextId = 1;
@@ -88,24 +82,16 @@ const dashboard = {
     path: "cleaning",
     icon: "mdi:robot-vacuum",
     badges: [
-      // The first Badge proves the zero-entity setup path. The second only
-      // overrides the robot because this lab intentionally manages two. The
-      // third uses the same robot as an attention-only main-dashboard Badge;
-      // it must consume no layout slot while docked or idle.
-      { type: "custom:robbie-vacuum-badge", entry_id: status.attributes.entry_id, state_override_entity: "input_select.badge_state_simulator", navigation_path: "/lovelace/cleaning" },
-      { type: "custom:robbie-vacuum-badge", vacuum_entity: "vacuum.cloud_fixture_robot", navigation_path: "/lovelace/cleaning" },
-      { type: "custom:robbie-vacuum-badge", entry_id: status.attributes.entry_id, state_override_entity: "input_select.badge_state_simulator", display_mode: "attention", navigation_path: "/lovelace/cleaning" },
+      // Both Badges consume the canonical Planner enum. The third example
+      // delegates attention-only behavior to native Lovelace Visibility.
+      { type: "custom:robbie-vacuum-badge", entity: status.entity_id, entry_id: status.attributes.entry_id, navigation_path: "/lovelace/cleaning" },
+      { type: "custom:robbie-vacuum-badge", entity: status.entity_id, vacuum_entity: "vacuum.cloud_fixture_robot", navigation_path: "/lovelace/cleaning" },
+      { type: "custom:robbie-vacuum-badge", entity: status.entity_id, entry_id: status.attributes.entry_id, navigation_path: "/lovelace/cleaning", visibility: [{ condition: "state", entity: status.entity_id, state: "waiting" }] },
     ],
     cards: [
       // Deliberately omit status_entity: the Card must discover its planner
       // sensor itself, including after an entity rename or YAML copy/paste.
       { type: "custom:robbie-advanced-cleaning-card", entry_id: status.attributes.entry_id, mode: cardMode },
-      {
-        type: "entities",
-        title: "Badge Simulator · Lab only",
-        show_header_toggle: false,
-        entities: [{ entity: "input_select.badge_state_simulator", name: "Valetudo badge state" }],
-      },
     ],
   }],
 };
@@ -114,11 +100,11 @@ const saved = await call("lovelace/config");
 if (saved?.views?.[0]?.cards?.[0]?.type !== "custom:robbie-advanced-cleaning-card") {
   throw new Error("Editable Lovelace dashboard was not persisted");
 }
-if (saved?.views?.[0]?.badges?.[0]?.state_override_entity !== "input_select.badge_state_simulator") {
-  throw new Error("Badge state simulator was not persisted");
+if (saved?.views?.[0]?.badges?.[0]?.entity !== status.entity_id) {
+  throw new Error("Badge Planner enum entity was not persisted");
 }
-if (saved?.views?.[0]?.badges?.[2]?.display_mode !== "attention") {
-  throw new Error("Attention-only Badge configuration was not persisted");
+if (saved?.views?.[0]?.badges?.[2]?.visibility?.[0]?.entity !== status.entity_id) {
+  throw new Error("Native Badge Visibility condition was not persisted");
 }
 socket.close();
 console.log(`Editable Lovelace dashboard configured with ${status.entity_id}`);
