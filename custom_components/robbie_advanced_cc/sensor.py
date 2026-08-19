@@ -1,7 +1,7 @@
 """Planner sensors."""
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
@@ -13,6 +13,7 @@ from .const import (
     CARD_TYPE,
     CONF_VACATION_ENTITY,
     DOMAIN,
+    PLANNER_STATUS_OPTIONS,
 )
 from .controller import CleaningPlanner
 from .entity import PlannerEntity
@@ -35,6 +36,8 @@ async def async_setup_entry(
 class PlannerStatusSensor(PlannerEntity, SensorEntity):
     _attr_translation_key = "planner_status"
     _attr_icon = "mdi:robot-vacuum"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = PLANNER_STATUS_OPTIONS
 
     def __init__(self, planner: CleaningPlanner) -> None:
         super().__init__(planner, "planner_status")
