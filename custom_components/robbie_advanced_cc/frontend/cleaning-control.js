@@ -996,11 +996,33 @@ class RobbieVacuumBadge extends HTMLElement {
     })[state] || "var(--state-inactive-color,var(--secondary-text-color,#727272))";
   }
 
-  _formatTime(value) {
-    if (!value) return "";
+  _formatNextRun(value) {
+    if (!value) return { short: "", full: "" };
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    return new Intl.DateTimeFormat(this._hass?.language || "en", { hour: "2-digit", minute: "2-digit" }).format(date);
+    if (Number.isNaN(date.getTime())) return { short: "", full: "" };
+    const now = new Date();
+    const calendarDay = (candidate) => Date.UTC(candidate.getFullYear(), candidate.getMonth(), candidate.getDate());
+    const daysAway = Math.round((calendarDay(date) - calendarDay(now)) / 86400000);
+    if (daysAway < 0) return { short: "", full: "" };
+
+    const locale = this._hass?.language || "en";
+    const german = String(locale).toLowerCase().startsWith("de");
+    const full = new Intl.DateTimeFormat(locale, {
+      weekday: "long", day: "numeric", month: "long",
+      ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
+      hour: "2-digit", minute: "2-digit",
+    }).format(date);
+    let short;
+    if (daysAway === 0) {
+      short = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(date);
+    } else if (daysAway === 1) {
+      short = german ? "Morgen" : "Tomorrow";
+    } else if (daysAway <= 6) {
+      short = new Intl.DateTimeFormat(locale, { weekday: "short" }).format(date).replace(/\.$/, "");
+    } else {
+      short = new Intl.DateTimeFormat(locale, { day: "numeric", month: "numeric" }).format(date);
+    }
+    return { short, full };
   }
 
   _badgeStyles() {
@@ -1070,15 +1092,15 @@ class RobbieVacuumBadge extends HTMLElement {
       return;
     }
     const state = view.state;
-    const time = this._formatTime(view.nextScheduled);
+    const nextRun = this._formatNextRun(view.nextScheduled);
     const label = L.states[state] || state;
-    const tooltip = [view.name, label, time ? `${L.next} ${time}` : "", view.nextMission].filter(Boolean).join(" · ");
-    const showTime = state === "docked" && Boolean(time);
+    const tooltip = [view.name, label, nextRun.full ? `${L.next}: ${nextRun.full}` : "", view.nextMission].filter(Boolean).join(" · ");
+    const showNextRun = state === "docked" && Boolean(nextRun.short);
     this._badgeRoot = patchHost(this._mount, `
       <ha-badge type="button" icon-only data-mode="${escapeHtml(state)}" title="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}">
         <span slot="icon" class="badge-symbol">
-          <ha-icon class="robot-symbol" style="${showTime ? "--mdc-icon-size:14px;transform:translateY(-3px)" : ""}" icon="mdi:robot-vacuum${state === "docked" ? "-variant" : ""}"></ha-icon>
-          ${showTime ? `<small class="next-time">${escapeHtml(time)}</small>` : ""}
+          <ha-icon class="robot-symbol" style="${showNextRun ? "--mdc-icon-size:14px;transform:translateY(-3px)" : ""}" icon="mdi:robot-vacuum${state === "docked" ? "-variant" : ""}"></ha-icon>
+          ${showNextRun ? `<small class="next-time">${escapeHtml(nextRun.short)}</small>` : ""}
           <span class="state-marker"><ha-icon icon="${escapeHtml(this._stateIcon(state))}"></ha-icon></span>
         </span>
       </ha-badge>`);

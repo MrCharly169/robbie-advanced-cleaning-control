@@ -4,6 +4,9 @@
 
 ### Fixed
 
+- Made the docked Badge's next-run label calendar-aware: it shows the time only
+  for a run today, then tomorrow, the weekday or the date for later runs. The
+  tooltip keeps the full localized date and time.
 - Delegated native long-press and double-tap Badge interactions through Home
   Assistant's `hass-action` contract, including suppression of the synthetic
   click that follows a completed long press.

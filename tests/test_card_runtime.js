@@ -134,6 +134,13 @@ assert.equal(sandbox.window.customBadges.length, 1);
 
 const Card = registry.get("robbie-advanced-cleaning-card");
 const serviceCalls = [];
+const scheduledAfterDays = (days, hour = 6) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  date.setHours(hour, 0, 0, 0);
+  return date.toISOString();
+};
+const laterScheduledRun = scheduledAfterDays(10);
 const card = new Card();
 card.connectedCallback();
 assert.equal(card.lastEvent.type, "context-request");
@@ -170,7 +177,7 @@ card.hass = {
           },
         },
         waiting_vacuums: [],
-        next_runs: {"vacuum.robot": {mission: "Sunday clean", scheduled: "2026-08-16T05:00:00+02:00"}},
+        next_runs: {"vacuum.robot": {mission: "Sunday clean", scheduled: laterScheduledRun}},
         missions: [{
           id: "sunday", name: "Sunday clean", vacuum_entity_id: "vacuum.robot",
           weekdays: ["sun"], start_time: "05:00", areas: ["kitchen"],
@@ -421,9 +428,14 @@ assert.match(badge.shadowRoot.innerHTML, /class="robot-symbol"/);
 assert.match(badge.shadowRoot.innerHTML, /class="state-marker"/);
 assert.match(badge.shadowRoot.innerHTML, /data-mode="docked"/);
 assert.match(badge.shadowRoot.innerHTML, /class="next-time"/);
+assert.notEqual(badge._formatNextRun(scheduledAfterDays(0)).short, "", "today must show a time");
+assert.equal(badge._formatNextRun(scheduledAfterDays(1)).short, "Morgen", "tomorrow must be explicit in German");
+assert.doesNotMatch(badge._formatNextRun(scheduledAfterDays(3)).short, /:/, "this week must show a weekday, not only a time");
+assert.doesNotMatch(badge._formatNextRun(laterScheduledRun).short, /:/, "later runs must show a date, not only a time");
+assert.match(badge._formatNextRun(laterScheduledRun).full, /06:00/, "the tooltip must retain the exact time");
 const stableBadgeRoot = badge._badgeRoot;
 const badgeBeforeBurst = badge._visibleRenderCount;
-for (const [state, scheduled] of [["idle", "2026-08-16T05:05:00+02:00"], ["cleaning", "2026-08-16T05:10:00+02:00"]]) {
+for (const [state, scheduled] of [["idle", scheduledAfterDays(2, 5)], ["cleaning", scheduledAfterDays(2, 5)]]) {
   badge.hass = {
     ...card._hass,
     states: {
