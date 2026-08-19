@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 2026.8.0b15 - 2026-08-19
+## 2026.8.1b0 - 2026-08-19
 
 ### Native entity badges
 
@@ -11,6 +11,8 @@
   including Waiting and Failed.
 - Kept navigation in the native tap action and conditional display exclusively
   in Home Assistant's Visibility tab.
+- Bounded future beta trains to `b0` through `b9`; a new completed scope
+  increments the CalVer patch and restarts at `b0`.
 
 ## 2026.8.0b14 - 2026-08-19
 

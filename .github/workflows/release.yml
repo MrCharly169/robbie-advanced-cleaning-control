@@ -42,9 +42,9 @@ jobs:
         shell: bash
         run: |
           VERSION="$(python -c 'import json; print(json.load(open("custom_components/robbie_advanced_cc/manifest.json"))["version"])')"
-          if [[ "${{ github.ref_name }}" == "develop" && "$VERSION" =~ b[0-9]+$ ]]; then
+          if [[ "${{ github.ref_name }}" == "develop" && "$VERSION" =~ ^20[0-9]{2}\.([1-9]|1[0-2])\.[0-9]+b[0-9]$ ]]; then
             CHANNEL="beta"
-          elif [[ "${{ github.ref_name }}" == "main" && ! "$VERSION" =~ b[0-9]+$ ]]; then
+          elif [[ "${{ github.ref_name }}" == "main" && "$VERSION" =~ ^20[0-9]{2}\.([1-9]|1[0-2])\.[0-9]+$ ]]; then
             CHANNEL="stable"
           else
             echo "::error::Invalid release channel: main requires YYYY.M.PATCH and develop requires YYYY.M.PATCHbN."

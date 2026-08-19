@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/actions/workflows/validate.yml"><img alt="Validate status" src="https://img.shields.io/github/actions/workflow/status/MrCharly169/robbie-advanced-cleaning-control/validate.yml?branch=main&amp;style=flat-square&amp;label=Validate"></a>
-  <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases/tag/v2026.8.0b12"><img alt="Current beta release v2026.8.0b12" src="https://img.shields.io/badge/Release-v2026.8.0b12-2ea44f?style=flat-square"></a>
+  <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases"><img alt="Current GitHub release including prereleases" src="https://img.shields.io/github/v/release/MrCharly169/robbie-advanced-cleaning-control?include_prereleases&amp;style=flat-square&amp;label=Release"></a>
   <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/MrCharly169/robbie-advanced-cleaning-control?style=flat-square&amp;label=Stars"></a>
   <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases"><img alt="GitHub release downloads" src="https://img.shields.io/github/downloads/MrCharly169/robbie-advanced-cleaning-control/total?style=flat-square&amp;label=Release%20downloads"></a>
   <a href="#hacs-custom-repository"><img alt="HACS Custom" src="https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat-square"></a>
