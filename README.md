@@ -221,10 +221,13 @@ mode: advanced
 
 ### Hybrid planner Badge
 
-Use Robbie's Custom Badge with the native planner status sensor. It combines the
-robot logo, state marker, next-run time, animation and semantic color. Entity,
-navigation and conditional display remain configured through Home Assistant's
-native entity selector, Interactions tab and Visibility tab.
+Use Robbie's Custom Badge with the native planner status sensor. A future
+`announced` mission remains planning context: the Badge shows the time only for
+a run today, then tomorrow, a weekday or a date. The secondary marker is hidden
+while this schedule label is visible. Only an actual native `waiting` state
+receives the warning marker and color. Entity, navigation and conditional
+display remain configured through Home Assistant's native entity selector,
+Interactions tab and Visibility tab.
 
 The same Badge can be configured independently in two dashboard views. Omit
 `visibility` in an Area view so it remains permanently visible. In a main

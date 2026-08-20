@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/actions/workflows/validate.yml"><img alt="Validate-Status" src="https://img.shields.io/github/actions/workflow/status/MrCharly169/robbie-advanced-cleaning-control/validate.yml?branch=main&amp;style=flat-square&amp;label=Validate"></a>
-  <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases/tag/v2026.8.0b12"><img alt="Aktuelles Beta-Release v2026.8.0b12" src="https://img.shields.io/badge/Release-v2026.8.0b12-2ea44f?style=flat-square"></a>
+  <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases/tag/v2026.8.2b1"><img alt="Aktuelles Beta-Release v2026.8.2b1" src="https://img.shields.io/badge/Release-v2026.8.2b1-2ea44f?style=flat-square"></a>
   <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/stargazers"><img alt="GitHub Stars" src="https://img.shields.io/github/stars/MrCharly169/robbie-advanced-cleaning-control?style=flat-square&amp;label=Stars"></a>
   <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases"><img alt="Downloads der GitHub-Releases" src="https://img.shields.io/github/downloads/MrCharly169/robbie-advanced-cleaning-control/total?style=flat-square&amp;label=Release%20downloads"></a>
   <a href="#hacs-als-benutzerdefiniertes-repository"><img alt="HACS Custom" src="https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat-square"></a>
@@ -227,11 +227,14 @@ mode: advanced
 
 ### Hybrides Planer-Badge
 
-Verwende Robbies Custom Badge mit dem nativen Planer-Statussensor.
-Robbies Custom Badge verbindet Roboterlogo, Zustandsmarker, nächste Startzeit,
-Animation und semantische Farbe. Entity, Navigation und bedingte Anzeige werden
-weiterhin über Home Assistants nativen Entity-Selector sowie die Tabs
-Interaktionen und Sichtbarkeit konfiguriert.
+Verwende Robbies Custom Badge mit dem nativen Planer-Statussensor. Eine
+zukünftige `announced`-Mission bleibt Planungskontext: Das Badge zeigt die
+Uhrzeit nur für einen Lauf heute, danach „Morgen“, einen Wochentag oder ein
+Datum. Solange dieser Termintext sichtbar ist, wird der zusätzliche Marker
+ausgeblendet. Nur der echte native Zustand `waiting` erhält Warnmarker und
+Warnfarbe. Entity, Navigation und bedingte Anzeige werden weiterhin über Home
+Assistants nativen Entity-Selector sowie die Tabs Interaktionen und Sichtbarkeit
+konfiguriert.
 
 Derselbe Badge-Typ kann in zwei Dashboard-Ansichten unabhängig konfiguriert
 werden. Ohne `visibility` bleibt er in der Area View immer sichtbar. Im

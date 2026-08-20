@@ -134,6 +134,13 @@ assert.equal(sandbox.window.customBadges.length, 1);
 
 const Card = registry.get("robbie-advanced-cleaning-card");
 const serviceCalls = [];
+const scheduledAfterDays = (days, hour = 6) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  date.setHours(hour, 0, 0, 0);
+  return date.toISOString();
+};
+const laterScheduledRun = scheduledAfterDays(10);
 const card = new Card();
 card.connectedCallback();
 assert.equal(card.lastEvent.type, "context-request");
@@ -170,7 +177,7 @@ card.hass = {
           },
         },
         waiting_vacuums: [],
-        next_runs: {"vacuum.robot": {mission: "Sunday clean", scheduled: "2026-08-16T05:00:00+02:00"}},
+        next_runs: {"vacuum.robot": {mission: "Sunday clean", scheduled: laterScheduledRun}},
         missions: [{
           id: "sunday", name: "Sunday clean", vacuum_entity_id: "vacuum.robot",
           weekdays: ["sun"], start_time: "05:00", areas: ["kitchen"],
@@ -406,6 +413,7 @@ badge.setConfig({
   entity: "sensor.planner_status",
   state_override_entity: "input_select.badge_state_simulator",
   navigation_path: "/lovelace/cleaning",
+  hold_action: { action: "more-info" },
   visibility: [{ condition: "state", entity: "sensor.planner_status", state: "waiting" }],
 });
 badge.hass = card._hass;
@@ -417,12 +425,17 @@ assert.match(badge.shadowRoot.innerHTML, /ha-badge/);
 assert.match(badge.shadowRoot.innerHTML, /--ha-badge-size,36px/);
 assert.match(badge.shadowRoot.innerHTML, /class="badge-symbol"/);
 assert.match(badge.shadowRoot.innerHTML, /class="robot-symbol"/);
-assert.match(badge.shadowRoot.innerHTML, /class="state-marker"/);
+assert.doesNotMatch(badge.shadowRoot.innerHTML, /class="state-marker"/, "a next-run label must not compete with the dock marker");
 assert.match(badge.shadowRoot.innerHTML, /data-mode="docked"/);
 assert.match(badge.shadowRoot.innerHTML, /class="next-time"/);
+assert.notEqual(badge._formatNextRun(scheduledAfterDays(0)).short, "", "today must show a time");
+assert.equal(badge._formatNextRun(scheduledAfterDays(1)).short, "Morgen", "tomorrow must be explicit in German");
+assert.doesNotMatch(badge._formatNextRun(scheduledAfterDays(3)).short, /:/, "this week must show a weekday, not only a time");
+assert.doesNotMatch(badge._formatNextRun(laterScheduledRun).short, /:/, "later runs must show a date, not only a time");
+assert.match(badge._formatNextRun(laterScheduledRun).full, /06:00/, "the tooltip must retain the exact time");
 const stableBadgeRoot = badge._badgeRoot;
 const badgeBeforeBurst = badge._visibleRenderCount;
-for (const [state, scheduled] of [["idle", "2026-08-16T05:05:00+02:00"], ["cleaning", "2026-08-16T05:10:00+02:00"]]) {
+for (const [state, scheduled] of [["idle", scheduledAfterDays(2, 5)], ["cleaning", scheduledAfterDays(2, 5)]]) {
   badge.hass = {
     ...card._hass,
     states: {
@@ -444,7 +457,7 @@ assert.equal(badge._visibleRenderCount, badgeBeforeBurst + 1, "a visible Badge b
 assert.equal(badge._badgeRoot, stableBadgeRoot, "the ha-badge root must remain stable");
 assert.equal(badge.shellWrites, 1, "the Badge shadow shell must only be created once");
 const plannerStates = {
-  announced: ["waiting", "mdi:account-clock-outline"],
+  announced: ["docked", null],
   preparing: ["cleaning", "mdi:play"],
   running: ["cleaning", "mdi:play"],
   dock_service: ["returning", "mdi:home-import-outline"],
@@ -466,7 +479,11 @@ for (const [plannerState, [badgeState, stateIcon]] of Object.entries(plannerStat
   };
   flushFrame();
   assert.match(badge.shadowRoot.innerHTML, new RegExp(`data-mode="${badgeState}"`));
-  assert.match(badge.shadowRoot.innerHTML, new RegExp(`icon="${stateIcon}"`));
+  if (stateIcon) assert.match(badge.shadowRoot.innerHTML, new RegExp(`icon="${stateIcon}"`));
+  else {
+    assert.match(badge.shadowRoot.innerHTML, /class="next-time"/);
+    assert.doesNotMatch(badge.shadowRoot.innerHTML, /class="state-marker"/);
+  }
 }
 badge.hass = {
   ...card._hass,
@@ -491,7 +508,39 @@ assert.equal(badge.lastEvent.detail.action, "tap");
 assert.equal(badge.lastEvent.detail.config.entity, "sensor.planner_status");
 assert.equal(badge.lastEvent.detail.config.tap_action.action, "navigate");
 assert.equal(badge.lastEvent.detail.config.tap_action.navigation_path, "/lovelace/cleaning");
+assert.equal(badge.lastEvent.detail.config.hold_action.action, "more-info");
 assert.equal(badge.lastEvent.detail.config.visibility[0].state, "waiting");
+badge.handlers["ha-badge:pointerdown"]({});
+assert.equal(flushTimers(), 1);
+assert.equal(badge.lastEvent.type, "hass-action");
+assert.equal(badge.lastEvent.detail.action, "hold");
+assert.equal(badge.lastEvent.detail.config.entity, "sensor.planner_status");
+badge.handlers["ha-badge:click"]({ stopPropagation() {} });
+assert.equal(badge.lastEvent.detail.action, "hold", "the synthetic click after a hold must be ignored");
+badge.handlers["ha-badge:click"]({ stopPropagation() {} });
+badge.handlers["ha-badge:touchstart"]({});
+assert.equal(flushTimers(), 1);
+assert.equal(badge.lastEvent.detail.action, "hold", "touch fallback must dispatch a native hold");
+badge.handlers["ha-badge:click"]({ stopPropagation() {} });
+let contextPrevented = false;
+let contextStopped = false;
+badge.handlers["ha-badge:contextmenu"]({
+  preventDefault() { contextPrevented = true; },
+  stopPropagation() { contextStopped = true; },
+});
+assert.equal(contextPrevented, true);
+assert.equal(contextStopped, true);
+assert.equal(badge.lastEvent.detail.action, "hold", "iOS context-menu fallback must dispatch a native hold");
+badge.handlers["ha-badge:click"]({ stopPropagation() {} });
+badge.setConfig({
+  entity: "sensor.planner_status",
+  tap_action: { action: "navigate", navigation_path: "/lovelace/cleaning" },
+  hold_action: { action: "more-info" },
+  double_tap_action: { action: "more-info" },
+});
+badge.handlers["ha-badge:click"]({ stopPropagation() {} });
+badge.handlers["ha-badge:click"]({ stopPropagation() {} });
+assert.equal(badge.lastEvent.detail.action, "double_tap");
 let keyPrevented = false;
 badge.handlers["ha-badge:keydown"]({ key: "Enter", preventDefault() { keyPrevented = true; } });
 assert.equal(keyPrevented, true);

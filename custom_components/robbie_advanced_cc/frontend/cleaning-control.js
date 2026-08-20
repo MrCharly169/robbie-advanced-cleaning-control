@@ -808,6 +808,9 @@ class RobbieVacuumBadge extends HTMLElement {
     this._lastRenderSignature = "";
     this._renderFrame = null;
     this._visibleRenderCount = 0;
+    this._holdTimer = null;
+    this._holdPerformed = false;
+    this._tapTimer = null;
   }
 
   static async getConfigElement() { return document.createElement("robbie-vacuum-badge-editor"); }
@@ -840,6 +843,10 @@ class RobbieVacuumBadge extends HTMLElement {
   disconnectedCallback() {
     if (this._renderFrame !== null) frameCancel(this._renderFrame);
     this._renderFrame = null;
+    if (this._holdTimer !== null) clearTimeout(this._holdTimer);
+    if (this._tapTimer !== null) clearTimeout(this._tapTimer);
+    this._holdTimer = null;
+    this._tapTimer = null;
   }
 
   _scheduleRender() {
@@ -870,14 +877,43 @@ class RobbieVacuumBadge extends HTMLElement {
       || configured;
   }
 
-  _performNativeTapAction() {
+  _performNativeAction(action) {
     const entityId = String(this._config?.entity || this._config?.status_entity || "");
     if (!entityId) return;
     this.dispatchEvent(new CustomEvent("hass-action", {
       bubbles: true,
       composed: true,
-      detail: { action: "tap", config: { ...this._config, entity: entityId } },
+      detail: { action, config: { ...this._config, entity: entityId } },
     }));
+  }
+
+  _configuredAction(action) {
+    const key = action === "double_tap" ? "double_tap_action" : `${action}_action`;
+    return this._config?.[key]?.action && this._config[key].action !== "none";
+  }
+
+  _clearHoldTimer() {
+    if (this._holdTimer !== null) clearTimeout(this._holdTimer);
+    this._holdTimer = null;
+  }
+
+  _startHoldTimer() {
+    if (!this._configuredAction("hold") || this._holdPerformed || this._holdTimer !== null) return;
+    this._holdTimer = setTimeout(() => {
+      this._holdTimer = null;
+      this._holdPerformed = true;
+      this._performNativeAction("hold");
+    }, 500);
+  }
+
+  _performContextHold(event) {
+    if (!this._configuredAction("hold")) return;
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    this._clearHoldTimer();
+    if (this._holdPerformed) return;
+    this._holdPerformed = true;
+    this._performNativeAction("hold");
   }
 
   _bindInteraction() {
@@ -885,14 +921,43 @@ class RobbieVacuumBadge extends HTMLElement {
     if (!badge || !this._vacuumEntityId()) return;
     if (this._interactionBadge === badge) return;
     this._interactionBadge = badge;
+    const startHold = () => {
+      this._clearHoldTimer();
+      this._holdPerformed = false;
+      this._startHoldTimer();
+    };
+    for (const eventName of ["pointerdown", "touchstart", "mousedown"]) {
+      badge.addEventListener?.(eventName, startHold, eventName === "touchstart" ? { passive: true } : undefined);
+    }
+    for (const eventName of ["pointerup", "pointercancel", "touchend", "touchcancel", "mouseup"]) {
+      badge.addEventListener?.(eventName, () => this._clearHoldTimer());
+    }
+    badge.addEventListener?.("contextmenu", (event) => this._performContextHold(event));
     badge.addEventListener?.("click", (event) => {
       event.stopPropagation?.();
-      this._performNativeTapAction();
+      if (this._holdPerformed) {
+        this._holdPerformed = false;
+        return;
+      }
+      if (!this._configuredAction("double_tap")) {
+        this._performNativeAction("tap");
+        return;
+      }
+      if (this._tapTimer !== null) {
+        clearTimeout(this._tapTimer);
+        this._tapTimer = null;
+        this._performNativeAction("double_tap");
+        return;
+      }
+      this._tapTimer = setTimeout(() => {
+        this._tapTimer = null;
+        this._performNativeAction("tap");
+      }, 250);
     });
     badge.addEventListener?.("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault?.();
-      this._performNativeTapAction();
+      this._performNativeAction("tap");
     });
   }
 
@@ -931,11 +996,33 @@ class RobbieVacuumBadge extends HTMLElement {
     })[state] || "var(--state-inactive-color,var(--secondary-text-color,#727272))";
   }
 
-  _formatTime(value) {
-    if (!value) return "";
+  _formatNextRun(value) {
+    if (!value) return { short: "", full: "" };
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    return new Intl.DateTimeFormat(this._hass?.language || "en", { hour: "2-digit", minute: "2-digit" }).format(date);
+    if (Number.isNaN(date.getTime())) return { short: "", full: "" };
+    const now = new Date();
+    const calendarDay = (candidate) => Date.UTC(candidate.getFullYear(), candidate.getMonth(), candidate.getDate());
+    const daysAway = Math.round((calendarDay(date) - calendarDay(now)) / 86400000);
+    if (daysAway < 0) return { short: "", full: "" };
+
+    const locale = this._hass?.language || "en";
+    const german = String(locale).toLowerCase().startsWith("de");
+    const full = new Intl.DateTimeFormat(locale, {
+      weekday: "long", day: "numeric", month: "long",
+      ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
+      hour: "2-digit", minute: "2-digit",
+    }).format(date);
+    let short;
+    if (daysAway === 0) {
+      short = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(date);
+    } else if (daysAway === 1) {
+      short = german ? "Morgen" : "Tomorrow";
+    } else if (daysAway <= 6) {
+      short = new Intl.DateTimeFormat(locale, { weekday: "short" }).format(date).replace(/\.$/, "");
+    } else {
+      short = new Intl.DateTimeFormat(locale, { day: "numeric", month: "numeric" }).format(date);
+    }
+    return { short, full };
   }
 
   _badgeStyles() {
@@ -946,7 +1033,7 @@ class RobbieVacuumBadge extends HTMLElement {
       .next-time{position:absolute;left:50%;bottom:1px;transform:translateX(-50%);font-size:6px;font-weight:850;line-height:1;letter-spacing:-.04em;white-space:nowrap;color:var(--badge-color)}
       .state-marker{position:absolute;right:-1px;bottom:-1px;display:grid;place-items:center;width:12px;height:12px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color,#fff));box-shadow:0 0 0 1px var(--ha-card-border-color,var(--divider-color,#ddd));color:var(--badge-color)}
       .state-marker ha-icon{--mdc-icon-size:8px}
-      ha-badge[data-mode="cleaning"] .robot-symbol{animation:badge-clean 2.6s ease-in-out infinite}ha-badge[data-mode="cleaning"] .state-marker{animation:badge-pulse 1.4s ease-in-out infinite}ha-badge[data-mode="returning"] .robot-symbol{animation:badge-return 2s ease-in-out infinite}ha-badge[data-mode="waiting"] .robot-symbol{animation:badge-breathe 1.8s ease-in-out infinite}ha-badge[data-mode="vacation"] .robot-symbol{animation:badge-float 3.4s ease-in-out infinite}ha-badge[data-mode="error"] .robot-symbol{animation:badge-alert .48s ease-in-out infinite}
+      ha-badge{touch-action:manipulation;-webkit-touch-callout:none;user-select:none}ha-badge[data-mode="cleaning"] .robot-symbol{animation:badge-clean 2.6s ease-in-out infinite}ha-badge[data-mode="cleaning"] .state-marker{animation:badge-pulse 1.4s ease-in-out infinite}ha-badge[data-mode="returning"] .robot-symbol{animation:badge-return 2s ease-in-out infinite}ha-badge[data-mode="waiting"] .robot-symbol{animation:badge-breathe 1.8s ease-in-out infinite}ha-badge[data-mode="vacation"] .robot-symbol{animation:badge-float 3.4s ease-in-out infinite}ha-badge[data-mode="error"] .robot-symbol{animation:badge-alert .48s ease-in-out infinite}
       @keyframes badge-clean{0%,100%{transform:translateX(-1px) rotate(-5deg)}50%{transform:translateX(1px) rotate(5deg)}}@keyframes badge-pulse{50%{transform:scale(1.16)}}@keyframes badge-return{0%,100%{transform:translateX(-1px)}50%{transform:translateX(1px)}}@keyframes badge-breathe{50%{transform:scale(.9);opacity:.72}}@keyframes badge-float{0%,100%{transform:translateY(1px)}50%{transform:translateY(-1px)}}@keyframes badge-alert{0%,100%{transform:translateX(-1px)}50%{transform:translateX(1px)}}
       @media (prefers-reduced-motion:reduce){.robot-symbol,.state-marker{animation:none!important}}
     </style>`;
@@ -966,7 +1053,7 @@ class RobbieVacuumBadge extends HTMLElement {
     const raw = vacuum?.state || "unavailable";
     const plannerState = status?.state || "";
     const plannerRuntime = ({
-      announced: "waiting", preparing: "cleaning", running: "cleaning",
+      preparing: "cleaning", running: "cleaning",
       dock_service: "returning", waiting: "waiting", vacation: "vacation",
       blocked: "error", failed: "error",
     })[plannerState] || "";
@@ -978,6 +1065,8 @@ class RobbieVacuumBadge extends HTMLElement {
       name: this._config.name || vacuum?.attributes?.friendly_name || vacuumEntityId || "",
       nextScheduled: nextRun?.scheduled || "", nextMission: nextRun?.mission || "",
       tapAction: this._config.tap_action || null,
+      holdAction: this._config.hold_action || null,
+      doubleTapAction: this._config.double_tap_action || null,
     };
   }
 
@@ -1003,16 +1092,16 @@ class RobbieVacuumBadge extends HTMLElement {
       return;
     }
     const state = view.state;
-    const time = this._formatTime(view.nextScheduled);
+    const nextRun = this._formatNextRun(view.nextScheduled);
     const label = L.states[state] || state;
-    const tooltip = [view.name, label, time ? `${L.next} ${time}` : "", view.nextMission].filter(Boolean).join(" · ");
-    const showTime = state === "docked" && Boolean(time);
+    const tooltip = [view.name, label, nextRun.full ? `${L.next}: ${nextRun.full}` : "", view.nextMission].filter(Boolean).join(" · ");
+    const showNextRun = state === "docked" && Boolean(nextRun.short);
     this._badgeRoot = patchHost(this._mount, `
       <ha-badge type="button" icon-only data-mode="${escapeHtml(state)}" title="${escapeHtml(tooltip)}" aria-label="${escapeHtml(tooltip)}">
         <span slot="icon" class="badge-symbol">
-          <ha-icon class="robot-symbol" style="${showTime ? "--mdc-icon-size:14px;transform:translateY(-3px)" : ""}" icon="mdi:robot-vacuum${state === "docked" ? "-variant" : ""}"></ha-icon>
-          ${showTime ? `<small class="next-time">${escapeHtml(time)}</small>` : ""}
-          <span class="state-marker"><ha-icon icon="${escapeHtml(this._stateIcon(state))}"></ha-icon></span>
+          <ha-icon class="robot-symbol" style="${showNextRun ? "--mdc-icon-size:14px;transform:translateY(-3px)" : ""}" icon="mdi:robot-vacuum${state === "docked" ? "-variant" : ""}"></ha-icon>
+          ${showNextRun ? `<small class="next-time">${escapeHtml(nextRun.short)}</small>` : ""}
+          ${showNextRun ? "" : `<span class="state-marker"><ha-icon icon="${escapeHtml(this._stateIcon(state))}"></ha-icon></span>`}
         </span>
       </ha-badge>`);
     this._badgeRoot.style?.setProperty?.("--badge-color", this._color(state));
