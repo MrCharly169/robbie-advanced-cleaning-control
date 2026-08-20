@@ -425,7 +425,7 @@ assert.match(badge.shadowRoot.innerHTML, /ha-badge/);
 assert.match(badge.shadowRoot.innerHTML, /--ha-badge-size,36px/);
 assert.match(badge.shadowRoot.innerHTML, /class="badge-symbol"/);
 assert.match(badge.shadowRoot.innerHTML, /class="robot-symbol"/);
-assert.match(badge.shadowRoot.innerHTML, /class="state-marker"/);
+assert.doesNotMatch(badge.shadowRoot.innerHTML, /class="state-marker"/, "a next-run label must not compete with the dock marker");
 assert.match(badge.shadowRoot.innerHTML, /data-mode="docked"/);
 assert.match(badge.shadowRoot.innerHTML, /class="next-time"/);
 assert.notEqual(badge._formatNextRun(scheduledAfterDays(0)).short, "", "today must show a time");
@@ -457,7 +457,7 @@ assert.equal(badge._visibleRenderCount, badgeBeforeBurst + 1, "a visible Badge b
 assert.equal(badge._badgeRoot, stableBadgeRoot, "the ha-badge root must remain stable");
 assert.equal(badge.shellWrites, 1, "the Badge shadow shell must only be created once");
 const plannerStates = {
-  announced: ["waiting", "mdi:account-clock-outline"],
+  announced: ["docked", null],
   preparing: ["cleaning", "mdi:play"],
   running: ["cleaning", "mdi:play"],
   dock_service: ["returning", "mdi:home-import-outline"],
@@ -479,7 +479,11 @@ for (const [plannerState, [badgeState, stateIcon]] of Object.entries(plannerStat
   };
   flushFrame();
   assert.match(badge.shadowRoot.innerHTML, new RegExp(`data-mode="${badgeState}"`));
-  assert.match(badge.shadowRoot.innerHTML, new RegExp(`icon="${stateIcon}"`));
+  if (stateIcon) assert.match(badge.shadowRoot.innerHTML, new RegExp(`icon="${stateIcon}"`));
+  else {
+    assert.match(badge.shadowRoot.innerHTML, /class="next-time"/);
+    assert.doesNotMatch(badge.shadowRoot.innerHTML, /class="state-marker"/);
+  }
 }
 badge.hass = {
   ...card._hass,

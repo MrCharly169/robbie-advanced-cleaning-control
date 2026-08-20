@@ -1053,7 +1053,7 @@ class RobbieVacuumBadge extends HTMLElement {
     const raw = vacuum?.state || "unavailable";
     const plannerState = status?.state || "";
     const plannerRuntime = ({
-      announced: "waiting", preparing: "cleaning", running: "cleaning",
+      preparing: "cleaning", running: "cleaning",
       dock_service: "returning", waiting: "waiting", vacation: "vacation",
       blocked: "error", failed: "error",
     })[plannerState] || "";
@@ -1101,7 +1101,7 @@ class RobbieVacuumBadge extends HTMLElement {
         <span slot="icon" class="badge-symbol">
           <ha-icon class="robot-symbol" style="${showNextRun ? "--mdc-icon-size:14px;transform:translateY(-3px)" : ""}" icon="mdi:robot-vacuum${state === "docked" ? "-variant" : ""}"></ha-icon>
           ${showNextRun ? `<small class="next-time">${escapeHtml(nextRun.short)}</small>` : ""}
-          <span class="state-marker"><ha-icon icon="${escapeHtml(this._stateIcon(state))}"></ha-icon></span>
+          ${showNextRun ? "" : `<span class="state-marker"><ha-icon icon="${escapeHtml(this._stateIcon(state))}"></ha-icon></span>`}
         </span>
       </ha-badge>`);
     this._badgeRoot.style?.setProperty?.("--badge-color", this._color(state));

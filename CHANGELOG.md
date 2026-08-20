@@ -2,8 +2,15 @@
 
 ## Unreleased
 
+## 2026.8.2b1 - 2026-08-20
+
 ### Fixed
 
+- Kept a future native `announced` mission as planning context instead of
+  presenting it as active `waiting`; only the actual native `waiting` state now
+  receives the warning treatment.
+- Removed the secondary dock marker whenever the compact next-run label is
+  visible, so weekday and date labels such as `Fr` remain unobstructed.
 - Made the docked Badge's next-run label calendar-aware: it shows the time only
   for a run today, then tomorrow, the weekday or the date for later runs. The
   tooltip keeps the full localized date and time.
@@ -13,6 +20,8 @@
 - Added Touch Events and the iOS context-menu gesture as long-press fallbacks,
   and stopped cancelling a valid hold merely because the pointer left the
   Badge's small visual bounds.
+- Adopted Home Assistant ecosystem policy 1.2 for future planning semantics and
+  collision-free hybrid Badge presentation.
 
 ## 2026.8.2b0 - 2026-08-19
 
