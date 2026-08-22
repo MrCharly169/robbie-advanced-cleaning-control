@@ -164,6 +164,11 @@ oder Roboterflotte. Er fragt nach:
 - live erkannten Raum-/Profilwerten für die erste Mission;
 - optionalem Benachrichtigungsrouter, Routenhelfer, To-do-Bindung und Dashboardpfad.
 
+Der Dashboardpfad ist ausdrücklich der vollständige Home-Assistant-Pfad der
+Ansicht mit der Robbie Cleaning-Control-Card, zum Beispiel
+`/lovelace/cleaning`. Robbie-Benachrichtigungen öffnen immer dieses Control
+Center und niemals direkt eine separate Valetudo- oder Herstelleroberfläche.
+
 Nach der Einrichtung bearbeitest du Verbindungen und gespeicherte Missionen
 unter **Einstellungen → Geräte & Dienste → Robbie Advanced Cleaning Control →
 Konfigurieren**.
@@ -275,6 +280,32 @@ Der Badge-Editor besitzt keine eigene Saugroboter-, Navigate-, Hidden-,
 Zustands- oder Sichtbarkeitsliste. Das native Dropdown von Home Assistant erhält
 alle Werte direkt vom Enum-Sensor. Jede Lovelace-Ansicht besitzt weiterhin ihre
 eigene Badge-Instanz.
+
+### Navigation aus Benachrichtigung und Roboteransicht
+
+Halte beide Ziele getrennt:
+
+- `dashboard_path` in Robbies Einrichtung beziehungsweise Optionen bezeichnet
+  die Ansicht mit der Cleaning-Control-Card. Mobile und persistente
+  Benachrichtigungen öffnen diesen Pfad.
+- Die native `tap_action` des Badges darf eine separate Valetudo- oder
+  Cloud-Roboteransicht öffnen.
+
+Ist diese Roboteransicht eine Home-Assistant-Subview, erhält sie denselben
+festen nativen Rückpfad. Dadurch funktioniert Zurück auch bei einem Deep Link
+ohne passenden Browser-Verlauf:
+
+```yaml
+title: Roboter
+path: roboter
+subview: true
+back_path: /lovelace/cleaning
+```
+
+Robbie veröffentlicht den konfigurierten Wert außerdem am
+`sensor.<planer>_planner_status` unter `dashboard.navigation_path`, damit
+Dashboard-Generatoren ihn wiederverwenden können. Home Assistant behält die
+Hoheit über den nativen Subview-Zurück-Button und die Badge-Interaktionen.
 
 ## Missionen, Wochenpläne und Bedingungen
 

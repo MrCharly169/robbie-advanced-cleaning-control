@@ -1,7 +1,7 @@
 # Home Assistant Ecosystem Policy
 
 Policy-ID: meyershaff-ha-ecosystem
-Policy-Version: 1.2.0
+Policy-Version: 1.5.0
 Adopted: 2026-08-20
 
 ## Scope and automatic classification
@@ -50,6 +50,81 @@ Visibility conditions whenever they can express the required behavior.
   compatibility fallback must be explicit.
 - Ecosystem migrations must update live dashboards, onboarding snippets,
   examples, E2E fixtures, tests, and release documentation together.
+
+## Notification navigation contract
+
+Mobile notification navigation and Dashboard return navigation are separate
+native Home Assistant concerns.
+
+- A Mobile App deep link uses the same relative Home Assistant path in `url`,
+  Android `clickAction`, and every matching `URI` action. Internal persistent
+  notifications use an equivalent relative Markdown link when navigation is
+  useful. Notification clear calls never receive navigation fields.
+- `navigation_path` belongs to a Badge or Card interaction. `back_path` belongs
+  only to the destination Lovelace Subview. A Badge, custom Card, notification
+  payload, or logical notification route must not invent a second Back-path
+  field or override the native Subview contract.
+- Every notification or Badge destination that is a Lovelace Subview must have
+  an explicit, valid `back_path`. The return target must be a non-Subview or a
+  deliberately selected parent view that the intended user can access.
+- A reusable integration must not hard-code an installation-specific Dashboard.
+  When it emits navigable notifications, its setup and options flow exposes the
+  notification destination and, when different, the intended return path. One
+  configured parent view may serve as both the notification destination and the
+  native return target of a separate detail Subview. Onboarding and examples
+  show that the return path is saved on the destination Subview. If the
+  integration does not own that Dashboard, it must not claim to have changed it.
+- Because native `back_path` is static per Subview, recipients that need
+  different return destinations use distinct Subview paths. Per-recipient route
+  metadata, query-string patches, browser-history assumptions, and global
+  frontend interception are not substitutes for this native model.
+- Notification audits cover UI-managed automations and scripts, Alarmo or
+  comparable stores, integration-generated notifications, and known YAML-only
+  sources. Inaccessible or dynamically templated sources remain explicit audit
+  findings rather than being reported as verified.
+
+## Living customer documentation contract
+
+Customer-facing Home Assistant documentation is one versioned capability
+catalog, not copied prose per residence. Residence profiles contain only the
+active/available mapping, dashboard destination, and verified local context.
+
+- Every customer capability is documented in Luxembourgish, German, French,
+  and English. A capability or customer-visible change is incomplete while one
+  required language is missing.
+- The customer baseline remains stable. New behavior extends the matching
+  capability and adds a plain-language changelog entry instead of silently
+  rewriting unrelated guidance.
+- Active capabilities are derived from current dashboards, referenced entities,
+  automations, scripts, and integration manifests. Ambiguous findings require
+  review and must never be presented as verified behavior.
+- Owned open-source integrations link to their manifest documentation URL,
+  GitHub source, and detected installed version. Customer text remains
+  non-technical; deeper technical material is optional.
+- Scheduled maintenance is read-only toward Home Assistant except for the
+  dedicated documentation presentation. It must not switch entities, execute
+  customer automations, or change integration configuration.
+- Generated HTML, Markdown, database, manifest, and changelog outputs are
+  published together. Nextcloud is a synchronized publication target; the
+  versioned workspace catalog remains the source of truth.
+- Documentation outputs contain no Home Assistant tokens, Nextcloud
+  credentials, internal secrets, personal notification targets, or raw private
+  automation payloads.
+- Customer-facing private, MeyersHaff and explicitly shared web services use a
+  single multilingual service catalog alongside the capability catalog.
+  Smart Solutions workloads, administration interfaces and infrastructure-only
+  routes are excluded unless a later approved customer contract says otherwise.
+- Every published service includes only its public reverse-proxy address,
+  generic username pattern, safe password handling, mobile access and privacy
+  boundary. Never publish an actual username, password, internal IP address,
+  Proxmox guest name, token or management route.
+- Service presence and availability are evidenced by a certificate-pinned,
+  read-only Proxmox inventory and a public endpoint check. Official upstream
+  repositories and releases are monitored; a customer-visible behavioral
+  change requires a reviewed four-language changelog entry.
+- An account must not be described as active without residence-specific
+  evidence. Unverified account-based services remain available or explicitly
+  approval-required until their customer mapping is confirmed.
 
 ## Beta release trains
 

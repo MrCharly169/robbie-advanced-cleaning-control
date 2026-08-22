@@ -34,6 +34,14 @@ def _optional(key: str, value: Any = None) -> vol.Optional:
     return vol.Optional(key, description={"suggested_value": value})
 
 
+def _dashboard_path(value: Any) -> str:
+    """Return a safe Home Assistant path for the Cleaning Control Card."""
+    path = str(value or DEFAULT_DASHBOARD_PATH).strip()
+    if not path.startswith("/") or path.startswith("//") or "://" in path:
+        raise ValueError("dashboard_path must be an absolute Home Assistant path")
+    return path
+
+
 def _basics_schema(current: dict[str, Any] | None = None) -> vol.Schema:
     current = current or {}
     return vol.Schema(
@@ -312,6 +320,16 @@ class RobbieAdvancedCcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_services(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
+            try:
+                user_input[CONF_DASHBOARD_PATH] = _dashboard_path(
+                    user_input.get(CONF_DASHBOARD_PATH)
+                )
+            except ValueError:
+                return self.async_show_form(
+                    step_id="services",
+                    data_schema=_services_schema(user_input),
+                    errors={CONF_DASHBOARD_PATH: "invalid_dashboard_path"},
+                )
             self._data.update(user_input)
             title = str(self._data.pop("name"))
             return self.async_create_entry(title=title, data=self._data)
@@ -371,12 +389,41 @@ class RobbieAdvancedCcOptionsFlow(OptionsFlowWithReload):
     async def async_step_connections(self, user_input=None) -> ConfigFlowResult:
         current = {**self.config_entry.data, **self.config_entry.options, "name": self.config_entry.title}
         if user_input is not None:
-            options = dict(user_input)
+            # Home Assistant normally submits cleared optional selectors as
+            # ``None``.  Other flow clients may omit untouched suggested values
+            # entirely, so merge with the current entry before normalizing. This
+            # keeps presence, vacation and routing bindings intact when only the
+            # Cleaning Control destination is changed.
+            editable_keys = (
+                "name",
+                CONF_VACUUMS,
+                CONF_PRESENCE_ENTITIES,
+                CONF_VACATION_ENTITY,
+                CONF_NOTIFICATION_SCRIPT,
+                CONF_NOTIFICATION_ROUTE,
+                CONF_TODO_ENTITY,
+                CONF_DASHBOARD_PATH,
+            )
+            options = {
+                **{key: current[key] for key in editable_keys if key in current},
+                **user_input,
+            }
             if not options.get(CONF_VACUUMS):
                 return self.async_show_form(step_id="connections", data_schema=_options_schema(user_input), errors={"base": "no_vacuums"})
+            try:
+                options[CONF_DASHBOARD_PATH] = _dashboard_path(
+                    options.get(CONF_DASHBOARD_PATH)
+                )
+            except ValueError:
+                return self.async_show_form(
+                    step_id="connections",
+                    data_schema=_options_schema(options),
+                    errors={CONF_DASHBOARD_PATH: "invalid_dashboard_path"},
+                )
             title = str(options.pop("name", self.config_entry.title))
             for key in (CONF_PRESENCE_ENTITIES, CONF_VACATION_ENTITY, CONF_NOTIFICATION_SCRIPT, CONF_NOTIFICATION_ROUTE, CONF_TODO_ENTITY):
-                options.setdefault(key, [] if key == CONF_PRESENCE_ENTITIES else "")
+                if options.get(key) is None:
+                    options[key] = [] if key == CONF_PRESENCE_ENTITIES else ""
             if title != self.config_entry.title:
                 self.hass.config_entries.async_update_entry(self.config_entry, title=title)
             return self.async_create_entry(title="", data=options)

@@ -159,6 +159,11 @@ robot fleet. It asks for:
 - live room/profile choices for the first mission;
 - optional notification router, route helper, to-do binding and dashboard path.
 
+The dashboard path is specifically the complete Home Assistant path of the view
+that contains the Robbie Cleaning Control Card, for example
+`/lovelace/cleaning`. Robbie notifications always open this control destination;
+they never use a separate Valetudo or manufacturer UI as their target.
+
 After setup, use **Settings → Devices & services → Robbie Advanced Cleaning
 Control → Configure** to edit connections or persisted missions.
 
@@ -268,6 +273,31 @@ Home Assistant's native state and Visibility dropdowns receive all values from
 the enum sensor. The Badge editor has no Vacuum, navigation-path, Hidden or
 state menu. Each Lovelace view still owns its own Badge instance; one instance
 cannot move between views.
+
+### Notification and robot-view navigation
+
+Keep the two destinations separate:
+
+- `dashboard_path` in Robbie's setup/options is the view containing the Cleaning
+  Control Card and is the target of routed mobile and persistent notifications.
+- The Badge's native `tap_action` may navigate to a separate Valetudo or cloud
+  robot view.
+
+If that robot view is a Home Assistant subview, give it the same fixed native
+return destination. This also works when the subview is opened from a deep link
+without useful browser history:
+
+```yaml
+title: Robot
+path: robot
+subview: true
+back_path: /lovelace/cleaning
+```
+
+Robbie exposes the configured value as
+`sensor.<planner>_planner_status` → `dashboard.navigation_path` so dashboard
+builders can reuse it. Home Assistant owns the native subview back button and
+Badge interaction; Robbie does not replace browser history.
 
 ## Missions, weekly schedules and conditions
 

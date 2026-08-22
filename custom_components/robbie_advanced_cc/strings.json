@@ -38,17 +38,17 @@
       },
       "services": {
         "title": "Step 5 of 5 · Connections",
-        "description": "Notifications work without configuration and appear in Home Assistant. Advanced users can select a compatible central router script. The optional route helper contributes its current value, for example mobile, family, or persistent.",
+        "description": "Notifications work without configuration and appear in Home Assistant. The dashboard path must point to the view containing the Cleaning Control Card; notifications open that view, not a separate robot or Valetudo UI. Advanced users can also select a compatible central router script.",
         "data": {
           "notification_script": "Central notification router",
           "notification_route": "Notification route helper",
           "todo_entity": "Household to-do list",
-          "dashboard_path": "Cleaning Control dashboard path"
+          "dashboard_path": "Path to the view containing the Cleaning Control Card"
         }
       }
     },
     "abort": {"already_configured": "These vacuum cleaners are already managed by a planner."},
-    "error": {"no_vacuums": "Select at least one vacuum cleaner."}
+    "error": {"no_vacuums": "Select at least one vacuum cleaner.", "invalid_dashboard_path": "Enter an absolute Home Assistant path beginning with /, for example /lovelace/cleaning."}
   },
   "options": {
     "step": {
@@ -59,12 +59,12 @@
       },
       "connections": {
         "title": "Connections & conditions",
-        "description": "Notifications require no configuration. Select a router script only if Home Assistant already uses a compatible central notification script. The route helper's current value is passed as route.",
+        "description": "The dashboard path is the view containing the Cleaning Control Card and is the destination for every Robbie notification. A separate robot or Valetudo subview should use this same value as its native back_path. Unchanged optional bindings are preserved.",
         "data": {
           "name": "Planner name", "vacuums": "Vacuum cleaners", "presence_entities": "Presence / Home entities",
           "vacation_entity": "Vacation mode", "notification_script": "Central notification router",
           "notification_route": "Notification route helper", "todo_entity": "Household to-do list",
-          "dashboard_path": "Cleaning Control dashboard path"
+          "dashboard_path": "Path to the view containing the Cleaning Control Card"
         }
       },
       "mission_schedule": {
@@ -93,7 +93,8 @@
     },
     "error": {
       "no_vacuums": "Select at least one vacuum cleaner.",
-      "mission_not_found": "The selected mission no longer exists."
+      "mission_not_found": "The selected mission no longer exists.",
+      "invalid_dashboard_path": "Enter an absolute Home Assistant path beginning with /, for example /lovelace/cleaning."
     }
   },
   "entity": {

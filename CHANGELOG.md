@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Route Robbie notifications to the configured Cleaning Control Card instead
+  of a separate robot UI, publish that destination for dashboard builders and
+  document Home Assistant's native `back_path` for reliable subview returns.
+- Preserve untouched presence, vacation and notification bindings when only
+  the dashboard destination is changed in the options flow.
+
+- Extend the shared customer-documentation contract to private and MeyersHaff
+  services with safe login guidance, Proxmox evidence and upstream monitoring.
+
+- Join the shared living customer-documentation contract with one reusable
+  capability description, four required languages, GitHub/version metadata and
+  scheduled read-only inventory checks.
+
 ## 2026.8.2b1 - 2026-08-20
 
 ### Fixed

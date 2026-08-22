@@ -10,7 +10,9 @@ from .capabilities import discover_profile_options
 from .const import (
     CARD_RESOURCE_URL,
     CARD_TYPE,
+    CONF_DASHBOARD_PATH,
     CONF_VACATION_ENTITY,
+    DEFAULT_DASHBOARD_PATH,
     DOMAIN,
     PLANNER_STATUS_OPTIONS,
 )
@@ -123,6 +125,10 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
                 ),
                 "card_type": CARD_TYPE,
                 "badge_type": "entity",
+                "navigation_path": (
+                    self.planner.config.get(CONF_DASHBOARD_PATH)
+                    or DEFAULT_DASHBOARD_PATH
+                ),
             },
         }
 

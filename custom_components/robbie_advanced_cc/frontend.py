@@ -105,6 +105,8 @@ tap_action:
 Select this planner's status sensor in Home Assistant's graphical Badge editor. Configure navigation under the native Interactions tab and conditional display only through its native Visibility tab.
 
 Open the [Cleaning Control dashboard]({dashboard_path}). Switch the Card to **Advanced** to create a separate run for each weekday, room, vacuum/mop mode, fan strength, water level and number of passes.
+
+Notifications always open this Cleaning Control path. If the Badge opens a separate robot UI in a Home Assistant subview, set that view's native `back_path` to `{dashboard_path}` so direct links and fresh app sessions return here reliably.
 """
     await hass.services.async_call(
         "persistent_notification",

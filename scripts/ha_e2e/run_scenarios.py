@@ -382,6 +382,54 @@ def test_options_flow(api: HomeAssistantApi, entry_id: str) -> None:
         raise AssertionError(f"Options flow failed: {result}")
     wait_for_entry(api, entry_id)
 
+    # A path-only client must not erase optional bindings merely because HA
+    # represented their current values as suggestions instead of defaults.
+    result = api.post("/api/config/config_entries/options/flow", {"handler": entry_id})
+    flow_id = result["flow_id"]
+    result = api.post(
+        f"/api/config/config_entries/options/flow/{flow_id}",
+        {"options_action": "connections"},
+    )
+    result = api.post(
+        f"/api/config/config_entries/options/flow/{flow_id}",
+        {
+            "name": "Robbie E2E Planner",
+            "vacuums": [VACUUM_VALETUDO, VACUUM_CLOUD],
+            "dashboard_path": "/lovelace/cleaning",
+        },
+    )
+    if result.get("type") != "create_entry":
+        raise AssertionError(f"Path-only options update failed: {result}")
+    wait_for_entry(api, entry_id)
+
+    result = api.post("/api/config/config_entries/options/flow", {"handler": entry_id})
+    flow_id = result["flow_id"]
+    result = api.post(
+        f"/api/config/config_entries/options/flow/{flow_id}",
+        {"options_action": "connections"},
+    )
+    values = {
+        field["name"]: (
+            field["default"]
+            if "default" in field
+            else (field.get("description") or {}).get("suggested_value")
+        )
+        for field in result.get("data_schema", [])
+    }
+    expected = {
+        "presence_entities": ["input_number.home_occupants"],
+        "vacation_entity": "input_boolean.vacation_mode",
+        "notification_script": "script.robbie_notification_router_test",
+        "notification_route": "input_text.notify_route_test",
+    }
+    for key, value in expected.items():
+        if values.get(key) != value:
+            raise AssertionError(f"Path-only update lost {key}: {values}")
+    api.request(
+        "DELETE",
+        f"/api/config/config_entries/options/flow/{flow_id}",
+    )
+
 
 def edit_mission_options_flow(api: HomeAssistantApi, entry_id: str, mission_id: str) -> None:
     """Prove every persisted mission remains editable after initial setup."""
@@ -607,6 +655,11 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
         api,
         "input_text.notify_route_capture",
         lambda state: state["state"] == "persistent_notification.create",
+    )
+    wait_for_state(
+        api,
+        "input_text.notify_click_capture",
+        lambda state: state["state"] == "/lovelace/cleaning",
     )
     if fixture_calls(api):
         raise AssertionError("Vacation guard allowed a device command")

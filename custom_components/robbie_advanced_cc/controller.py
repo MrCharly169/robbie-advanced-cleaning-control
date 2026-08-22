@@ -536,7 +536,11 @@ class CleaningPlanner:
         await self.hass.services.async_call(
             "persistent_notification",
             "create",
-            {"title": title, "message": message, "notification_id": tag},
+            {
+                "title": title,
+                "message": f"{message}\n\n[Open Cleaning Control]({dashboard_path})",
+                "notification_id": tag,
+            },
             blocking=False,
         )
 
