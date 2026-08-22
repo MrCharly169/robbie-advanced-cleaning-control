@@ -518,6 +518,13 @@ class CleaningPlanner:
                         "tag": tag,
                         "url": dashboard_path,
                         "clickAction": dashboard_path,
+                        "actions": [
+                            {
+                                "action": "URI",
+                                "title": "Open Cleaning Control",
+                                "uri": dashboard_path,
+                            }
+                        ],
                     },
                 }
             }

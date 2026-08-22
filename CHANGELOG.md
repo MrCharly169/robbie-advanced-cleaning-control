@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 2026.8.3b0 - 2026-08-22
+
+- Keep iOS `url`, Android `clickAction` and the visible URI action aligned
+  with the installation-specific Cleaning Control destination.
+- Adopt ecosystem policy 1.5: native `back_path` stays on the destination
+  Subview; Robbie does not add a Badge- or notification-route Back-path field.
+
+## 2026.8.2b2 - 2026-08-22
+
 - Route Robbie notifications to the configured Cleaning Control Card instead
   of a separate robot UI, publish that destination for dashboard builders and
   document Home Assistant's native `back_path` for reliable subview returns.

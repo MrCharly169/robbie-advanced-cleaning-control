@@ -45,6 +45,8 @@ class NavigationTests(unittest.TestCase):
         sensor = (COMPONENT / "sensor.py").read_text(encoding="utf-8")
         self.assertIn('"url": dashboard_path', controller)
         self.assertIn('"clickAction": dashboard_path', controller)
+        self.assertIn('"action": "URI"', controller)
+        self.assertIn('"uri": dashboard_path', controller)
         self.assertIn("[Open Cleaning Control]({dashboard_path})", controller)
         self.assertIn('"navigation_path": (', sensor)
         self.assertIn("self.planner.config.get(CONF_DASHBOARD_PATH)", sensor)
