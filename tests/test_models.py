@@ -27,16 +27,19 @@ SPEC.loader.exec_module(models)
 class MissionModelTests(unittest.TestCase):
     def test_persisted_waiting_mission_restores_effective_waiting_state(self):
         cases = (
-            ("idle", False, True, False, "waiting"),
-            ("running", False, True, True, "running"),
-            ("failed", False, True, False, "failed"),
-            ("idle", True, True, False, "vacation"),
+            ("idle", False, False, True, False, "waiting"),
+            ("running", False, False, True, True, "running"),
+            ("failed", False, False, True, False, "failed"),
+            ("idle", False, True, True, False, "vacation"),
+            ("idle", True, False, False, False, "failed"),
+            ("idle", True, True, True, False, "failed"),
         )
-        for runtime, vacation, pending, active, expected in cases:
+        for runtime, robot_error, vacation, pending, active, expected in cases:
             with self.subTest(expected=expected):
                 self.assertEqual(
                     constants.planner_presentation_state(
                         runtime,
+                        has_robot_error=robot_error,
                         vacation_active=vacation,
                         has_pending_missions=pending,
                         has_active_mission=active,
@@ -107,7 +110,7 @@ class MissionModelTests(unittest.TestCase):
             models.vacuum_runtime_transition("idle", "unavailable", None)
         )
 
-    def test_robot_error_only_fails_an_active_run(self):
+    def test_robot_error_runtime_transition_preserves_active_run_failure(self):
         self.assertEqual(
             models.vacuum_runtime_transition("preparing", "error", "mission-1"),
             ("failed", "vacuum_error", False),

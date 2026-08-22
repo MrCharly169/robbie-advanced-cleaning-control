@@ -21,6 +21,7 @@ async def async_setup_platform(
         [
             FixtureMaintenanceSensor(store, "Valetudo Fixture Robot Main Brush", "main_brush", 82),
             FixtureMaintenanceSensor(store, "Valetudo Fixture Robot Main Filter", "main_filter", 41),
+            FixtureErrorSensor(store),
             FixtureCallRecorder(store),
         ]
     )
@@ -79,3 +80,30 @@ class FixtureCallRecorder(SensorEntity):
         self, _state: Any, _attributes: dict[str, Any], _available: bool
     ) -> None:
         return
+
+
+class FixtureErrorSensor(SensorEntity):
+    """Valetudo-style detailed robot error sensor."""
+
+    _attr_name = "Valetudo Fixture Robot Error"
+    _attr_unique_id = "robbie_fixture_valetudo_error"
+    _attr_native_value = "No error"
+    _attr_should_poll = False
+
+    def __init__(self, store: FixtureStore) -> None:
+        self._store = store
+        self._available = True
+
+    @property
+    def available(self) -> bool:
+        return self._available
+
+    async def async_added_to_hass(self) -> None:
+        self._store.register(self)
+
+    def set_fixture_state(
+        self, state: Any, _attributes: dict[str, Any], available: bool
+    ) -> None:
+        self._available = available
+        if state is not None:
+            self._attr_native_value = state

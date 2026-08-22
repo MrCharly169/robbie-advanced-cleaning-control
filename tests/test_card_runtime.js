@@ -344,6 +344,30 @@ card.hass = {
 flushFrame();
 assert.match(card.shadowRoot.innerHTML, />Fehler</);
 assert.match(card.shadowRoot.innerHTML, /Der Roboter meldet einen Fehler/);
+
+card.hass = {
+  ...staleFailureHass,
+  states: {
+    ...staleFailureHass.states,
+    "sensor.planner_status": {
+      ...staleFailureHass.states["sensor.planner_status"],
+      attributes: {
+        ...staleFailureHass.states["sensor.planner_status"].attributes,
+        active_mission_id: null,
+        has_robot_error: true,
+        robot_errors: {
+          "vacuum.robot": {
+            entity_id: "sensor.robot_error",
+            message: "Auto-empty dock is blocked",
+          },
+        },
+      },
+    },
+  },
+};
+flushFrame();
+assert.match(card.shadowRoot.innerHTML, />Fehler</);
+assert.match(card.shadowRoot.innerHTML, /Auto-empty dock is blocked/);
 card.hass = nonVacationHass;
 flushFrame();
 card._handleProfileChange({ stopPropagation() {} }, {

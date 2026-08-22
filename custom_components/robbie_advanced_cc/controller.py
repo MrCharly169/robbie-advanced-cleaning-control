@@ -88,10 +88,20 @@ class CleaningPlanner:
         return bool(state and state.state == "on")
 
     @property
+    def robot_errors(self) -> dict[str, dict[str, Any]]:
+        """Return active normalized errors for every managed robot."""
+        return {
+            entity_id: error
+            for entity_id in self.vacuums
+            if (error := adapter_for(self.hass, entity_id).error) is not None
+        }
+
+    @property
     def effective_state(self) -> str:
         """Expose the canonical planner state without losing runtime details."""
         return planner_presentation_state(
             self.state,
+            has_robot_error=bool(self.robot_errors),
             vacation_active=self.vacation_active,
             has_pending_missions=bool(self.pending_mission_ids),
             has_active_mission=bool(self.active_mission_id),

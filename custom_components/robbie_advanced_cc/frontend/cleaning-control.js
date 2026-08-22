@@ -316,6 +316,8 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
         active_mission_id: status.attributes?.active_mission_id || "",
         last_reason: status.attributes?.last_reason || "",
         last_resolution: status.attributes?.last_resolution || "",
+        has_robot_error: status.attributes?.has_robot_error === true,
+        robot_errors: status.attributes?.robot_errors || {},
         waiting_mission_ids: status.attributes?.waiting_mission_ids || [],
       } : null,
       next: next ? {
@@ -373,11 +375,14 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
   _statusInfo(status, mission, t = this._copy()) {
     const runtimeState = status?.state || "unavailable";
     const activeMission = status?.attributes?.active_mission_id;
+    const robotErrors = status?.attributes?.robot_errors || {};
+    const robotError = Object.values(robotErrors)[0];
+    const hasRobotError = status?.attributes?.has_robot_error === true || Boolean(robotError);
     const pending = (mission?.conditions || []).filter((condition) =>
       condition.enabled !== false && !condition.passed);
     const waitingCondition = pending.find((condition) => condition.resolution === "wait") || pending[0];
     let state = runtimeState;
-    if (runtimeState === "failed" && !activeMission) {
+    if (runtimeState === "failed" && !activeMission && !hasRobotError) {
       state = mission?.waiting || waitingCondition ? "waiting" : "idle";
     } else if (mission?.waiting && ["idle", "announced", "postponed", "completed"].includes(runtimeState)) {
       state = "waiting";
@@ -392,8 +397,11 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     };
     let detail = "";
     if (state === "waiting" && waitingCondition) detail = t[`waiting_${waitingCondition.key}`] || "";
-    if (runtimeState === "failed" && activeMission) {
-      detail = t[`reason_${status?.attributes?.last_reason}`] || status?.attributes?.last_reason || "";
+    if (runtimeState === "failed" && (activeMission || hasRobotError)) {
+      detail = robotError?.message
+        || t[`reason_${status?.attributes?.last_reason}`]
+        || status?.attributes?.last_reason
+        || t.reason_vacuum_error;
     }
     const labelKey = state === "blocked" ? "blockedState" : state;
     return {

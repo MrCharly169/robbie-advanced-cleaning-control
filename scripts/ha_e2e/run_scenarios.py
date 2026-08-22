@@ -19,6 +19,7 @@ VALETUDO_MODE = "select.valetudo_fixture_robot_mode"
 VALETUDO_FAN = "select.valetudo_fixture_robot_fan"
 VALETUDO_WATER = "select.valetudo_fixture_robot_water"
 MOP_SENSOR = "binary_sensor.valetudo_fixture_robot_mop_attachment"
+ERROR_SENSOR = "sensor.valetudo_fixture_robot_error"
 CALL_SENSOR = "sensor.robbie_fixture_service_calls"
 DOMAIN = "robbie_advanced_cc"
 FIXTURE = "robbie_advanced_cc_test_fixture"
@@ -529,6 +530,46 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
             "Every planner sensor must expose its owning entry_id: "
             f"{initial_planner_sensors}"
         )
+
+    # Hardware errors are native planner attention states even while no run is
+    # active, so a Dashboard Visibility condition on ``failed`` can reveal the
+    # Robbie Badge. Valetudo's detailed sibling is authoritative even if the
+    # vacuum entity itself has not switched state yet.
+    set_fixture(api, ERROR_SENSOR, "Auto-empty dock is blocked")
+    detailed_error = wait_for_state(
+        api,
+        initial_status["entity_id"],
+        lambda state: state["state"] == "failed"
+        and state.get("attributes", {}).get("has_robot_error") is True,
+    )
+    error_details = detailed_error.get("attributes", {}).get("robot_errors", {})
+    if error_details.get(VACUUM_VALETUDO, {}).get("message") != "Auto-empty dock is blocked":
+        raise AssertionError(f"Valetudo error was not projected: {detailed_error}")
+    set_fixture(api, ERROR_SENSOR, "No error")
+    wait_for_state(
+        api,
+        initial_status["entity_id"],
+        lambda state: state["state"] != "failed"
+        and state.get("attributes", {}).get("has_robot_error") is False,
+    )
+
+    # Generic/cloud vacuums use Home Assistant's standard error activity.
+    set_fixture(api, VACUUM_CLOUD, "error")
+    generic_error = wait_for_state(
+        api,
+        initial_status["entity_id"],
+        lambda state: state["state"] == "failed"
+        and state.get("attributes", {}).get("has_robot_error") is True,
+    )
+    if VACUUM_CLOUD not in generic_error.get("attributes", {}).get("robot_errors", {}):
+        raise AssertionError(f"Generic vacuum error was not projected: {generic_error}")
+    set_fixture(api, VACUUM_CLOUD, "docked")
+    wait_for_state(
+        api,
+        initial_status["entity_id"],
+        lambda state: state["state"] != "failed"
+        and state.get("attributes", {}).get("has_robot_error") is False,
+    )
     card = api.get(f"/{DOMAIN}/cleaning-control.js", authenticated=False, raw=True)
     if "customElements.define" not in card or "robbie-advanced-cleaning-card" not in card or "robbie-vacuum-badge" not in card:
         raise AssertionError("Frontend resource did not return the expected card module")

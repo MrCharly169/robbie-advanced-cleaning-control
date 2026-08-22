@@ -67,6 +67,25 @@ class ValetudoVacuumAdapter(GenericVacuumAdapter):
             )
         await super().async_start_mission(generic_mission)
 
+    @property
+    def error(self) -> dict[str, object] | None:
+        """Return the detailed Valetudo error even if vacuum state lags."""
+        entity_id = self._sibling("sensor", "error")
+        state = self.hass.states.get(entity_id) if entity_id else None
+        if state is not None:
+            message = str(state.state or "").strip()
+            if message.casefold() not in {
+                "",
+                "0",
+                "none",
+                "no error",
+                "ok",
+                "unknown",
+                "unavailable",
+            }:
+                return {"entity_id": entity_id, "message": message}
+        return super().error
+
     def mop_attached(self) -> bool | None:
         entity_id = self._sibling("binary_sensor", "mop_attachment")
         state = self.hass.states.get(entity_id) if entity_id else None
@@ -83,6 +102,8 @@ class ValetudoVacuumAdapter(GenericVacuumAdapter):
         }
         if mop := self._sibling("binary_sensor", "mop_attachment"):
             result.add(mop)
+        if error := self._sibling("sensor", "error"):
+            result.add(error)
         for domain, suffix in (
             ("select", "mode"),
             ("select", "fan"),

@@ -234,6 +234,12 @@ receives the warning marker and color. Entity, navigation and conditional
 display remain configured through Home Assistant's native entity selector,
 Interactions tab and Visibility tab.
 
+Any active error from a managed Home Assistant vacuum or Valetudo error sensor
+has attention priority over idle, waiting and Vacation presentation. The native
+Planner status becomes `failed` (shown as **Error**), exposes the normalized
+error source/message and therefore satisfies an existing native Visibility rule
+for `failed` even when no cleaning run is active.
+
 The same Badge can be configured independently in two dashboard views. Omit
 `visibility` in an Area view so it remains permanently visible. In a main
 dashboard, use only Home Assistant's native Visibility tab and the Planner

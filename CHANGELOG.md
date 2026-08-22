@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+
+## 2026.8.4b0 - 2026-08-22
+
+- Project every managed robot error into the native Planner status as `failed`
+  (displayed as Error), even outside an active run and during Vacation mode, so
+  native Dashboard Visibility reliably reveals the Robbie Badge.
+- Treat erroring robots as unavailable for mission conditions and publish the
+  normalized robot/error source and message in Planner status attributes.
+- Adopt ecosystem policy 1.6: approved integration and live Dashboard changes
+  must exist in durable sources and tests before a fresh beta release workspace
+  may publish or install them.
+
 ## 2026.8.3b0 - 2026-08-22
 
 - Keep iOS `url`, Android `clickAction` and the visible URI action aligned

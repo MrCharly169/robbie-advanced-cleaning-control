@@ -41,6 +41,12 @@ Terminal or alternative states are `skipped`, `postponed`, `blocked` and
 all report an empty home. Skip-once is consumed atomically by exactly one
 mission occurrence.
 
+An active standard vacuum error or Valetudo error sibling overlays the native
+Planner status as `failed`, including while no mission is active or Vacation is
+enabled. The runtime mission state remains intact underneath so clearing an
+idle hardware error restores the correct planning state. Erroring robots are
+not available to the mission guard.
+
 Weekly recurrence remains the portable default. A mission may instead bind to
 an existing `schedule.*` helper; its off-to-on transition becomes the start
 signal while the helper's `next_event` attribute supplies the next badge time.

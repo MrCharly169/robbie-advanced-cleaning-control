@@ -33,6 +33,14 @@ class PackageTests(unittest.TestCase):
         english = json.loads((COMPONENT / "translations" / "en.json").read_text(encoding="utf-8"))
         german = json.loads((COMPONENT / "translations" / "de.json").read_text(encoding="utf-8"))
         self.assertEqual(leaf_paths(english), leaf_paths(german))
+        self.assertEqual(
+            english["entity"]["sensor"]["planner_status"]["state"]["failed"],
+            "Error",
+        )
+        self.assertEqual(
+            german["entity"]["sensor"]["planner_status"]["state"]["failed"],
+            "Fehler",
+        )
 
     def test_frontend_has_one_canonical_implementation(self):
         canonical = (COMPONENT / "frontend" / "cleaning-control.js").read_text(encoding="utf-8")

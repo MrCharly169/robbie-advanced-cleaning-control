@@ -68,6 +68,7 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
     def extra_state_attributes(self):
         next_runs = {}
         missions = []
+        robot_errors = self.planner.robot_errors
         for vacuum_entity_id in self.planner.vacuums:
             item = self.planner.next_mission_for(vacuum_entity_id)
             if item:
@@ -90,6 +91,8 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
             missions.append(raw)
         return {
             "entry_id": self.planner.entry.entry_id,
+            "has_robot_error": bool(robot_errors),
+            "robot_errors": robot_errors,
             "vacation_active": self.planner.vacation_active,
             "vacation_entity_id": self.planner.config.get(CONF_VACATION_ENTITY),
             "active_mission_id": self.planner.active_mission_id,
