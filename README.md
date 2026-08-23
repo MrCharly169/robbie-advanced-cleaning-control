@@ -374,6 +374,9 @@ active `DustBinFullValetudoEvent` data from the Valetudo Events sensor. A new
 empty/full/missing attention state sends one notification and remains persisted
 to prevent duplicates after restart. Missing entities are reported as
 unsupported; Robbie does not invent tank state from the generic dock status.
+After a mop run without readable Freshwater/Wastewater components, the
+completion notification therefore includes a neutral reminder to check both
+dock containers.
 
 ## Adapters and compatibility
 

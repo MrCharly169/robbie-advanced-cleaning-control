@@ -3,6 +3,12 @@
 ## Unreleased
 
 
+## 2026.8.6b1 - 2026-08-23
+
+- Add a truthful aftercare fallback for mop runs whose robot exposes no
+  Freshwater/Wastewater dock components: the completion notification asks the
+  user to check both containers without claiming a fabricated full/empty state.
+
 ## 2026.8.6b0 - 2026-08-23
 
 - Send one routed completion notification when the active robot docks, including

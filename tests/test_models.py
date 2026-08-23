@@ -139,6 +139,19 @@ class MissionModelTests(unittest.TestCase):
         self.assertEqual(mission.schedule_entity_id, "schedule.cleaning")
         self.assertEqual(models.CleaningMission.from_dict(mission.as_dict()), mission)
 
+    def test_mop_aftercare_reminder_is_only_used_without_real_tank_signals(self):
+        self.assertTrue(
+            models.needs_dock_aftercare_reminder("vacuum_and_mop", set())
+        )
+        self.assertFalse(
+            models.needs_dock_aftercare_reminder(
+                "mop", {"dock_freshwater", "dock_wastewater"}
+            )
+        )
+        self.assertFalse(
+            models.needs_dock_aftercare_reminder("vacuum", set())
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

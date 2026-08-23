@@ -51,6 +51,7 @@ from .models import (
     MissionDecision,
     PlannerContext,
     decide_mission,
+    needs_dock_aftercare_reminder,
     vacuum_runtime_transition,
 )
 from .storage import PlannerStore
@@ -665,6 +666,27 @@ class CleaningPlanner:
         )
         if metrics:
             message = f"{message} {metrics}"
+        if (
+            mission is not None
+            and self.config.get(CONF_NOTIFY_MAINTENANCE, True) is not False
+            and needs_dock_aftercare_reminder(
+                mission.profile.mode,
+                set(
+                    adapter_for(
+                        self.hass, vacuum_entity_id
+                    ).maintenance()
+                )
+                if vacuum_entity_id
+                else set(),
+            )
+        ):
+            message = (
+                f"{message} Home Assistant liefert keine Tankzustände; bitte "
+                "Frischwasser und Schmutzwasser an der Station prüfen."
+                if de
+                else f"{message} Home Assistant does not expose tank states; "
+                "check the dock's freshwater and wastewater containers."
+            )
         await self._async_notify(
             title,
             message,

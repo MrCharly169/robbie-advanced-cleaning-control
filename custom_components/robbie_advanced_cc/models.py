@@ -178,3 +178,14 @@ def decide_mission(
     if context.people_home and mission.guards.people_home != "allow":
         return MissionDecision(False, mission.guards.people_home, "people_home")
     return MissionDecision(True, "run", "ready")
+
+
+def needs_dock_aftercare_reminder(
+    profile_mode: str | None, maintenance_keys: set[str]
+) -> bool:
+    """Return whether a mop run needs a truthful tank-check fallback."""
+    if profile_mode not in {"mop", "vacuum_and_mop"}:
+        return False
+    return not {"dock_freshwater", "dock_wastewater"}.issubset(
+        maintenance_keys
+    )
