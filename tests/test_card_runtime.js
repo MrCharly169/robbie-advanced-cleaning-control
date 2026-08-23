@@ -274,6 +274,20 @@ assert.equal(JSON.stringify(serviceCalls), JSON.stringify([{
   service: "postpone_next",
   data: { entry_id: "entry-1", minutes: 60 },
 }]));
+cardClick('[data-action="run"]');
+cardClick('[data-run]', { run: "mission-one" });
+assert.equal(JSON.stringify(serviceCalls.slice(1)), JSON.stringify([
+  {
+    domain: "robbie_advanced_cc",
+    service: "run_next",
+    data: { entry_id: "entry-1", manual: true },
+  },
+  {
+    domain: "robbie_advanced_cc",
+    service: "run_next",
+    data: { entry_id: "entry-1", mission_id: "mission-one", manual: true },
+  },
+]));
 cardClick('[data-mode-toggle]');
 assert.match(card.shadowRoot.innerHTML, /data-card-mode="advanced"/);
 assert.match(card.shadowRoot.innerHTML, /Wochenplan/);

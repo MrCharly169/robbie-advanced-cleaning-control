@@ -593,7 +593,11 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     if not conditions or not all({"key", "enabled", "passed", "resolution", "entities"} <= item.keys() for item in conditions):
         raise AssertionError(f"Planner status condition trace is incomplete: {conditions}")
     reset_calls(api)
-    api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": valetudo["id"]})
+    api.call_service(
+        DOMAIN,
+        "run_next",
+        {"entry_id": entry_id, "mission_id": valetudo["id"], "manual": True},
+    )
     calls = fixture_calls(api)
     assert_command(calls, "select_option", option="vacuum_and_mop")
     assert_command(calls, "select_option", option="high")
@@ -621,7 +625,11 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
 
     set_fixture(api, MOP_SENSOR, "off")
     reset_calls(api)
-    api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": valetudo["id"]})
+    api.call_service(
+        DOMAIN,
+        "run_next",
+        {"entry_id": entry_id, "mission_id": valetudo["id"], "manual": True},
+    )
     assert_last_reason(api, entry_id, "mop_missing")
     if fixture_calls(api):
         raise AssertionError("Mop guard allowed a device command")
@@ -643,6 +651,63 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     waiting = planner_status(api, entry_id)
     if presence_wait["id"] not in waiting.get("attributes", {}).get("waiting_mission_ids", []):
         raise AssertionError(f"Presence wait was not armed: {waiting}")
+    reset_calls(api)
+    api.call_service(
+        DOMAIN,
+        "run_next",
+        {"entry_id": entry_id, "mission_id": presence_wait["id"], "manual": True},
+    )
+    assert_command(fixture_calls(api), "clean_segments", segment_ids=["16", "17"])
+    manual_status = planner_status(api, entry_id)
+    if presence_wait["id"] in manual_status.get("attributes", {}).get("waiting_mission_ids", []):
+        raise AssertionError(f"Manual start did not consume the waiting mission: {manual_status}")
+    if manual_status.get("state") != "running":
+        raise AssertionError(f"Manual start did not present running: {manual_status}")
+    if manual_status.get("attributes", {}).get("last_allowed") is not True:
+        raise AssertionError(f"Manual start was not recorded as allowed: {manual_status}")
+    set_fixture(api, VACUUM_VALETUDO, "docked")
+
+    # A scheduled/service evaluation without the explicit manual flag still
+    # honors presence and arms the mission again.
+    api.call_service("input_number", "set_value", {"entity_id": "input_number.home_occupants", "value": 2})
+    reset_calls(api)
+    api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": presence_wait["id"]})
+    assert_last_reason(api, entry_id, "people_home")
+    waiting = planner_status(api, entry_id)
+    if presence_wait["id"] not in waiting.get("attributes", {}).get("waiting_mission_ids", []):
+        raise AssertionError(f"Presence wait was not re-armed: {waiting}")
+
+    # A direct native vacuum start has no Planner mission identity. It must
+    # still present running while preserving the unrelated queued mission.
+    reset_calls(api)
+    api.call_service("vacuum", "start", {"entity_id": VACUUM_VALETUDO})
+    direct_running = wait_for_state(
+        api,
+        planner_status(api, entry_id)["entity_id"],
+        lambda state: state["state"] == "running",
+    )
+    if presence_wait["id"] not in direct_running.get("attributes", {}).get("waiting_mission_ids", []):
+        raise AssertionError(f"Direct vacuum start lost queued work: {direct_running}")
+    set_fixture(api, VACUUM_VALETUDO, "docked")
+    reset_calls(api)
+
+    planner_switch = next(
+        state for state in api.get("/api/states")
+        if state["entity_id"].startswith("switch.")
+        and state["entity_id"].endswith("_planner_enabled")
+    )
+    api.call_service("switch", "turn_off", {"entity_id": planner_switch["entity_id"]})
+    wait_for_state(api, planner_switch["entity_id"], lambda state: state["state"] == "off")
+    api.call_service("input_number", "set_value", {"entity_id": "input_number.home_occupants", "value": 0})
+    time.sleep(2)
+    if fixture_calls(api):
+        raise AssertionError("Disabled Planner released a waiting mission")
+    disabled_status = planner_status(api, entry_id)
+    if presence_wait["id"] not in disabled_status.get("attributes", {}).get("waiting_mission_ids", []):
+        raise AssertionError(f"Disabled Planner lost its waiting mission: {disabled_status}")
+    api.call_service("switch", "turn_on", {"entity_id": planner_switch["entity_id"]})
+    wait_for_state(api, planner_switch["entity_id"], lambda state: state["state"] == "on")
+    api.call_service("input_number", "set_value", {"entity_id": "input_number.home_occupants", "value": 1})
     api.call_service("input_number", "set_value", {"entity_id": "input_number.home_occupants", "value": 0})
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline and not fixture_calls(api):
@@ -690,7 +755,11 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
         raise AssertionError("Vacation lock allowed a native schedule command")
     api.call_service("input_boolean", "turn_off", {"entity_id": "input_boolean.schedule_trigger"})
     reset_calls(api)
-    api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": valetudo["id"]})
+    api.call_service(
+        DOMAIN,
+        "run_next",
+        {"entry_id": entry_id, "mission_id": valetudo["id"], "manual": True},
+    )
     assert_last_reason(api, entry_id, "vacation_active")
     wait_for_state(
         api,

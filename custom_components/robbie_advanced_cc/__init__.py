@@ -49,7 +49,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     async def run_next(call: ServiceCall) -> None:
         await _planner(hass, call.data["entry_id"]).async_run(
-            call.data.get("mission_id")
+            call.data.get("mission_id"), manual=call.data.get("manual", False)
         )
 
     async def skip_next(call: ServiceCall) -> None:
@@ -82,7 +82,11 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         SERVICE_RUN_NEXT,
         run_next,
         schema=vol.Schema(
-            {vol.Required("entry_id"): str, vol.Optional("mission_id"): str}
+            {
+                vol.Required("entry_id"): str,
+                vol.Optional("mission_id"): str,
+                vol.Optional("manual", default=False): bool,
+            }
         ),
     )
     hass.services.async_register(DOMAIN, SERVICE_SKIP_NEXT, skip_next, schema=entry_schema)

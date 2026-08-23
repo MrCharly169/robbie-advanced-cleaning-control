@@ -6,6 +6,8 @@
 | Mission parsing | Invalid time fails; passes are bounded; IDs are stable | `tests/test_models.py` |
 | Scheduling | Weekdays and local next occurrence remain deterministic | `tests/test_models.py` |
 | Presence wait | A due mission waits while a numeric Home counter is above zero and starts when it reaches zero | runtime E2E |
+| Manual start | Card and native Play override only presence, consume a queued occurrence and preserve every safety guard | model/Card/runtime E2E |
+| Planner disable | Presence changes cannot release queued missions while the Planner switch is off | runtime E2E |
 | Schedule helper | `schedule.*` bindings survive mission serialization and trigger on activation | model/runtime E2E |
 | Decision priority | Vacation precedes availability, mop and presence | `tests/test_models.py` |
 | Explainability | Every result contains a stable reason and resolution | `tests/test_models.py` |
@@ -24,6 +26,7 @@
 | Per-day profiles | Every weekday can open a preselected editor with independent room, mode, fan, water and passes | `tests/test_card_runtime.js`, runtime E2E |
 | Badge runtime | Hybrid Custom Badge combines robot glyph, state marker and docked next run; mouse/keyboard delegate the native `tap_action` through `hass-action` | `tests/test_card_runtime.js` |
 | Native error visibility | Generic vacuum and Valetudo sibling errors project Planner `failed` without an active run, outrank Vacation, expose details and clear back to the underlying state | model/runtime E2E, `tests/test_card_runtime.js` |
+| Runtime priority | Direct native vacuum cleaning presents `running` even while an unrelated mission remains queued | `tests/test_models.py`, runtime observation |
 | Badge simulation | Disposable lab can select every badge state and return to live robot state | package/runtime E2E, `tests/test_card_runtime.js` |
 | Packaging | Manifest, HACS metadata, permanent resource and ZIP agree | `tests/test_package.py` |
 

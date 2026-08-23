@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/actions/workflows/validate.yml"><img alt="Validate-Status" src="https://img.shields.io/github/actions/workflow/status/MrCharly169/robbie-advanced-cleaning-control/validate.yml?branch=main&amp;style=flat-square&amp;label=Validate"></a>
-  <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases/tag/v2026.8.4b0"><img alt="Aktuelles Beta-Release v2026.8.4b0" src="https://img.shields.io/badge/Release-v2026.8.4b0-2ea44f?style=flat-square"></a>
+  <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases/tag/v2026.8.5b0"><img alt="Aktuelles Beta-Release v2026.8.5b0" src="https://img.shields.io/badge/Release-v2026.8.5b0-2ea44f?style=flat-square"></a>
   <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/stargazers"><img alt="GitHub Stars" src="https://img.shields.io/github/stars/MrCharly169/robbie-advanced-cleaning-control?style=flat-square&amp;label=Stars"></a>
   <a href="https://github.com/MrCharly169/robbie-advanced-cleaning-control/releases"><img alt="Downloads der GitHub-Releases" src="https://img.shields.io/github/downloads/MrCharly169/robbie-advanced-cleaning-control/total?style=flat-square&amp;label=Release%20downloads"></a>
   <a href="#hacs-als-benutzerdefiniertes-repository"><img alt="HACS Custom" src="https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat-square"></a>
@@ -203,6 +203,12 @@ Die Simple Card ist die tägliche Ansicht. Sie zeigt Planerstatus, nächste
 Mission, Bereitschaft und schmale Aktionen für Jetzt starten, Einmal
 überspringen und 60 Minuten verschieben. Advanced öffnet das Control Center,
 ohne die gespeicherte Dashboardkonfiguration zu ändern.
+
+**Jetzt starten** ist ein bewusster manueller Start. Er darf eine konfigurierte
+Anwesenheits-Wartebedingung überschreiben, niemals aber einen deaktivierten
+Planer, den Urlaubsmodus, Roboterverfügbarkeit/-fehler oder ein benötigtes
+Wischmodul. Zeitpläne und direkte Service-Aufrufe ohne `manual: true` prüfen
+weiterhin jede Bedingung.
 
 ### Advanced Card
 

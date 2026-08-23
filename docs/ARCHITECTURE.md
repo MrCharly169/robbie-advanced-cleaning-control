@@ -22,7 +22,7 @@ payloads do not belong in the mission model.
 
 The resolver uses one fixed order:
 
-1. mission enabled;
+1. Planner and mission enabled;
 2. vacation;
 3. vacuum availability;
 4. required mop attachment;
@@ -40,6 +40,15 @@ Terminal or alternative states are `skipped`, `postponed`, `blocked` and
 `failed`. `waiting` retains a due mission until configured presence entities
 all report an empty home. Skip-once is consumed atomically by exactly one
 mission occurrence.
+
+Timer wake-ups, native Schedule transitions and service calls without an
+explicit manual flag evaluate every guard. The Card and native Robbie Play
+button mark an intentional manual start; it overrides only the presence wait.
+Planner disabled, Vacation, robot availability/error and required mop guards
+still block it. A successful manual start consumes a queued occurrence, while a
+failed adapter command leaves that occurrence queued. Direct native vacuum
+starts have no mission identity, but an observed preparing/running/dock-service
+robot state still takes presentation priority over unrelated queued work.
 
 An active standard vacuum error or Valetudo error sibling overlays the native
 Planner status as `failed`, including while no mission is active or Vacation is

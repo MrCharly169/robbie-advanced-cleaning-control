@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime, timedelta
 import logging
 from typing import Any
@@ -285,6 +286,7 @@ class CleaningPlanner:
         if self.presence_entities:
             people_home = any(self._entity_is_home(entity_id) for entity_id in self.presence_entities)
         return PlannerContext(
+            planner_enabled=self.enabled,
             vacation=self.vacation_active,
             vacuum_available=adapter.available,
             mop_attached=mop_attached,
@@ -368,7 +370,9 @@ class CleaningPlanner:
             return state.state == "on"
         return state.state == "home"
 
-    async def async_run(self, mission_id: str | None = None) -> MissionDecision:
+    async def async_run(
+        self, mission_id: str | None = None, *, manual: bool = False
+    ) -> MissionDecision:
         if mission_id is None:
             next_item = self.next_mission()
             if next_item is None:
@@ -391,7 +395,20 @@ class CleaningPlanner:
             self._schedule_next()
             return decision
 
-        decision = decide_mission(mission, self.context_for(mission))
+        context = self.context_for(mission)
+        manual_presence_override = bool(
+            manual
+            and context.people_home
+            and mission.guards.people_home != "allow"
+        )
+        decision = decide_mission(
+            mission,
+            replace(context, people_home=False)
+            if manual_presence_override
+            else context,
+        )
+        if decision.allowed and manual_presence_override:
+            decision = MissionDecision(True, "run", "manual_presence_override")
         self.last_decision = decision
         self.last_reason = decision.reason
         if not decision.allowed:
@@ -415,8 +432,6 @@ class CleaningPlanner:
             )
             return decision
 
-        if mission.id in self.pending_mission_ids:
-            self.pending_mission_ids.remove(mission.id)
         self.state = STATE_PREPARING
         self.active_mission_id = mission.id
         self._notify_listeners()
@@ -428,6 +443,8 @@ class CleaningPlanner:
             self.last_reason = "adapter_start_failed"
             self._notify_listeners()
             raise
+        if mission.id in self.pending_mission_ids:
+            self.pending_mission_ids.remove(mission.id)
         self.state = STATE_RUNNING
         self.postponed.pop(mission.id, None)
         await self._async_persist()
@@ -587,7 +604,11 @@ class CleaningPlanner:
             for mission in schedule_missions:
                 await self.async_run(mission.id)
             return
-        if entity_id in self.presence_entities and self.pending_mission_ids:
+        if (
+            self.enabled
+            and entity_id in self.presence_entities
+            and self.pending_mission_ids
+        ):
             if not any(self._entity_is_home(item) for item in self.presence_entities):
                 for mission_id in tuple(self.pending_mission_ids):
                     await self.async_run(mission_id)

@@ -3,6 +3,16 @@
 ## Unreleased
 
 
+## 2026.8.5b0 - 2026-08-23
+
+- Make Card and native Robbie Play actions explicit manual starts: they bypass
+  only the presence wait while Planner, Vacation, robot and mop safety guards
+  remain active, and a successful start consumes the queued occurrence.
+- Keep scheduled/service starts without the manual flag fully conditional,
+  prevent presence transitions from releasing queued missions while the
+  Planner is disabled, and present direct robot cleaning as `running` instead
+  of allowing an unrelated queued mission to mask it as `waiting`.
+
 ## 2026.8.4b0 - 2026-08-22
 
 - Project every managed robot error into the native Planner status as `failed`

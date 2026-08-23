@@ -198,6 +198,11 @@ condition readiness and narrow actions to run now, skip once or postpone by 60
 minutes. Its Advanced button opens the Control Center without changing the saved
 dashboard configuration.
 
+**Run now** is an intentional manual start. It may override a configured
+presence wait, but it never overrides a disabled Planner, Vacation mode, robot
+availability/errors or a required mop attachment. Scheduled runs and direct
+service calls without `manual: true` continue to evaluate every condition.
+
 ### Advanced Card
 
 The Advanced Card/Control Center adds:

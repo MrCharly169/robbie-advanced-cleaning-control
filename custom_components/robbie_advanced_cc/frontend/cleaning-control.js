@@ -636,7 +636,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     ].some((selector) => control.matches(selector))) return;
     event.preventDefault?.();
     event.stopPropagation?.();
-    if (control.matches('[data-action="run"]')) return void this._call("run_next");
+    if (control.matches('[data-action="run"]')) return void this._call("run_next", { manual: true });
     if (control.matches('[data-action="skip"]')) return void this._call("skip_next");
     if (control.matches('[data-action="postpone"]')) return void this._call("postpone_next", { minutes: 60 });
     if (control.matches("[data-mode-toggle]")) {
@@ -676,7 +676,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       this._editingPlacement = "bottom";
       return void this._render();
     }
-    if (control.matches("[data-run]")) return void this._call("run_next", { mission_id: control.dataset.run });
+    if (control.matches("[data-run]")) return void this._call("run_next", { mission_id: control.dataset.run, manual: true });
     if (control.matches("[data-remove]")) return void this._call("remove_mission", { mission_id: control.dataset.remove });
     if (control.matches("[data-close-dialog]")) {
       this._controlCenterOpen = false;

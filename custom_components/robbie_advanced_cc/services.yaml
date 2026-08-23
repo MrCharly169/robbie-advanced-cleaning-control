@@ -34,6 +34,12 @@ run_next:
     mission_id:
       selector:
         text:
+    manual:
+      name: Manual start
+      description: Ignore only the presence wait for this explicit start. All safety conditions still apply.
+      default: false
+      selector:
+        boolean:
 skip_next:
   name: Skip next mission
   fields:

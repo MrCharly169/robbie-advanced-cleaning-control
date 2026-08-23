@@ -29,6 +29,9 @@ class MissionModelTests(unittest.TestCase):
         cases = (
             ("idle", False, False, True, False, "waiting"),
             ("running", False, False, True, True, "running"),
+            ("running", False, False, True, False, "running"),
+            ("preparing", False, False, True, False, "preparing"),
+            ("dock_service", False, False, True, False, "dock_service"),
             ("failed", False, False, True, False, "failed"),
             ("idle", False, True, True, False, "vacation"),
             ("idle", True, False, False, False, "failed"),
@@ -84,6 +87,7 @@ class MissionModelTests(unittest.TestCase):
     def test_decision_priority_and_reasons_are_stable(self):
         mission = self.mission()
         cases = (
+            (models.PlannerContext(planner_enabled=False), "planner_disabled"),
             (
                 models.PlannerContext(vacation=True, vacuum_available=False, mop_attached=False),
                 "vacation_active",

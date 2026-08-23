@@ -26,7 +26,7 @@ class RunNextButton(PlannerEntity, ButtonEntity):
         super().__init__(planner, "run_next")
 
     async def async_press(self) -> None:
-        await self.planner.async_run()
+        await self.planner.async_run(manual=True)
 
 
 class SkipNextButton(PlannerEntity, ButtonEntity):

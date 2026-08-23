@@ -121,6 +121,7 @@ class CleaningMission:
 class PlannerContext:
     """Normalized context consumed by the decision resolver."""
 
+    planner_enabled: bool = True
     vacation: bool = False
     vacuum_available: bool = True
     mop_attached: bool | None = None
@@ -160,6 +161,8 @@ def decide_mission(
     mission: CleaningMission, context: PlannerContext
 ) -> MissionDecision:
     """Resolve mission guards in one fixed, testable priority order."""
+    if not context.planner_enabled:
+        return MissionDecision(False, "blocked", "planner_disabled")
     if not mission.enabled:
         return MissionDecision(False, "blocked", "mission_disabled")
     if context.vacation and mission.guards.vacation != "allow":

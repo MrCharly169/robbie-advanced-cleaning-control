@@ -74,6 +74,12 @@ def planner_presentation_state(
         return STATE_FAILED
     if vacation_active:
         return STATE_VACATION
+    # A robot that is actively preparing, cleaning or servicing its dock must
+    # never be presented as merely waiting just because an unrelated due
+    # mission remains queued. This also covers starts made directly through
+    # the native vacuum entity, where no Planner mission ID exists.
+    if runtime_state in {STATE_PREPARING, STATE_RUNNING, STATE_DOCK_SERVICE}:
+        return runtime_state
     if has_active_mission or runtime_state in {STATE_BLOCKED, STATE_FAILED}:
         return runtime_state
     if has_pending_missions:
