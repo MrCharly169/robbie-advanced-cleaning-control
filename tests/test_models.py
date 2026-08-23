@@ -32,6 +32,7 @@ class MissionModelTests(unittest.TestCase):
             ("running", False, False, True, False, "running"),
             ("preparing", False, False, True, False, "preparing"),
             ("dock_service", False, False, True, False, "dock_service"),
+            ("completed", False, False, True, False, "completed"),
             ("failed", False, False, True, False, "failed"),
             ("idle", False, True, True, False, "vacation"),
             ("idle", True, False, False, False, "failed"),

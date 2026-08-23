@@ -9,13 +9,20 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers.event import async_track_point_in_time, async_track_state_change_event
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_point_in_time,
+    async_track_state_change_event,
+)
 from homeassistant.util import dt as dt_util
 
 from .adapters import adapter_for
 from .capabilities import profile_source_entities
 from .const import (
     CONF_DASHBOARD_PATH,
+    CONF_EXTERNAL_START_POLICY,
+    CONF_NOTIFY_COMPLETION,
+    CONF_NOTIFY_MAINTENANCE,
     CONF_NOTIFICATION_ROUTE,
     CONF_NOTIFICATION_SCRIPT,
     CONF_PRESENCE_ENTITIES,
@@ -23,6 +30,8 @@ from .const import (
     CONF_VACATION_ENTITY,
     CONF_VACUUMS,
     DEFAULT_DASHBOARD_PATH,
+    DEFAULT_COMPLETION_HOLD_SECONDS,
+    DEFAULT_EXTERNAL_START_POLICY,
     DEFAULT_POSTPONE_MINUTES,
     STATE_ANNOUNCED,
     STATE_BLOCKED,
@@ -61,13 +70,18 @@ class CleaningPlanner:
         self.last_reason = "not_evaluated"
         self.last_decision: MissionDecision | None = None
         self.active_mission_id: str | None = None
+        self.active_vacuum_entity_id: str | None = None
+        self.active_run_external = False
+        self.run_started_at: datetime | None = None
         self.skip_mission_id: str | None = None
         self.postponed: dict[str, datetime] = {}
         self.pending_mission_ids: list[str] = []
         self.enabled = True
+        self.maintenance_attention: dict[str, str] = {}
         self._listeners: list[Callable[[], None]] = []
         self._next_cancel: Callable[[], None] | None = None
         self._state_unsubscribe: Callable[[], None] | None = None
+        self._completion_cancel: Callable[[], None] | None = None
 
     @property
     def config(self) -> dict[str, Any]:
@@ -117,6 +131,12 @@ class CleaningPlanner:
             if self.mission_by_id(str(mission_id)) is not None
         ]
         self.enabled = bool(persisted.get("enabled", True))
+        self.maintenance_attention = {
+            str(key): str(value)
+            for key, value in dict(
+                persisted.get("maintenance_attention") or {}
+            ).items()
+        }
         for mission_id, value in dict(persisted.get("postponed") or {}).items():
             try:
                 self.postponed[mission_id] = datetime.fromisoformat(value)
@@ -130,6 +150,7 @@ class CleaningPlanner:
             await self._async_persist(starter_seeded=True)
         self._refresh_state_listener()
         self._schedule_next()
+        await self._async_refresh_maintenance_notifications()
 
     @callback
     def _refresh_state_listener(self) -> None:
@@ -162,6 +183,9 @@ class CleaningPlanner:
         if self._state_unsubscribe:
             self._state_unsubscribe()
             self._state_unsubscribe = None
+        if self._completion_cancel:
+            self._completion_cancel()
+            self._completion_cancel = None
 
     @callback
     def async_add_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
@@ -434,6 +458,9 @@ class CleaningPlanner:
 
         self.state = STATE_PREPARING
         self.active_mission_id = mission.id
+        self.active_vacuum_entity_id = mission.vacuum_entity_id
+        self.active_run_external = False
+        self.run_started_at = dt_util.now()
         self._notify_listeners()
         try:
             await adapter_for(self.hass, mission.vacuum_entity_id).async_start_mission(mission)
@@ -441,6 +468,10 @@ class CleaningPlanner:
             _LOGGER.exception("Could not start cleaning mission %s", mission.id)
             self.state = STATE_FAILED
             self.last_reason = "adapter_start_failed"
+            self.active_mission_id = None
+            self.active_vacuum_entity_id = None
+            self.active_run_external = False
+            self.run_started_at = None
             self._notify_listeners()
             raise
         if mission.id in self.pending_mission_ids:
@@ -503,6 +534,19 @@ class CleaningPlanner:
             self._schedule_next()
         return changed
 
+    async def async_resolve_pending(self, mission_id: str) -> bool:
+        """Mark one already-due waiting occurrence as handled."""
+        if mission_id not in self.pending_mission_ids:
+            return False
+        self.pending_mission_ids.remove(mission_id)
+        self.last_reason = "pending_mission_resolved"
+        if not self.pending_mission_ids and self.state == STATE_WAITING:
+            self.state = STATE_COMPLETED
+            self._schedule_completion_release()
+        await self._async_persist()
+        self._schedule_next()
+        return True
+
     async def async_set_enabled(self, enabled: bool) -> None:
         self.enabled = enabled
         await self._async_persist()
@@ -526,8 +570,180 @@ class CleaningPlanner:
                     mission_id: value.isoformat()
                     for mission_id, value in self.postponed.items()
                 },
+                "maintenance_attention": self.maintenance_attention,
             },
         )
+
+    def _schedule_completion_release(self) -> None:
+        """Keep a completed run visible briefly before returning to planning."""
+        if self._completion_cancel:
+            self._completion_cancel()
+
+        @callback
+        def release_completed(_now: datetime) -> None:
+            self._completion_cancel = None
+            if self.state == STATE_COMPLETED:
+                self.state = (
+                    STATE_WAITING if self.pending_mission_ids else STATE_IDLE
+                )
+                self._notify_listeners()
+
+        self._completion_cancel = async_call_later(
+            self.hass,
+            DEFAULT_COMPLETION_HOLD_SECONDS,
+            release_completed,
+        )
+
+    def _friendly_vacuum_name(self, entity_id: str | None) -> str:
+        state = self.hass.states.get(entity_id) if entity_id else None
+        return str(
+            state.attributes.get("friendly_name", entity_id or "Robbie")
+            if state is not None
+            else entity_id or "Robbie"
+        )
+
+    def _format_run_metrics(self, entity_id: str | None) -> str:
+        if not entity_id:
+            return ""
+        metrics = adapter_for(self.hass, entity_id).run_metrics()
+        parts: list[str] = []
+        duration = metrics.get("duration") or {}
+        if not duration and self.run_started_at is not None:
+            duration = {
+                "value": (dt_util.now() - self.run_started_at).total_seconds(),
+                "unit": "s",
+            }
+        try:
+            duration_value = float(duration.get("value"))
+            duration_unit = str(duration.get("unit") or "s").casefold()
+            seconds = (
+                duration_value * 3600
+                if duration_unit in {"h", "hour", "hours"}
+                else duration_value * 60
+                if duration_unit in {"min", "minute", "minutes"}
+                else duration_value
+            )
+            hours, remainder = divmod(max(0, round(seconds)), 3600)
+            minutes = remainder // 60
+            if hours:
+                parts.append(f"{hours} h {minutes:02d} min")
+            elif minutes:
+                parts.append(f"{minutes} min")
+        except (TypeError, ValueError):
+            pass
+        area = metrics.get("area") or {}
+        try:
+            area_value = float(area.get("value"))
+            area_unit = str(area.get("unit") or "").casefold()
+            if "cm" in area_unit:
+                area_value /= 10000
+            elif "mm" in area_unit:
+                area_value /= 1000000
+            parts.append(f"{area_value:.1f} m²")
+        except (TypeError, ValueError):
+            pass
+        return " · ".join(parts)
+
+    async def _async_notify_completed(
+        self, mission: CleaningMission | None, vacuum_entity_id: str | None
+    ) -> None:
+        if self.config.get(CONF_NOTIFY_COMPLETION, True) is False:
+            return
+        robot = self._friendly_vacuum_name(vacuum_entity_id)
+        run_name = mission.name if mission else robot
+        metrics = self._format_run_metrics(vacuum_entity_id)
+        de = str(self.hass.config.language).lower().startswith("de")
+        title = (
+            f"{run_name}: Reinigung abgeschlossen"
+            if de
+            else f"{run_name}: cleaning completed"
+        )
+        message = (
+            f"{robot} hat die Reinigung abgeschlossen."
+            if de
+            else f"{robot} completed cleaning."
+        )
+        if metrics:
+            message = f"{message} {metrics}"
+        await self._async_notify(
+            title,
+            message,
+            tag=f"racc_completed_{self.entry.entry_id}",
+        )
+
+    def _current_maintenance_attention(self) -> dict[str, tuple[str, dict[str, Any]]]:
+        result: dict[str, tuple[str, dict[str, Any]]] = {}
+        for vacuum_entity_id in self.vacuums:
+            for key, item in adapter_for(
+                self.hass, vacuum_entity_id
+            ).maintenance().items():
+                value = item.get("value")
+                attention = item.get("attention") is True or (
+                    "attention" not in item
+                    and isinstance(value, (int, float))
+                    and value <= 0
+                )
+                if attention:
+                    result[f"{vacuum_entity_id}|{key}"] = (
+                        vacuum_entity_id,
+                        dict(item),
+                    )
+        return result
+
+    def _maintenance_item_text(self, item: dict[str, Any], *, de: bool) -> str:
+        label = str(item.get("label") or "Maintenance")
+        value = str(item.get("value") or "attention").casefold()
+        names = {
+            "Freshwater": "Frischwassertank",
+            "Wastewater": "Schmutzwassertank",
+            "Dustbag": "Staubbeutel",
+            "Dustbin": "Staubbehälter",
+            "Detergent": "Reinigungsmittel",
+        }
+        states = {
+            "empty": "ist leer" if de else "is empty",
+            "full": "ist voll" if de else "is full",
+            "missing": "fehlt" if de else "is missing",
+        }
+        return f"{names.get(label, label) if de else label} {states.get(value, value)}"
+
+    async def _async_refresh_maintenance_notifications(self) -> None:
+        current = self._current_maintenance_attention()
+        current_signatures = {
+            key: str(item.get("value") or "attention")
+            for key, (_vacuum, item) in current.items()
+        }
+        new_keys = [
+            key
+            for key, signature in current_signatures.items()
+            if self.maintenance_attention.get(key) != signature
+        ]
+        if current_signatures == self.maintenance_attention:
+            return
+        self.maintenance_attention = current_signatures
+        await self._async_persist()
+        if not new_keys or self.config.get(CONF_NOTIFY_MAINTENANCE, True) is False:
+            return
+        de = str(self.hass.config.language).lower().startswith("de")
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for key in new_keys:
+            vacuum_entity_id, item = current[key]
+            grouped.setdefault(vacuum_entity_id, []).append(item)
+        for vacuum_entity_id, items in grouped.items():
+            robot = self._friendly_vacuum_name(vacuum_entity_id)
+            title = (
+                f"{robot}: Station benötigt Aufmerksamkeit"
+                if de
+                else f"{robot}: dock needs attention"
+            )
+            message = "; ".join(
+                self._maintenance_item_text(item, de=de) for item in items
+            ) + "."
+            await self._async_notify(
+                title,
+                message,
+                tag=f"racc_maintenance_{vacuum_entity_id.replace('.', '_')}",
+            )
 
     async def _async_notify(self, title: str, message: str, *, tag: str) -> None:
         configured = str(self.config.get(CONF_NOTIFICATION_SCRIPT) or "")
@@ -614,6 +830,47 @@ class CleaningPlanner:
                     await self.async_run(mission_id)
                 return
         if entity_id in self.vacuums and new_state is not None:
+            if new_state.state == "cleaning":
+                if self.active_vacuum_entity_id is None:
+                    self.active_vacuum_entity_id = entity_id
+                    self.active_run_external = self.active_mission_id is None
+                    self.run_started_at = dt_util.now()
+                if (
+                    self.active_mission_id is None
+                    and self.config.get(
+                        CONF_EXTERNAL_START_POLICY,
+                        DEFAULT_EXTERNAL_START_POLICY,
+                    )
+                    == "match_single_pending"
+                ):
+                    matching = [
+                        mission
+                        for mission in self.missions
+                        if mission.id in self.pending_mission_ids
+                        and mission.vacuum_entity_id == entity_id
+                    ]
+                    if len(matching) == 1:
+                        mission = matching[0]
+                        self.active_mission_id = mission.id
+                        self.pending_mission_ids.remove(mission.id)
+                        self.last_decision = MissionDecision(
+                            True, "run", "external_run_matched"
+                        )
+                        self.last_reason = "external_run_matched"
+                        await self._async_persist()
+            completing_mission = (
+                self.mission_by_id(self.active_mission_id)
+                if self.active_mission_id
+                else None
+            )
+            completing_vacuum = self.active_vacuum_entity_id or entity_id
+            # Another managed robot docking must not complete the active run.
+            if (
+                new_state.state == "docked"
+                and self.active_vacuum_entity_id not in {None, entity_id}
+            ):
+                self._notify_listeners()
+                return
             transition = vacuum_runtime_transition(
                 self.state, new_state.state, self.active_mission_id
             )
@@ -621,5 +878,21 @@ class CleaningPlanner:
                 self.state, self.last_reason, clear_active = transition
                 if clear_active:
                     self.active_mission_id = None
+                    self._schedule_completion_release()
+                    await self._async_persist()
+                    try:
+                        await self._async_notify_completed(
+                            completing_mission, completing_vacuum
+                        )
+                    finally:
+                        self.active_vacuum_entity_id = None
+                        self.active_run_external = False
+                        self.run_started_at = None
+        if entity_id not in self.vacuums:
+            if any(
+                entity_id in adapter_for(self.hass, vacuum).watched_entities
+                for vacuum in self.vacuums
+            ):
+                await self._async_refresh_maintenance_notifications()
         self._notify_listeners()
         self._schedule_next()

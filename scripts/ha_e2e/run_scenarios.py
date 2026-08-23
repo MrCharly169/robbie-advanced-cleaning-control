@@ -20,6 +20,9 @@ VALETUDO_FAN = "select.valetudo_fixture_robot_fan"
 VALETUDO_WATER = "select.valetudo_fixture_robot_water"
 MOP_SENSOR = "binary_sensor.valetudo_fixture_robot_mop_attachment"
 ERROR_SENSOR = "sensor.valetudo_fixture_robot_error"
+FRESHWATER_SENSOR = "sensor.valetudo_fixture_robot_water_tank_clean_dock_component"
+WASTEWATER_SENSOR = "sensor.valetudo_fixture_robot_water_tank_dirty_dock_component"
+EVENTS_SENSOR = "sensor.valetudo_fixture_robot_events"
 CALL_SENSOR = "sensor.robbie_fixture_service_calls"
 DOMAIN = "robbie_advanced_cc"
 FIXTURE = "robbie_advanced_cc_test_fixture"
@@ -233,11 +236,23 @@ def reset_calls(api: HomeAssistantApi) -> None:
     wait_for_state(api, CALL_SENSOR, lambda state: state["state"] == "0")
 
 
-def set_fixture(api: HomeAssistantApi, entity_id: str, state: Any, *, available: bool = True) -> None:
+def set_fixture(
+    api: HomeAssistantApi,
+    entity_id: str,
+    state: Any,
+    *,
+    attributes: dict[str, Any] | None = None,
+    available: bool = True,
+) -> None:
     api.call_service(
         FIXTURE,
         "set_state",
-        {"entity_id": entity_id, "state": state, "available": available},
+        {
+            "entity_id": entity_id,
+            "state": state,
+            "attributes": attributes or {},
+            "available": available,
+        },
     )
     expected = "unavailable" if not available else str(state).lower()
     wait_for_state(api, entity_id, lambda item: item["state"].lower() == expected)
@@ -677,8 +692,9 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     if presence_wait["id"] not in waiting.get("attributes", {}).get("waiting_mission_ids", []):
         raise AssertionError(f"Presence wait was not re-armed: {waiting}")
 
-    # A direct native vacuum start has no Planner mission identity. It must
-    # still present running while preserving the unrelated queued mission.
+    # A direct native vacuum start can safely own the single waiting occurrence
+    # for that same robot. This prevents a completed physical run from being
+    # presented and executed again as stale waiting work.
     reset_calls(api)
     api.call_service("vacuum", "start", {"entity_id": VACUUM_VALETUDO})
     direct_running = wait_for_state(
@@ -686,9 +702,100 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
         planner_status(api, entry_id)["entity_id"],
         lambda state: state["state"] == "running",
     )
-    if presence_wait["id"] not in direct_running.get("attributes", {}).get("waiting_mission_ids", []):
-        raise AssertionError(f"Direct vacuum start lost queued work: {direct_running}")
+    if presence_wait["id"] in direct_running.get("attributes", {}).get("waiting_mission_ids", []):
+        raise AssertionError(f"Direct vacuum start did not own queued work: {direct_running}")
     set_fixture(api, VACUUM_VALETUDO, "docked")
+    completed = wait_for_state(
+        api,
+        planner_status(api, entry_id)["entity_id"],
+        lambda state: state["state"] == "completed"
+        and state.get("attributes", {}).get("last_reason") == "mission_completed",
+    )
+    if completed.get("attributes", {}).get("waiting_mission_ids"):
+        raise AssertionError(f"Completed run retained stale waiting work: {completed}")
+    wait_for_state(
+        api,
+        "input_text.notify_title_capture",
+        lambda state: "completed" in state["state"].lower(),
+    )
+    wait_for_state(
+        api,
+        "input_text.notify_message_capture",
+        lambda state: "64.0 m²" in state["state"] and "1 h 22 min" in state["state"],
+    )
+
+    # Valetudo 2026.05+ dock component states and active ValetudoEvents are
+    # projected as maintenance attention and routed exactly once per change.
+    set_fixture(api, WASTEWATER_SENSOR, "full")
+    wait_for_state(
+        api,
+        "input_text.notify_message_capture",
+        lambda state: "Wastewater is full" in state["state"],
+    )
+    maintenance_attention = next(
+        state
+        for state in api.get("/api/states")
+        if state["entity_id"].startswith("sensor.")
+        and "items" in state.get("attributes", {})
+    )
+    wait_for_state(
+        api,
+        maintenance_attention["entity_id"],
+        lambda state: state["state"] == "attention",
+    )
+    set_fixture(api, WASTEWATER_SENSOR, "ok")
+    set_fixture(
+        api,
+        EVENTS_SENSOR,
+        1,
+        attributes={
+            "dust-event": {
+                "id": "dust-event",
+                "__class": "DustBinFullValetudoEvent",
+                "processed": False,
+            }
+        },
+    )
+    wait_for_state(
+        api,
+        "input_text.notify_message_capture",
+        lambda state: "Dustbin is full" in state["state"],
+    )
+    set_fixture(api, EVENTS_SENSOR, 0, attributes={})
+    wait_for_state(
+        api,
+        maintenance_attention["entity_id"],
+        lambda state: state["state"] == "ok",
+    )
+
+    # The explicit resolve action dismisses one due occurrence without deleting
+    # its recurring mission definition.
+    api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": presence_wait["id"]})
+    wait_for_state(
+        api,
+        planner_status(api, entry_id)["entity_id"],
+        lambda state: presence_wait["id"] in state.get("attributes", {}).get("waiting_mission_ids", []),
+    )
+    api.call_service(
+        DOMAIN,
+        "resolve_pending",
+        {"entry_id": entry_id, "mission_id": presence_wait["id"]},
+    )
+    resolved = wait_for_state(
+        api,
+        planner_status(api, entry_id)["entity_id"],
+        lambda state: state.get("attributes", {}).get("last_reason") == "pending_mission_resolved",
+    )
+    if presence_wait["id"] in resolved.get("attributes", {}).get("waiting_mission_ids", []):
+        raise AssertionError(f"Resolved occurrence remained queued: {resolved}")
+
+    # Re-arm the occurrence for the Planner-disable release regression below.
+    api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": presence_wait["id"]})
+    wait_for_state(
+        api,
+        planner_status(api, entry_id)["entity_id"],
+        lambda state: presence_wait["id"] in state.get("attributes", {}).get("waiting_mission_ids", []),
+    )
     reset_calls(api)
 
     planner_switch = next(

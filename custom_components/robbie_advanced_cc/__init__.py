@@ -12,6 +12,7 @@ from .const import (
     SERVICE_ADD_MISSION,
     SERVICE_POSTPONE_NEXT,
     SERVICE_REMOVE_MISSION,
+    SERVICE_RESOLVE_PENDING,
     SERVICE_RUN_NEXT,
     SERVICE_SKIP_NEXT,
 )
@@ -52,6 +53,11 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             call.data.get("mission_id"), manual=call.data.get("manual", False)
         )
 
+    async def resolve_pending(call: ServiceCall) -> None:
+        await _planner(hass, call.data["entry_id"]).async_resolve_pending(
+            call.data["mission_id"]
+        )
+
     async def skip_next(call: ServiceCall) -> None:
         await _planner(hass, call.data["entry_id"]).async_skip_next()
 
@@ -73,6 +79,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         DOMAIN,
         SERVICE_REMOVE_MISSION,
         remove_mission,
+        schema=vol.Schema(
+            {vol.Required("entry_id"): str, vol.Required("mission_id"): str}
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RESOLVE_PENDING,
+        resolve_pending,
         schema=vol.Schema(
             {vol.Required("entry_id"): str, vol.Required("mission_id"): str}
         ),

@@ -23,6 +23,18 @@ remove_mission:
       required: true
       selector:
         text:
+resolve_pending:
+  name: Resolve waiting occurrence
+  description: Mark one already-due waiting mission occurrence as handled without deleting its recurring schedule.
+  fields:
+    entry_id:
+      required: true
+      selector:
+        text:
+    mission_id:
+      required: true
+      selector:
+        text:
 run_next:
   name: Run mission
   description: Run the next mission or the supplied mission ID.

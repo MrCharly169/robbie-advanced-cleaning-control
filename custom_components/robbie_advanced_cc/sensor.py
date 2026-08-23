@@ -96,6 +96,8 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
             "vacation_active": self.planner.vacation_active,
             "vacation_entity_id": self.planner.config.get(CONF_VACATION_ENTITY),
             "active_mission_id": self.planner.active_mission_id,
+            "active_vacuum_entity_id": self.planner.active_vacuum_entity_id,
+            "active_run_external": self.planner.active_run_external,
             "last_reason": self.planner.last_reason,
             "last_resolution": (
                 self.planner.last_decision.resolution
@@ -208,15 +210,15 @@ class MaintenanceSensor(PlannerEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        values = [
-            item.get("value")
-            for vacuum in self._items().values()
-            for item in vacuum.values()
+        items = [
+            item for vacuum in self._items().values() for item in vacuum.values()
         ]
-        if not values:
+        if not items:
             return "not_supported"
         return "attention" if any(
-            isinstance(value, (int, float)) and value <= 0 for value in values
+            item.get("attention") is True
+            or (isinstance(item.get("value"), (int, float)) and item["value"] <= 0)
+            for item in items
         ) else "ok"
 
     @property

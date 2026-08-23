@@ -14,6 +14,9 @@ from homeassistant.helpers import selector
 from .capabilities import discover_profile_options
 from .const import (
     CONF_DASHBOARD_PATH,
+    CONF_EXTERNAL_START_POLICY,
+    CONF_NOTIFY_COMPLETION,
+    CONF_NOTIFY_MAINTENANCE,
     CONF_NOTIFICATION_ROUTE,
     CONF_NOTIFICATION_SCRIPT,
     CONF_PRESENCE_ENTITIES,
@@ -22,6 +25,7 @@ from .const import (
     CONF_VACATION_ENTITY,
     CONF_VACUUMS,
     DEFAULT_DASHBOARD_PATH,
+    DEFAULT_EXTERNAL_START_POLICY,
     DEFAULT_NAME,
     DOMAIN,
 )
@@ -147,6 +151,25 @@ def _services_schema(current: dict[str, Any] | None = None) -> vol.Schema:
             ),
             _optional(CONF_TODO_ENTITY, current.get(CONF_TODO_ENTITY)): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain="todo")
+            ),
+            vol.Required(
+                CONF_NOTIFY_COMPLETION,
+                default=current.get(CONF_NOTIFY_COMPLETION, True),
+            ): selector.BooleanSelector(),
+            vol.Required(
+                CONF_NOTIFY_MAINTENANCE,
+                default=current.get(CONF_NOTIFY_MAINTENANCE, True),
+            ): selector.BooleanSelector(),
+            vol.Required(
+                CONF_EXTERNAL_START_POLICY,
+                default=current.get(
+                    CONF_EXTERNAL_START_POLICY, DEFAULT_EXTERNAL_START_POLICY
+                ),
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=["match_single_pending", "keep_pending"],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
             ),
             vol.Optional(CONF_DASHBOARD_PATH, default=current.get(CONF_DASHBOARD_PATH, DEFAULT_DASHBOARD_PATH)): selector.TextSelector(),
         }
@@ -402,6 +425,9 @@ class RobbieAdvancedCcOptionsFlow(OptionsFlowWithReload):
                 CONF_NOTIFICATION_SCRIPT,
                 CONF_NOTIFICATION_ROUTE,
                 CONF_TODO_ENTITY,
+                CONF_NOTIFY_COMPLETION,
+                CONF_NOTIFY_MAINTENANCE,
+                CONF_EXTERNAL_START_POLICY,
                 CONF_DASHBOARD_PATH,
             )
             options = {

@@ -6,7 +6,7 @@ const COPY = {
     brand: "Robbie Advanced CC", title: "Cleaning Planner", simple: "Simple", advanced: "Advanced",
     next: "Next run", noMission: "No run planned", ready: "All conditions met", blocked: "Conditions pending",
     weekly: "Weekly runs", missions: "Runs & conditions", run: "Run now", skip: "Skip once",
-    postpone: "Postpone", add: "Add run", edit: "Edit", remove: "Remove", save: "Save run", cancel: "Cancel",
+    postpone: "Postpone", add: "Add run", edit: "Edit", remove: "Remove", resolve: "Mark waiting run handled", save: "Save run", cancel: "Cancel",
     vacuum: "Robot", schedule: "HA Schedule helper", time: "Start time", weekdays: "Weekdays",
     condition: "When somebody is home", profile: "Cleaning mode", areas: "Rooms / segments", passes: "Passes",
     fan: "Vacuum strength", water: "Water level", dayRun: "Run for", perDayHint: "Each run keeps its own rooms and cleaning settings. Use the + on a weekday for a precise day profile.",
@@ -28,7 +28,7 @@ const COPY = {
     brand: "Robbie Advanced CC", title: "Reinigungsplaner", simple: "Simple", advanced: "Advanced",
     next: "Nächster Lauf", noMission: "Kein Lauf geplant", ready: "Alle Bedingungen erfüllt", blocked: "Bedingungen noch offen",
     weekly: "Wochenplan", missions: "Läufe & Bedingungen", run: "Jetzt starten", skip: "Einmal überspringen",
-    postpone: "Verschieben", add: "Lauf hinzufügen", edit: "Bearbeiten", remove: "Entfernen", save: "Lauf speichern", cancel: "Abbrechen",
+    postpone: "Verschieben", add: "Lauf hinzufügen", edit: "Bearbeiten", remove: "Entfernen", resolve: "Wartenden Lauf als erledigt markieren", save: "Lauf speichern", cancel: "Abbrechen",
     vacuum: "Roboter", schedule: "HA-Zeitplan-Helper", time: "Startzeit", weekdays: "Wochentage",
     condition: "Wenn jemand zu Hause ist", profile: "Reinigungsmodus", areas: "Räume / Segmente", passes: "Durchgänge",
     fan: "Saugstärke", water: "Wasserstufe", dayRun: "Lauf für", perDayHint: "Jeder Lauf speichert eigene Räume und Reinigungseinstellungen. Nutze das + am Wochentag für ein präzises Tagesprofil.",
@@ -68,7 +68,7 @@ function domKey(node) {
   if (node?.nodeType !== 1) return "";
   const keys = [
     "data-mission-id", "data-id", "data-dialog-id", "data-edit", "data-add-day", "data-add-position", "data-action",
-    "data-run", "data-remove", "data-mode-toggle", "data-add", "data-cancel",
+    "data-run", "data-resolve", "data-remove", "data-mode-toggle", "data-add", "data-cancel",
     "name", "data-day",
   ];
   for (const name of keys) {
@@ -499,6 +499,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       <div class="conditions">${conditions.map((item) => this._condition(item, t)).join("") || `<span class="muted">${escapeHtml(t.noConditions)}</span>`}</div>
       <div class="mission-actions">
         <button data-run="${escapeHtml(mission.id)}" ${this._plannerStatus()?.state === "vacation" ? "disabled" : ""}>${icon("mdi:play", "mini-icon")}${escapeHtml(t.run)}</button>
+        ${mission.waiting ? `<button data-resolve="${escapeHtml(mission.id)}" title="${escapeHtml(t.resolve)}">${icon("mdi:check", "mini-icon")}${escapeHtml(t.resolve)}</button>` : ""}
         <button data-edit="${escapeHtml(mission.id)}">${icon("mdi:pencil", "mini-icon")}${escapeHtml(t.edit)}</button>
         <button data-remove="${escapeHtml(mission.id)}" class="danger-button">${icon("mdi:delete-outline", "mini-icon")}${escapeHtml(t.remove)}</button>
       </div>
@@ -631,7 +632,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     if (![
       '[data-action="run"]', '[data-action="skip"]', '[data-action="postpone"]',
       '[data-mode-toggle]', '[data-add]', '[data-add-day]',
-      '[data-edit]', '[data-run]', '[data-remove]', '[data-close-dialog]',
+      '[data-edit]', '[data-run]', '[data-resolve]', '[data-remove]', '[data-close-dialog]',
       '[data-cancel]',
     ].some((selector) => control.matches(selector))) return;
     event.preventDefault?.();
@@ -677,6 +678,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       return void this._render();
     }
     if (control.matches("[data-run]")) return void this._call("run_next", { mission_id: control.dataset.run, manual: true });
+    if (control.matches("[data-resolve]")) return void this._call("resolve_pending", { mission_id: control.dataset.resolve });
     if (control.matches("[data-remove]")) return void this._call("remove_mission", { mission_id: control.dataset.remove });
     if (control.matches("[data-close-dialog]")) {
       this._controlCenterOpen = false;

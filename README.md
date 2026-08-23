@@ -157,7 +157,10 @@ robot fleet. It asks for:
 - an optional vacation `input_boolean`;
 - an optional first mission, weekly time or existing `schedule.*` helper;
 - live room/profile choices for the first mission;
-- optional notification router, route helper, to-do binding and dashboard path.
+- optional notification router, route helper, to-do binding and dashboard path;
+- completion and dock/maintenance notification switches, plus the policy for
+  direct starts outside Robbie (`match_single_pending` by default or
+  `keep_pending`).
 
 The dashboard path is specifically the complete Home Assistant path of the view
 that contains the Robbie Cleaning Control Card, for example
@@ -348,12 +351,29 @@ mission object and service calls.
 | Mop explicitly reported missing | Mop and vacuum-plus-mop missions use the configured mop guard (block by default). Unknown mop state is not treated as confirmed missing. |
 | **Skip once** | Arms the next mission ID, persists it and consumes it on exactly one occurrence without a device command. |
 | **Postpone** | Stores a replacement time. The Card uses 60 minutes; the service accepts 1–1440 minutes. |
+| Direct start through the native vacuum/Valetudo UI | When exactly one due waiting mission targets that robot, the default policy associates and consumes that occurrence. `keep_pending` leaves it queued instead. Ambiguous matches are never guessed. |
+| **Mark waiting run handled** | Removes only the due waiting occurrence and keeps the recurring weekly mission. The Advanced Card exposes this action on waiting missions. |
 | Adapter command fails | Robbie sets a failed state/reason and raises the error; it does not report a successful start. |
 
 Planner status, next-mission and last-decision entities keep the current outcome
 inspectable. Waiting, postpone and skip-once state survive restart. Robbie does
 **not** currently maintain a durable audit log of every old blocked or skipped
 run; use Home Assistant history/automations if permanent run history is required.
+
+### Completion and dock attention notifications
+
+When enabled, a real transition from cleaning to docked sends one completion
+notification through the configured router (or Home Assistant persistent
+notifications). Valetudo current-statistics sensors add duration and cleaned
+area when available. The `completed` status remains visible for five minutes
+before Robbie returns to idle or another genuine waiting occurrence.
+
+Valetudo 2026.05+ Freshwater, Wastewater, Dustbag and Detergent dock-component
+sensors are discovered when the robot/firmware exposes them. Robbie also reads
+active `DustBinFullValetudoEvent` data from the Valetudo Events sensor. A new
+empty/full/missing attention state sends one notification and remains persisted
+to prevent duplicates after restart. Missing entities are reported as
+unsupported; Robbie does not invent tank state from the generic dock status.
 
 ## Adapters and compatibility
 
@@ -362,14 +382,14 @@ run; use Home Assistant history/automations if permanent run history is required
 | Path | Detection and mission execution | Directly handled by Robbie | Still handled elsewhere |
 |---|---|---|---|
 | **Generic Home Assistant adapter** | Used for any managed vacuum not detected as Valetudo. Reads standard `supported_features`, vacuum area mappings, fan presets and related same-device entities. Sets standard fan speed when supported, calls `vacuum.clean_area` for known areas, otherwise calls `vacuum.start`. It does not apply generic mode/water selects or repeat `passes`. | Planning, guards, capability projection and those standard HA service calls. | The installed vacuum integration transports commands and owns authentication. |
-| **Valetudo enhancement** | Selected when the vacuum entity ID or friendly name contains `valetudo`. Adds sibling discovery for mode, fan, water, mop attachment, segments/maps, locate/auto-empty capability signals and maintenance sensors. Applies exact Valetudo-style mode/fan/water sibling selects before the Generic start/area action. It does not execute `passes`. | Enhanced discovery, implemented profile translation and mop/maintenance projection. | Valetudo's existing MQTT-discovered HA entities and MQTT transport. Robbie does not connect to MQTT. |
+| **Valetudo enhancement** | Selected when the vacuum entity ID or friendly name contains `valetudo`. Adds sibling discovery for mode, fan, water, mop attachment, segments/maps, locate/auto-empty, current run statistics, dock components, events and maintenance sensors. Applies exact Valetudo-style mode/fan/water sibling selects before the Generic start/area action. It does not execute `passes`. | Enhanced discovery, implemented profile translation, completion metrics and dock/mop/maintenance projection. | Valetudo's existing MQTT-discovered HA entities and MQTT transport. Robbie does not connect to MQTT. |
 | **Existing cloud integration** | Uses the Generic adapter. Same-device room/profile entities can be discovered for presentation when the installed integration exposes them, but only standard Generic actions above are executed. | The same vendor-neutral planner and HA service boundary. | Vendor cloud transport, account login, tokens, rate limits and supported robot features. |
 
 Capability discovery does not manufacture support. Detected map, locate or
 auto-empty capability signals are diagnostics/discovery information unless a
 documented Robbie Card, entity or service actually exposes an action. The
-currently public Robbie services are only `add_mission`, `remove_mission`,
-`run_next`, `skip_next` and `postpone_next`.
+currently public Robbie services are `add_mission`, `remove_mission`,
+`resolve_pending`, `run_next`, `skip_next` and `postpone_next`.
 
 ## Updates and uninstalling
 

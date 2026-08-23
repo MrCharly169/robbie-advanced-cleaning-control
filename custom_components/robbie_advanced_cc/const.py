@@ -12,6 +12,9 @@ CONF_PRESENCE_ENTITIES: Final = "presence_entities"
 CONF_VACATION_ENTITY: Final = "vacation_entity"
 CONF_NOTIFICATION_SCRIPT: Final = "notification_script"
 CONF_NOTIFICATION_ROUTE: Final = "notification_route"
+CONF_NOTIFY_COMPLETION: Final = "notify_completion"
+CONF_NOTIFY_MAINTENANCE: Final = "notify_maintenance"
+CONF_EXTERNAL_START_POLICY: Final = "external_start_policy"
 CONF_TODO_ENTITY: Final = "todo_entity"
 CONF_DASHBOARD_PATH: Final = "dashboard_path"
 CONF_STARTER_MISSION: Final = "starter_mission"
@@ -21,6 +24,9 @@ DEFAULT_NAME: Final = "Cleaning Planner"
 DEFAULT_DASHBOARD_PATH: Final = "/lovelace/cleaning"
 DEFAULT_POSTPONE_MINUTES: Final = 60
 DEFAULT_ANNOUNCEMENT_MINUTES: Final = 24 * 60
+DEFAULT_COMPLETION_HOLD_SECONDS: Final = 5 * 60
+DEFAULT_EXTERNAL_START_POLICY: Final = "match_single_pending"
+EXTERNAL_START_POLICIES: Final = ("match_single_pending", "keep_pending")
 CARD_RESOURCE_URL: Final = f"/{DOMAIN}/cleaning-control.js"
 CARD_TYPE: Final = "custom:robbie-advanced-cleaning-card"
 BADGE_TYPE: Final = "custom:robbie-vacuum-badge"
@@ -31,6 +37,7 @@ SERVICE_REMOVE_MISSION: Final = "remove_mission"
 SERVICE_RUN_NEXT: Final = "run_next"
 SERVICE_SKIP_NEXT: Final = "skip_next"
 SERVICE_POSTPONE_NEXT: Final = "postpone_next"
+SERVICE_RESOLVE_PENDING: Final = "resolve_pending"
 
 STATE_IDLE: Final = "idle"
 STATE_ANNOUNCED: Final = "announced"
@@ -78,7 +85,12 @@ def planner_presentation_state(
     # never be presented as merely waiting just because an unrelated due
     # mission remains queued. This also covers starts made directly through
     # the native vacuum entity, where no Planner mission ID exists.
-    if runtime_state in {STATE_PREPARING, STATE_RUNNING, STATE_DOCK_SERVICE}:
+    if runtime_state in {
+        STATE_PREPARING,
+        STATE_RUNNING,
+        STATE_DOCK_SERVICE,
+        STATE_COMPLETED,
+    }:
         return runtime_state
     if has_active_mission or runtime_state in {STATE_BLOCKED, STATE_FAILED}:
         return runtime_state

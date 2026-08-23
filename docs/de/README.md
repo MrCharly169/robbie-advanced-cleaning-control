@@ -162,7 +162,10 @@ oder Roboterflotte. Er fragt nach:
 - einer optionalen ersten Mission, Wochenzeit oder einem vorhandenen
   `schedule.*`-Helfer;
 - live erkannten Raum-/Profilwerten für die erste Mission;
-- optionalem Benachrichtigungsrouter, Routenhelfer, To-do-Bindung und Dashboardpfad.
+- optionalem Benachrichtigungsrouter, Routenhelfer, To-do-Bindung und Dashboardpfad;
+- Schaltern für Abschluss- und Stations-/Wartungsmeldungen sowie der Behandlung
+  direkter Starts außerhalb von Robbie (`match_single_pending` als Standard
+  oder `keep_pending`).
 
 Der Dashboardpfad ist ausdrücklich der vollständige Home-Assistant-Pfad der
 Ansicht mit der Robbie Cleaning-Control-Card, zum Beispiel
@@ -357,6 +360,8 @@ Das vollständige Missionsobjekt und Services zeigt das
 | Wischaufsatz ausdrücklich als fehlend gemeldet | Wisch- und Saug-/Wischmissionen verwenden den konfigurierten Wisch-Guard (standardmäßig blockieren). Ein unbekannter Status gilt nicht als bestätigt fehlend. |
 | **Einmal überspringen** | Merkt sich die nächste Missions-ID neustartfest und verbraucht genau ein Vorkommen ohne Gerätebefehl. |
 | **Verschieben** | Speichert eine Ersatzzeit. Die Card verwendet 60 Minuten; der Service akzeptiert 1–1440 Minuten. |
+| Direkter Start über native Vacuum-Entität/Valetudo | Zielt genau eine fällige wartende Mission auf diesen Roboter, ordnet der Standard dieses Vorkommen zu und verbraucht es. `keep_pending` lässt es wartend; mehrdeutige Zuordnungen werden nie geraten. |
+| **Wartenden Lauf als erledigt markieren** | Entfernt nur das fällige wartende Vorkommen und behält die wiederkehrende Wochenmission. Die Advanced Card zeigt diese Aktion bei wartenden Missionen. |
 | Adapterbefehl schlägt fehl | Robbie setzt Fehlerstatus/-grund und gibt den Fehler weiter; ein erfolgreicher Start wird nicht vorgetäuscht. |
 
 Planerstatus-, Nächste-Mission- und Letzte-Entscheidung-Entitäten halten das
@@ -365,6 +370,22 @@ einen Neustart. Robbie führt derzeit **kein** dauerhaftes Auditprotokoll aller
 alten blockierten oder ausgelassenen Läufe. Nutze dafür bei Bedarf HA-Verlauf
 oder eigene Automationen.
 
+### Abschluss- und Stationsmeldungen
+
+Wenn aktiviert, sendet der echte Übergang von Reinigung zu Station genau eine
+Abschlussmeldung über den konfigurierten Router oder als persistente
+Home-Assistant-Meldung. Verfügbare Valetudo-Statistiksensoren ergänzen Dauer und
+gereinigte Fläche. Der Status `completed` bleibt fünf Minuten sichtbar, bevor
+Robbie zu bereit oder zu einem tatsächlich wartenden Vorkommen wechselt.
+
+Robbie erkennt die von Valetudo 2026.05+ bereitgestellten Stationskomponenten
+Frischwasser, Schmutzwasser, Staubbeutel und Reinigungsmittel, soweit Modell und
+Firmware sie nach Home Assistant liefern. Zusätzlich wird ein aktives
+`DustBinFullValetudoEvent` aus dem Valetudo-Events-Sensor ausgewertet. Ein neuer
+Leer-/Voll-/Fehlt-Zustand erzeugt einmalig eine Meldung und wird gegen
+Neustart-Duplikate gespeichert. Fehlende Entities gelten als nicht unterstützt;
+Robbie erfindet keinen Tankzustand aus dem allgemeinen Stationsstatus.
+
 ## Adapter und Kompatibilität
 
 ![Vergleich von Generic Adapter, Valetudo-Erweiterung und vorhandener Cloud-Integration mit klarer Trennung zwischen Robbie-Planung und delegierter Gerätekommunikation](../images/adapter-comparison.svg)
@@ -372,14 +393,14 @@ oder eigene Automationen.
 | Pfad | Erkennung und Missionsausführung | Direkt von Robbie | Weiterhin extern |
 |---|---|---|---|
 | **Generic Home Assistant Adapter** | Für jeden verwalteten, nicht als Valetudo erkannten Roboter. Liest `supported_features`, HA-Vacuum-Area-Mapping, Lüfterstufen und verwandte Entitäten desselben Geräts. Setzt die Standard-Lüfterstufe, wenn unterstützt, ruft für bekannte Bereiche `vacuum.clean_area` auf, sonst `vacuum.start`. Allgemeine Modus-/Wasser-Selects und `passes` werden nicht ausgeführt. | Planung, Guards, Capability-Projektion und diese Standard-HA-Serviceaufrufe. | Installierte Vacuum-Integration: Transport und Authentifizierung. |
-| **Valetudo-Erweiterung** | Wenn Entity-ID oder Friendly Name `valetudo` enthält. Zusätzliche Geschwistererkennung für Modus, Lüfter, Wasser, Wischaufsatz, Segmente/Karten, Locate-/Auto-Empty-Signale und Wartungssensoren. Wendet exakte Valetudo-ähnliche Modus-/Lüfter-/Wasser-Geschwister-Selects vor Generic Start/Bereich an. `passes` wird nicht ausgeführt. | Erweiterte Erkennung, implementierte Profilübersetzung und Wisch-/Wartungsprojektion. | Valetudos vorhandene MQTT-discovered HA-Entitäten und MQTT-Transport. Robbie verbindet sich nicht mit MQTT. |
+| **Valetudo-Erweiterung** | Wenn Entity-ID oder Friendly Name `valetudo` enthält. Zusätzliche Geschwistererkennung für Modus, Lüfter, Wasser, Wischaufsatz, Segmente/Karten, Locate-/Auto-Empty-Signale, Laufstatistik, Stationskomponenten, Events und Wartungssensoren. Wendet exakte Valetudo-ähnliche Modus-/Lüfter-/Wasser-Geschwister-Selects vor Generic Start/Bereich an. `passes` wird nicht ausgeführt. | Erweiterte Erkennung, implementierte Profilübersetzung, Abschlussmetriken und Stations-/Wisch-/Wartungsprojektion. | Valetudos vorhandene MQTT-discovered HA-Entitäten und MQTT-Transport. Robbie verbindet sich nicht mit MQTT. |
 | **Vorhandene Cloud-Integration** | Verwendet den Generic Adapter. Raum-/Profilentitäten desselben Geräts können zur Darstellung erkannt werden; ausgeführt werden nur die oben genannten Generic-Standardaktionen. | Derselbe herstellerneutrale Planer und dieselbe HA-Servicegrenze. | Hersteller-Cloud, Kontoanmeldung, Tokens, Limits und Gerätefunktionen. |
 
 Capability Detection erfindet keine Unterstützung. Erkannte Karten-, Locate-
 oder Auto-Empty-Signale sind Diagnose-/Erkennungsinformationen, solange keine
 dokumentierte Robbie-Card, Entität oder ein Service eine Aktion anbietet. Die
-öffentlichen Robbie-Services sind aktuell nur `add_mission`, `remove_mission`,
-`run_next`, `skip_next` und `postpone_next`.
+öffentlichen Robbie-Services sind `add_mission`, `remove_mission`,
+`resolve_pending`, `run_next`, `skip_next` und `postpone_next`.
 
 ## Aktualisieren und deinstallieren
 

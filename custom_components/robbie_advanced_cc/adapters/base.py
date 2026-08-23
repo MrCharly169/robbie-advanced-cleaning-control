@@ -92,3 +92,7 @@ class VacuumAdapter(ABC):
     def maintenance(self) -> dict[str, Any]:
         """Return normalized maintenance items when an adapter exposes them."""
         return {}
+
+    def run_metrics(self) -> dict[str, dict[str, Any]]:
+        """Return optional current-run metrics for completion messages."""
+        return {}

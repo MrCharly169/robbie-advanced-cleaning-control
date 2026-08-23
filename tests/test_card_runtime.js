@@ -276,6 +276,7 @@ assert.equal(JSON.stringify(serviceCalls), JSON.stringify([{
 }]));
 cardClick('[data-action="run"]');
 cardClick('[data-run]', { run: "mission-one" });
+cardClick('[data-resolve]', { resolve: "mission-one" });
 assert.equal(JSON.stringify(serviceCalls.slice(1)), JSON.stringify([
   {
     domain: "robbie_advanced_cc",
@@ -286,6 +287,11 @@ assert.equal(JSON.stringify(serviceCalls.slice(1)), JSON.stringify([
     domain: "robbie_advanced_cc",
     service: "run_next",
     data: { entry_id: "entry-1", mission_id: "mission-one", manual: true },
+  },
+  {
+    domain: "robbie_advanced_cc",
+    service: "resolve_pending",
+    data: { entry_id: "entry-1", mission_id: "mission-one" },
   },
 ]));
 cardClick('[data-mode-toggle]');

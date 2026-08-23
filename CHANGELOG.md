@@ -3,6 +3,23 @@
 ## Unreleased
 
 
+## 2026.8.6b0 - 2026-08-23
+
+- Send one routed completion notification when the active robot docks, including
+  Valetudo current-run duration and cleaned area when those sensors exist.
+- Keep `completed` visible for five minutes and associate a direct native robot
+  start with exactly one waiting occurrence for that robot, preventing a
+  physically completed run from remaining queued and starting again later.
+- Add `resolve_pending` plus an Advanced Card action that marks only the due
+  waiting occurrence handled while preserving its recurring mission.
+- Detect Valetudo 2026.05+ Freshwater, Wastewater, Dustbag and Detergent dock
+  component states and active `DustBinFullValetudoEvent` data, route one
+  attention notification per new condition and persist deduplication across
+  restart.
+- Add setup/options controls for completion notifications, dock/maintenance
+  notifications and direct-start ownership, retaining backward compatibility
+  through safe defaults.
+
 ## 2026.8.5b0 - 2026-08-23
 
 - Make Card and native Robbie Play actions explicit manual starts: they bypass

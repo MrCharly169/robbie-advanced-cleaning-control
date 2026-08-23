@@ -67,6 +67,12 @@ input_text:
   notify_click_capture:
     name: Notification Click Capture
     initial: none
+  notify_title_capture:
+    name: Notification Title Capture
+    initial: none
+  notify_message_capture:
+    name: Notification Message Capture
+    initial: none
 
 script:
   robbie_notification_router_test:
@@ -87,3 +93,13 @@ script:
           entity_id: input_text.notify_click_capture
         data:
           value: "{{ payload.data.clickAction | default('missing') }}"
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.notify_title_capture
+        data:
+          value: "{{ payload.title | default('missing') }}"
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.notify_message_capture
+        data:
+          value: "{{ payload.message | default('missing') }}"

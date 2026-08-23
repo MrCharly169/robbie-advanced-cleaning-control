@@ -27,6 +27,10 @@
 | Badge runtime | Hybrid Custom Badge combines robot glyph, state marker and docked next run; mouse/keyboard delegate the native `tap_action` through `hass-action` | `tests/test_card_runtime.js` |
 | Native error visibility | Generic vacuum and Valetudo sibling errors project Planner `failed` without an active run, outrank Vacation, expose details and clear back to the underlying state | model/runtime E2E, `tests/test_card_runtime.js` |
 | Runtime priority | Direct native vacuum cleaning presents `running` even while an unrelated mission remains queued | `tests/test_models.py`, runtime observation |
+| Direct run ownership | A direct native start owns exactly one waiting occurrence for the same robot, ambiguous/disabled ownership stays queued, and the recurring mission remains intact | runtime E2E |
+| Completion lifecycle | Docking sends one routed completion message with available Valetudo time/area metrics and keeps native `completed` visible before returning to planning | model/runtime E2E |
+| Waiting occurrence resolution | Advanced Card/service can resolve a due waiting occurrence without deleting its recurring mission | Card/runtime E2E |
+| Dock attention | Valetudo dock-component states and active DustBinFull events project maintenance attention, notify once per transition and deduplicate across restart | runtime E2E |
 | Badge simulation | Disposable lab can select every badge state and return to live robot state | package/runtime E2E, `tests/test_card_runtime.js` |
 | Packaging | Manifest, HACS metadata, permanent resource and ZIP agree | `tests/test_package.py` |
 

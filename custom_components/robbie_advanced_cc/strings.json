@@ -43,6 +43,9 @@
           "notification_script": "Central notification router",
           "notification_route": "Notification route helper",
           "todo_entity": "Household to-do list",
+          "notify_completion": "Notify when cleaning completes",
+          "notify_maintenance": "Notify when dock or maintenance needs attention",
+          "external_start_policy": "Direct robot starts (match_single_pending / keep_pending)",
           "dashboard_path": "Path to the view containing the Cleaning Control Card"
         }
       }
@@ -64,6 +67,8 @@
           "name": "Planner name", "vacuums": "Vacuum cleaners", "presence_entities": "Presence / Home entities",
           "vacation_entity": "Vacation mode", "notification_script": "Central notification router",
           "notification_route": "Notification route helper", "todo_entity": "Household to-do list",
+          "notify_completion": "Notify when cleaning completes", "notify_maintenance": "Notify when dock or maintenance needs attention",
+          "external_start_policy": "Direct robot starts (match_single_pending / keep_pending)",
           "dashboard_path": "Path to the view containing the Cleaning Control Card"
         }
       },
