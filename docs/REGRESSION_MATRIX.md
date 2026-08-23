@@ -31,6 +31,7 @@
 | Completion lifecycle | Docking sends one routed completion message with available Valetudo time/area metrics and keeps native `completed` visible before returning to planning | model/runtime E2E |
 | Waiting occurrence resolution | Advanced Card/service can resolve a due waiting occurrence without deleting its recurring mission | Card/runtime E2E |
 | Dock attention | Valetudo dock-component states and active DustBinFull events project maintenance attention, notify once per transition and deduplicate across restart | runtime E2E |
+| Dock error attention | Dreame/Valetudo dock error states produce specific, deduplicated tank/dustbag/dock notifications and clear during Vacation; unrelated robot errors do not masquerade as maintenance | `tests/test_valetudo_errors.py`, runtime E2E |
 | Tank fallback | A mop completion without readable Freshwater/Wastewater components asks for a manual tank check without inventing a sensor state | `tests/test_models.py` |
 | Badge simulation | Disposable lab can select every badge state and return to live robot state | package/runtime E2E, `tests/test_card_runtime.js` |
 | Packaging | Manifest, HACS metadata, permanent resource and ZIP agree | `tests/test_package.py` |

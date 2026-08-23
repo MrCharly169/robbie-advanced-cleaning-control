@@ -8,6 +8,7 @@ from homeassistant.helpers import entity_registry as er
 
 from ..models import CleaningMission
 from .generic import GenericVacuumAdapter
+from .valetudo_errors import normalize_valetudo_dock_error
 
 
 class ValetudoVacuumAdapter(GenericVacuumAdapter):
@@ -138,7 +139,15 @@ class ValetudoVacuumAdapter(GenericVacuumAdapter):
                 "unknown",
                 "unavailable",
             }:
-                return {"entity_id": entity_id, "message": message}
+                result: dict[str, object] = {
+                    "entity_id": entity_id,
+                    "message": message,
+                }
+                if subsystem := state.attributes.get("subsystem"):
+                    result["subsystem"] = subsystem
+                if severity := state.attributes.get("severity"):
+                    result["severity"] = severity
+                return result
         return super().error
 
     def mop_attached(self) -> bool | None:
@@ -216,6 +225,22 @@ class ValetudoVacuumAdapter(GenericVacuumAdapter):
                     "value": "full",
                     "attention": True,
                     "event_id": str(event.get("id") or event_id),
+                }
+        error_entity = self._sibling("sensor", "error")
+        error_state = self.hass.states.get(error_entity) if error_entity else None
+        if error_state is not None:
+            attention = normalize_valetudo_dock_error(
+                str(error_state.state or ""),
+                str(error_state.attributes.get("subsystem") or ""),
+            )
+            if attention is not None:
+                result[f"dock_error_{attention.key}"] = {
+                    "entity_id": error_entity,
+                    "label": attention.label,
+                    "value": attention.value,
+                    "attention": True,
+                    "source": "valetudo_error",
+                    "message": str(error_state.state or ""),
                 }
         return result
 

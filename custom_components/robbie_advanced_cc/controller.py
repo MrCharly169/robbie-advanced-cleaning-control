@@ -714,19 +714,45 @@ class CleaningPlanner:
 
     def _maintenance_item_text(self, item: dict[str, Any], *, de: bool) -> str:
         label = str(item.get("label") or "Maintenance")
-        value = str(item.get("value") or "attention").casefold()
+        raw_value = str(item.get("value") or "attention")
+        value = raw_value.casefold()
         names = {
             "Freshwater": "Frischwassertank",
             "Wastewater": "Schmutzwassertank",
             "Dustbag": "Staubbeutel",
             "Dustbin": "Staubbehälter",
             "Detergent": "Reinigungsmittel",
+            "Dock": "Station",
+            "Dock tray": "Stationswanne",
+            "Wastewater pipe": "Schmutzwasserleitung",
+            "Wastewater pump": "Schmutzwasserpumpe",
         }
         states = {
             "empty": "ist leer" if de else "is empty",
             "full": "ist voll" if de else "is full",
             "missing": "fehlt" if de else "is missing",
+            "full_or_missing": (
+                "ist voll oder fehlt" if de else "is full or missing"
+            ),
+            "full_or_blocked": (
+                "ist voll oder der Absaugkanal ist blockiert"
+                if de
+                else "is full or the dust duct is blocked"
+            ),
+            "open_or_missing": (
+                "Abdeckung ist offen oder der Staubbeutel fehlt"
+                if de
+                else "cover is open or the dustbag is missing"
+            ),
+            "clogged": "ist verstopft" if de else "is clogged",
+            "damaged": "ist beschädigt" if de else "is damaged",
         }
+        if (
+            item.get("source") == "valetudo_error"
+            and label == "Dock"
+            and value not in states
+        ):
+            return str(item.get("message") or raw_value)
         return f"{names.get(label, label) if de else label} {states.get(value, value)}"
 
     async def _async_refresh_maintenance_notifications(self) -> None:
@@ -825,12 +851,20 @@ class CleaningPlanner:
             for mission in self.missions
             if mission.schedule_entity_id == entity_id
         ]
+        adapter_entity_changed = entity_id not in self.vacuums and any(
+            entity_id in adapter_for(self.hass, vacuum).watched_entities
+            for vacuum in self.vacuums
+        )
         if entity_id == self.config.get(CONF_VACATION_ENTITY):
             self.last_reason = (
                 "vacation_active" if self.vacation_active else "vacation_ended"
             )
             self._schedule_next()
             return
+        if adapter_entity_changed:
+            # Hardware health is independent from planning. Keep dock/error
+            # attention current even while Vacation blocks every run.
+            await self._async_refresh_maintenance_notifications()
         if self.vacation_active and entity_id not in self.vacuums:
             # Native schedule and presence helper transitions are deliberately
             # inert during the global vacation lock. Robot state changes still
@@ -910,11 +944,5 @@ class CleaningPlanner:
                         self.active_vacuum_entity_id = None
                         self.active_run_external = False
                         self.run_started_at = None
-        if entity_id not in self.vacuums:
-            if any(
-                entity_id in adapter_for(self.hass, vacuum).watched_entities
-                for vacuum in self.vacuums
-            ):
-                await self._async_refresh_maintenance_notifications()
         self._notify_listeners()
         self._schedule_next()

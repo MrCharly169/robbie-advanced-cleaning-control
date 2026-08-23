@@ -3,6 +3,13 @@
 ## Unreleased
 
 
+## 2026.8.6b2 - 2026-08-23
+
+- Translate Dreame/Valetudo dock error states into immediate, deduplicated
+  maintenance notifications for empty or missing clean-water tanks, full or
+  missing wastewater tanks, full or blocked dustbags, and dock tray, pipe or
+  pump faults. Unknown future dock errors retain their original message.
+
 ## 2026.8.6b1 - 2026-08-23
 
 - Add a truthful aftercare fallback for mop runs whose robot exposes no

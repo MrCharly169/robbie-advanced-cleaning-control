@@ -385,6 +385,10 @@ Firmware sie nach Home Assistant liefern. Zusätzlich wird ein aktives
 Leer-/Voll-/Fehlt-Zustand erzeugt einmalig eine Meldung und wird gegen
 Neustart-Duplikate gespeichert. Fehlende Entities gelten als nicht unterstützt;
 Robbie erfindet keinen Tankzustand aus dem allgemeinen Stationsstatus.
+Modelle wie der Dreame L10S Ultra liefern Tank- und Staubbeutelprobleme nur als
+kurzzeitige Valetudo-Fehlerzustände. Robbie übersetzt diese Stationsfehler in
+dieselben sofortigen, deduplizierten Wartungsmeldungen und übernimmt unbekannte
+künftige Stationsmeldungen unverändert.
 Nach einem Wischlauf ohne auslesbare Frisch-/Schmutzwasser-Komponenten enthält
 die Abschlussmeldung deshalb eine neutrale Erinnerung, beide Stationsbehälter
 zu prüfen.

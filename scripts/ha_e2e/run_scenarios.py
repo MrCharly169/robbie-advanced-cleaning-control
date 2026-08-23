@@ -560,6 +560,11 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     error_details = detailed_error.get("attributes", {}).get("robot_errors", {})
     if error_details.get(VACUUM_VALETUDO, {}).get("message") != "Auto-empty dock is blocked":
         raise AssertionError(f"Valetudo error was not projected: {detailed_error}")
+    wait_for_state(
+        api,
+        "input_text.notify_message_capture",
+        lambda state: "Auto-empty dock is blocked" in state["state"],
+    )
     set_fixture(api, ERROR_SENSOR, "No error")
     wait_for_state(
         api,
@@ -762,6 +767,44 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
         lambda state: "Dustbin is full" in state["state"],
     )
     set_fixture(api, EVENTS_SENSOR, 0, attributes={})
+    wait_for_state(
+        api,
+        maintenance_attention["entity_id"],
+        lambda state: state["state"] == "ok",
+    )
+    set_fixture(
+        api,
+        ERROR_SENSOR,
+        "Mop Dock Clean Water Tank empty",
+        attributes={
+            "subsystem": "dock",
+            "severity": {"kind": "permanent", "level": "warning"},
+        },
+    )
+    wait_for_state(
+        api,
+        "input_text.notify_message_capture",
+        lambda state: "Freshwater is empty" in state["state"],
+    )
+    wait_for_state(
+        api,
+        maintenance_attention["entity_id"],
+        lambda state: state["state"] == "attention"
+        and any(
+            item.get("source") == "valetudo_error"
+            and item.get("value") == "empty"
+            for vacuum_items in state.get("attributes", {})
+            .get("items", {})
+            .values()
+            for item in vacuum_items.values()
+        ),
+    )
+    set_fixture(
+        api,
+        ERROR_SENSOR,
+        "No error",
+        attributes={"subsystem": "none"},
+    )
     wait_for_state(
         api,
         maintenance_attention["entity_id"],
