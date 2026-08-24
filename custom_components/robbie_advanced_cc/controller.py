@@ -77,6 +77,7 @@ class CleaningPlanner:
         self.skip_mission_id: str | None = None
         self.postponed: dict[str, datetime] = {}
         self.pending_mission_ids: list[str] = []
+        self.pending_occurrences: dict[str, datetime] = {}
         self.enabled = True
         self.maintenance_attention: dict[str, str] = {}
         self._listeners: list[Callable[[], None]] = []
@@ -131,6 +132,17 @@ class CleaningPlanner:
             for mission_id in persisted.get("pending_mission_ids", [])
             if self.mission_by_id(str(mission_id)) is not None
         ]
+        for mission_id, value in dict(
+            persisted.get("pending_occurrences") or {}
+        ).items():
+            if mission_id not in self.pending_mission_ids:
+                continue
+            try:
+                self.pending_occurrences[str(mission_id)] = (
+                    datetime.fromisoformat(str(value))
+                )
+            except (TypeError, ValueError):
+                continue
         self.enabled = bool(persisted.get("enabled", True))
         self.maintenance_attention = {
             str(key): str(value)
@@ -299,7 +311,7 @@ class CleaningPlanner:
             )
             self._schedule_next()
             return
-        await self.async_run(mission.id)
+        await self.async_run(mission.id, occurrence=occurrence)
 
     def mission_by_id(self, mission_id: str) -> CleaningMission | None:
         return next((mission for mission in self.missions if mission.id == mission_id), None)
@@ -396,7 +408,11 @@ class CleaningPlanner:
         return state.state == "home"
 
     async def async_run(
-        self, mission_id: str | None = None, *, manual: bool = False
+        self,
+        mission_id: str | None = None,
+        *,
+        manual: bool = False,
+        occurrence: datetime | None = None,
     ) -> MissionDecision:
         if mission_id is None:
             next_item = self.next_mission()
@@ -440,6 +456,8 @@ class CleaningPlanner:
             if decision.resolution == "wait":
                 if mission.id not in self.pending_mission_ids:
                     self.pending_mission_ids.append(mission.id)
+                if occurrence is not None:
+                    self.pending_occurrences[mission.id] = occurrence
                 self.state = STATE_WAITING
                 await self._async_persist()
                 self._schedule_next()
@@ -477,6 +495,7 @@ class CleaningPlanner:
             raise
         if mission.id in self.pending_mission_ids:
             self.pending_mission_ids.remove(mission.id)
+        self.pending_occurrences.pop(mission.id, None)
         self.state = STATE_RUNNING
         self.postponed.pop(mission.id, None)
         await self._async_persist()
@@ -513,6 +532,48 @@ class CleaningPlanner:
         mission = CleaningMission.from_dict(raw)
         if mission.vacuum_entity_id not in self.vacuums:
             raise ValueError("Mission vacuum is not managed by this config entry")
+        previous = self.mission_by_id(mission.id)
+        schedule_changed = bool(
+            previous
+            and (
+                previous.enabled,
+                previous.schedule_entity_id,
+                previous.weekdays,
+                previous.start_time,
+            )
+            != (
+                mission.enabled,
+                mission.schedule_entity_id,
+                mission.weekdays,
+                mission.start_time,
+            )
+        )
+        if previous and mission.id in self.pending_mission_ids:
+            occurrence = self.pending_occurrences.get(mission.id)
+            if previous.schedule_entity_id or mission.schedule_entity_id:
+                still_due = bool(
+                    mission.enabled
+                    and previous.schedule_entity_id
+                    and previous.schedule_entity_id == mission.schedule_entity_id
+                )
+            elif occurrence is not None:
+                still_due = mission.matches_internal_occurrence(occurrence)
+            else:
+                # Older stored pending work has no occurrence timestamp. Keep
+                # it only when the scheduling contract was not edited.
+                still_due = not schedule_changed
+            if not still_due:
+                self.pending_mission_ids.remove(mission.id)
+                self.pending_occurrences.pop(mission.id, None)
+                self.postponed.pop(mission.id, None)
+                if self.skip_mission_id == mission.id:
+                    self.skip_mission_id = None
+                self.last_decision = MissionDecision(
+                    False, "skip", "pending_schedule_changed"
+                )
+                self.last_reason = "pending_schedule_changed"
+                if not self.pending_mission_ids and self.state == STATE_WAITING:
+                    self.state = STATE_IDLE
         self.missions = [item for item in self.missions if item.id != mission.id]
         self.missions.append(mission)
         await self._async_persist()
@@ -526,6 +587,7 @@ class CleaningPlanner:
         changed = len(self.missions) != before
         if changed:
             self.postponed.pop(mission_id, None)
+            self.pending_occurrences.pop(mission_id, None)
             if mission_id in self.pending_mission_ids:
                 self.pending_mission_ids.remove(mission_id)
             if self.skip_mission_id == mission_id:
@@ -540,6 +602,7 @@ class CleaningPlanner:
         if mission_id not in self.pending_mission_ids:
             return False
         self.pending_mission_ids.remove(mission_id)
+        self.pending_occurrences.pop(mission_id, None)
         self.last_reason = "pending_mission_resolved"
         if not self.pending_mission_ids and self.state == STATE_WAITING:
             self.state = STATE_COMPLETED
@@ -566,6 +629,11 @@ class CleaningPlanner:
                 "skip_mission_id": self.skip_mission_id,
                 "enabled": self.enabled,
                 "pending_mission_ids": self.pending_mission_ids,
+                "pending_occurrences": {
+                    mission_id: value.isoformat()
+                    for mission_id, value in self.pending_occurrences.items()
+                    if mission_id in self.pending_mission_ids
+                },
                 "starter_seeded": starter_seeded,
                 "postponed": {
                     mission_id: value.isoformat()
@@ -909,6 +977,7 @@ class CleaningPlanner:
                         mission = matching[0]
                         self.active_mission_id = mission.id
                         self.pending_mission_ids.remove(mission.id)
+                        self.pending_occurrences.pop(mission.id, None)
                         self.last_decision = MissionDecision(
                             True, "run", "external_run_matched"
                         )

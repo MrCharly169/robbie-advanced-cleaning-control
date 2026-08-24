@@ -1,7 +1,7 @@
 {
   "domain": "robbie_advanced_cc",
   "name": "Robbie Advanced Cleaning Control",
-  "version": "2026.8.6b2",
+  "version": "2026.8.7b0",
   "config_flow": true,
   "integration_type": "hub",
   "iot_class": "calculated",

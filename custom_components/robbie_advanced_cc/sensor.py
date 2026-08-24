@@ -116,6 +116,11 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
             },
             "mission_count": len(self.planner.missions),
             "waiting_mission_ids": list(self.planner.pending_mission_ids),
+            "waiting_occurrences": {
+                mission_id: value.isoformat()
+                for mission_id, value in self.planner.pending_occurrences.items()
+                if mission_id in self.planner.pending_mission_ids
+            },
             "waiting_vacuums": [
                 mission.vacuum_entity_id
                 for mission in self.planner.missions

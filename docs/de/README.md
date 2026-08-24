@@ -369,6 +369,11 @@ aktuelle Ergebnis nachvollziehbar. Warten, Verschieben und Skip-once überleben
 einen Neustart. Robbie führt derzeit **kein** dauerhaftes Auditprotokoll aller
 alten blockierten oder ausgelassenen Läufe. Nutze dafür bei Bedarf HA-Verlauf
 oder eigene Automationen.
+Wird eine bereits wartende Mission bearbeitet, prüft Robbie sofort, ob derselbe
+fällige Wochentag samt Uhrzeit beziehungsweise dieselbe native Schedule-Bindung
+weiterbesteht. Wird heute entfernt, die Uhrzeit verschoben, die Mission
+deaktiviert oder die Schedule-Bindung geändert, verwirft Robbie nur dieses
+veraltete wartende Vorkommen und berechnet den Plan neu.
 
 ### Abschluss- und Stationsmeldungen
 

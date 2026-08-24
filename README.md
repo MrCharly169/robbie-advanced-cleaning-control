@@ -359,6 +359,10 @@ Planner status, next-mission and last-decision entities keep the current outcome
 inspectable. Waiting, postpone and skip-once state survive restart. Robbie does
 **not** currently maintain a durable audit log of every old blocked or skipped
 run; use Home Assistant history/automations if permanent run history is required.
+When an already-waiting mission is edited, Robbie immediately checks whether
+that same due weekday/time or native Schedule binding still exists. Removing
+today, moving the due time, disabling the mission or changing its Schedule
+binding discards only the stale waiting occurrence and recalculates the plan.
 
 ### Completion and dock attention notifications
 

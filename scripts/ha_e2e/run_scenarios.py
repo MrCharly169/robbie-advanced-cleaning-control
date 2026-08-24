@@ -697,6 +697,36 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     if presence_wait["id"] not in waiting.get("attributes", {}).get("waiting_mission_ids", []):
         raise AssertionError(f"Presence wait was not re-armed: {waiting}")
 
+    # Editing the weekly schedule invalidates only the already-due occurrence
+    # when today/time no longer match. The recurring mission remains editable
+    # and future days are recalculated immediately.
+    add_mission(api, entry_id, {**presence_wait, "weekdays": []})
+    schedule_recomputed = wait_for_state(
+        api,
+        planner_status(api, entry_id)["entity_id"],
+        lambda state: state["state"] == "idle"
+        and state.get("attributes", {}).get("last_reason")
+        == "pending_schedule_changed"
+        and presence_wait["id"]
+        not in state.get("attributes", {}).get("waiting_mission_ids", []),
+    )
+    if schedule_recomputed.get("attributes", {}).get("mission_count") != 3:
+        raise AssertionError(
+            f"Schedule edit removed the recurring mission: {schedule_recomputed}"
+        )
+    add_mission(api, entry_id, presence_wait)
+    api.call_service(
+        DOMAIN,
+        "run_next",
+        {"entry_id": entry_id, "mission_id": presence_wait["id"]},
+    )
+    wait_for_state(
+        api,
+        planner_status(api, entry_id)["entity_id"],
+        lambda state: presence_wait["id"]
+        in state.get("attributes", {}).get("waiting_mission_ids", []),
+    )
+
     # A direct native vacuum start can safely own the single waiting occurrence
     # for that same robot. This prevents a completed physical run from being
     # presented and executed again as stale waiting work.

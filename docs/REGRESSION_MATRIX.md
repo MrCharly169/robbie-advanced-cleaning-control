@@ -30,6 +30,7 @@
 | Direct run ownership | A direct native start owns exactly one waiting occurrence for the same robot, ambiguous/disabled ownership stays queued, and the recurring mission remains intact | runtime E2E |
 | Completion lifecycle | Docking sends one routed completion message with available Valetudo time/area metrics and keeps native `completed` visible before returning to planning | model/runtime E2E |
 | Waiting occurrence resolution | Advanced Card/service can resolve a due waiting occurrence without deleting its recurring mission | Card/runtime E2E |
+| Waiting schedule edit | Editing a waiting mission immediately drops only an occurrence no longer covered by its weekday/time or Schedule binding and returns an otherwise inactive Planner to idle | `tests/test_models.py`, runtime E2E |
 | Dock attention | Valetudo dock-component states and active DustBinFull events project maintenance attention, notify once per transition and deduplicate across restart | runtime E2E |
 | Dock error attention | Dreame/Valetudo dock error states produce specific, deduplicated tank/dustbag/dock notifications and clear during Vacation; unrelated robot errors do not masquerade as maintenance | `tests/test_valetudo_errors.py`, runtime E2E |
 | Tank fallback | A mop completion without readable Freshwater/Wastewater components asks for a manual tank check without inventing a sensor state | `tests/test_models.py` |

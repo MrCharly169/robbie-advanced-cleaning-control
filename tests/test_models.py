@@ -77,6 +77,31 @@ class MissionModelTests(unittest.TestCase):
             mission.next_after(now).isoformat(), "2026-08-23T05:00:00+02:00"
         )
 
+    def test_schedule_edit_matches_only_the_same_weekly_occurrence(self):
+        occurrence = datetime.fromisoformat("2026-08-24T06:00:00+02:00")
+        self.assertTrue(
+            self.mission(
+                weekdays=["mon", "wed"], start_time="06:00"
+            ).matches_internal_occurrence(occurrence)
+        )
+        self.assertFalse(
+            self.mission(
+                weekdays=["wed"], start_time="06:00"
+            ).matches_internal_occurrence(occurrence)
+        )
+        self.assertFalse(
+            self.mission(
+                weekdays=["mon"], start_time="07:00"
+            ).matches_internal_occurrence(occurrence)
+        )
+        self.assertFalse(
+            self.mission(
+                weekdays=["mon"],
+                start_time="06:00",
+                schedule_entity_id="schedule.cleaning",
+            ).matches_internal_occurrence(occurrence)
+        )
+
     def test_invalid_time_is_rejected(self):
         with self.assertRaises(ValueError):
             self.mission(start_time="25:00")

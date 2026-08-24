@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2026.8.7b0 - 2026-08-24
+
+- Recalculate an already-waiting occurrence immediately when its mission
+  schedule is edited. Removing today, changing its due time, disabling the
+  mission or switching its native Schedule binding clears only that stale
+  occurrence and returns an otherwise inactive Planner to `idle`.
 
 ## 2026.8.6b2 - 2026-08-23
 

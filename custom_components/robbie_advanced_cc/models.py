@@ -116,6 +116,17 @@ class CleaningMission:
                 return candidate
         return None
 
+    def matches_internal_occurrence(self, occurrence: datetime) -> bool:
+        """Return whether an existing weekly occurrence survives an edit."""
+        if not self.enabled or self.schedule_entity_id or not self.weekdays:
+            return False
+        planned_time = time.fromisoformat(self.start_time)
+        return (
+            WEEKDAYS[occurrence.weekday()] in self.weekdays
+            and occurrence.hour == planned_time.hour
+            and occurrence.minute == planned_time.minute
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class PlannerContext:
