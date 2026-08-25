@@ -17,7 +17,7 @@ from homeassistant.helpers.event import (
 from homeassistant.util import dt as dt_util
 
 from .adapters import adapter_for
-from .capabilities import profile_source_entities
+from .capabilities import discover_profile_options, profile_source_entities
 from .const import (
     CONF_DASHBOARD_PATH,
     CONF_EXTERNAL_START_POLICY,
@@ -54,6 +54,7 @@ from .models import (
     needs_dock_aftercare_reminder,
     vacuum_runtime_transition,
 )
+from .notifications import mission_announcement_at, mission_announcement_copy
 from .storage import PlannerStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -275,8 +276,14 @@ class CleaningPlanner:
             self._notify_listeners()
             return
         mission, occurrence = next_item
-        announce_at = occurrence - timedelta(minutes=mission.announce_before_minutes)
-        wake_at = announce_at if announce_at > dt_util.now() else occurrence
+        announce_at = mission_announcement_at(
+            occurrence, mission.announce_before_minutes
+        )
+        wake_at = (
+            announce_at
+            if announce_at is not None and announce_at > dt_util.now()
+            else occurrence
+        )
 
         async def scheduled_wakeup(now: datetime) -> None:
             await self._async_scheduled_wakeup(mission.id, occurrence, now)
@@ -304,9 +311,25 @@ class CleaningPlanner:
         if now < occurrence:
             self.state = STATE_ANNOUNCED
             self.last_reason = "mission_announced"
+            profile_options = discover_profile_options(
+                self.hass, mission.vacuum_entity_id
+            )
+            area_labels = {
+                str(item.get("value")): str(item.get("label") or item.get("value"))
+                for item in profile_options.get("areas", [])
+                if item.get("value") is not None
+            }
+            title, message = mission_announcement_copy(
+                robot=self._friendly_vacuum_name(mission.vacuum_entity_id),
+                mission_id=mission.id,
+                mission_name=mission.name,
+                mode=mission.profile.mode,
+                areas=[area_labels.get(area, area) for area in mission.areas],
+                occurrence=occurrence,
+            )
             await self._async_notify(
-                f"{mission.name}: next cleaning",
-                f"Scheduled for {occurrence.strftime('%A %H:%M')}. Skip or postpone it from the Cleaning Control card.",
+                title,
+                message,
                 tag=f"racc_announce_{mission.id}",
             )
             self._schedule_next()

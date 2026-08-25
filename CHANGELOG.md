@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+
+## 2026.8.8b0 - 2026-08-25
+
+- Adopt ecosystem policy 1.7: author technical Home Assistant artifacts in
+  English regardless of the conversation language, and keep one identical
+  explicit HTTPS target across external notification navigation fields.
+
+- Move the standard next-mission announcement from an exact 24-hour lead to
+  20:00 on the previous evening, while preserving explicit custom minute lead
+  times. Announcements now use readable mission/mode/area details, deterministic
+  light-hearted copy and the configured Cleaning Control destination.
+
 ## 2026.8.7b0 - 2026-08-24
 
 - Recalculate an already-waiting occurrence immediately when its mission

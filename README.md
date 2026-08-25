@@ -364,6 +364,12 @@ that same due weekday/time or native Schedule binding still exists. Removing
 today, moving the due time, disabling the mission or changing its Schedule
 binding discards only the stale waiting occurrence and recalculates the plan.
 
+The standard mission announcement is sent at 20:00 on the evening before the
+run instead of exactly 24 hours beforehand. It describes the cleaning mode and
+rooms in readable language, rotates deterministic light-hearted wording and
+opens the configured Cleaning Control view when tapped. Explicit custom lead
+times such as 30 minutes remain exact; `0` disables the announcement.
+
 ### Completion and dock attention notifications
 
 When enabled, a real transition from cleaning to docked sends one completion

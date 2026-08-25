@@ -79,7 +79,7 @@
           "mission_name": "Mission name", "vacuum_entity_id": "Vacuum cleaner", "weekdays": "Weekdays",
           "start_time": "Start time", "schedule_entity_id": "Home Assistant Schedule helper (optional)",
           "people_home": "When somebody is home", "enabled": "Mission enabled",
-          "announce_before_minutes": "Notify before start", "delete_mission": "Delete this mission"
+          "announce_before_minutes": "Advance notice (1440 = previous evening at 20:00; 0 = off)", "delete_mission": "Delete this mission"
         }
       },
       "mission_profile": {

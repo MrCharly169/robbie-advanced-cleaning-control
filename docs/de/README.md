@@ -375,6 +375,13 @@ weiterbesteht. Wird heute entfernt, die Uhrzeit verschoben, die Mission
 deaktiviert oder die Schedule-Bindung geändert, verwirft Robbie nur dieses
 veraltete wartende Vorkommen und berechnet den Plan neu.
 
+Die normale Missionsankündigung kommt um 20:00 Uhr am Vorabend statt exakt 24
+Stunden vor dem Lauf. Sie beschreibt Reinigungsart und Räume verständlich,
+wechselt auf reproduzierbare Weise zwischen mehreren humorvollen Texten und
+öffnet beim Antippen die konfigurierte Cleaning-Control-Ansicht. Ausdrücklich
+gewählte Sonderwerte wie 30 Minuten bleiben minutengenau; `0` schaltet die
+Ankündigung aus.
+
 ### Abschluss- und Stationsmeldungen
 
 Wenn aktiviert, sendet der echte Übergang von Reinigung zu Station genau eine
