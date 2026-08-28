@@ -240,6 +240,11 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
   getCardSize() { return this._displayMode === "advanced" ? 9 : 4; }
   _copy() { return COPY[this._hass?.language?.startsWith("de") ? "de" : "en"]; }
   _entity(id) { return id ? this._hass?.states?.[id] : undefined; }
+  _vacuumName(id, status = this._plannerStatus()) {
+    return status?.attributes?.robot_names?.[id]
+      || this._entity(id)?.attributes?.friendly_name
+      || id;
+  }
 
   _plannerStatusEntry() {
     const configured = this._config?.status_entity;
@@ -284,7 +289,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       waiting: Boolean(mission.waiting),
     });
     const managed = (status?.attributes?.managed_vacuums || []).map((id) => ({
-      id, name: this._entity(id)?.attributes?.friendly_name || id,
+      id, name: this._vacuumName(id, status),
     }));
     const selectedVacuum = this._editingVacuumId
       || missions.find((mission) => mission.id === this._editingMissionId)?.vacuum_entity_id
@@ -452,7 +457,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       <div class="easy-wrap">
         <div class="easy-header">
           <div class="heading"><div class="easy-brand">${escapeHtml(this._config.title || t.brand)}</div>
-            <div class="easy-room">${escapeHtml(vacuum?.attributes?.friendly_name || missionName)}</div></div>
+            <div class="easy-room">${escapeHtml(this._vacuumName(attrs.vacuum_entity_id || mission?.vacuum_entity_id) || missionName)}</div></div>
           <div class="status-stack"><div class="easy-status">${this._robotLogo(info)}<span>${escapeHtml(info.label)}</span></div>${info.detail ? `<small class="status-reason">${escapeHtml(info.detail)}</small>` : ""}</div>
         </div>
         <div class="easy-next">
@@ -492,7 +497,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       <div class="mission-head"><div><strong>${escapeHtml(mission.name)}</strong><small>${escapeHtml(scheduleText)}</small></div>
         <span class="mission-state">${icon(mission.all_conditions_met ? "mdi:check-circle" : "mdi:clock-alert-outline", "state-icon")}${escapeHtml(mission.all_conditions_met ? t.ready : t.blocked)}</span></div>
       <div class="mission-chips">
-        <span>${icon("mdi:robot-vacuum", "chip-icon")}${escapeHtml(vacuum?.attributes?.friendly_name || mission.vacuum_entity_id)}</span>
+        <span>${icon("mdi:robot-vacuum", "chip-icon")}${escapeHtml(this._vacuumName(mission.vacuum_entity_id))}</span>
         <span>${icon(profile.mode?.includes("mop") ? "mdi:water" : "mdi:fan", "chip-icon")}${escapeHtml([this._modeLabel(profile.mode, t), profile.fan, profile.water, profile.passes ? `${profile.passes}×` : ""].filter(Boolean).join(" · "))}</span>
         ${(mission.areas || []).length ? `<span>${icon("mdi:floor-plan", "chip-icon")}${escapeHtml(mission.areas.join(", "))}</span>` : ""}
       </div>
@@ -517,7 +522,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     const schedules = Object.keys(this._hass?.states || {}).filter((id) => id.startsWith("schedule."));
     const defaultDays = this._editingWeekday ? [this._editingWeekday] : DAYS;
     const defaultName = this._editingWeekday ? `${t.dayRun} ${t.days[DAYS.indexOf(this._editingWeekday)]}` : "";
-    const option = (item, selected) => `<option value="${escapeHtml(item)}" ${item === selected ? "selected" : ""}>${escapeHtml(this._entity(item)?.attributes?.friendly_name || item)}</option>`;
+    const option = (item, selected, label = this._entity(item)?.attributes?.friendly_name || item) => `<option value="${escapeHtml(item)}" ${item === selected ? "selected" : ""}>${escapeHtml(label)}</option>`;
     const choices = (items, selected, saved = []) => {
       const normalized = (items || []).map((item) => typeof item === "object" ? item : { value: String(item), label: String(item) });
       for (const savedValue of saved || []) {
@@ -539,13 +544,13 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       <div class="form-head"><strong>${escapeHtml(value.id ? t.edit : t.add)}</strong><button type="button" class="round" data-cancel>${icon("mdi:close", "action-icon")}</button></div>
       <div class="form-grid">
         <label><span>${escapeHtml(t.name)}</span><input name="name" required value="${escapeHtml(value.name || defaultName)}"></label>
-        <label><span>${escapeHtml(t.vacuum)}</span><select name="vacuum_entity_id" data-profile-vacuum required>${vacuums.map((id) => option(id, selectedVacuum)).join("")}</select></label>
+        <label><span>${escapeHtml(t.vacuum)}</span><select name="vacuum_entity_id" data-profile-vacuum required>${vacuums.map((id) => option(id, selectedVacuum, this._vacuumName(id, status))).join("")}</select></label>
         <label><span>${escapeHtml(t.time)}</span><input name="start_time" type="time" value="${escapeHtml(value.start_time || "09:00")}"></label>
         <label><span>${escapeHtml(t.schedule)}</span><select name="schedule_entity_id"><option value="">${escapeHtml(t.weeklySchedule)}</option>${schedules.map((id) => option(id, value.schedule_entity_id)).join("")}</select></label>
       </div>
       <fieldset><legend>${escapeHtml(t.weekdays)}</legend><div class="day-picker">${DAYS.map((day, index) => `<label class="day-choice"><input type="checkbox" data-day="${day}" ${(value.weekdays || defaultDays).includes(day) ? "checked" : ""}><span>${t.days[index]}</span></label>`).join("")}</div></fieldset>
       <div class="form-hint">${icon("mdi:calendar-edit", "mini-icon")}${escapeHtml(t.perDayHint)}</div>
-      <div class="form-hint capability-hint">${icon("mdi:robot-vacuum", "mini-icon")}<span><strong>${escapeHtml(t.liveChoices)}</strong> · ${escapeHtml(this._entity(selectedVacuum)?.attributes?.friendly_name || selectedVacuum)} · ${escapeHtml(t.unsupported)}</span></div>
+      <div class="form-hint capability-hint">${icon("mdi:robot-vacuum", "mini-icon")}<span><strong>${escapeHtml(t.liveChoices)}</strong> · ${escapeHtml(this._vacuumName(selectedVacuum, status))} · ${escapeHtml(t.unsupported)}</span></div>
       <div class="form-grid profile-grid">
         <label><span>${escapeHtml(t.condition)}</span><select name="people_home"><option value="wait" ${guards.people_home === "wait" ? "selected" : ""}>${escapeHtml(t.wait)}</option><option value="allow" ${guards.people_home === "allow" ? "selected" : ""}>${escapeHtml(t.allow)}</option><option value="skip" ${guards.people_home === "skip" ? "selected" : ""}>${escapeHtml(t.skipPolicy)}</option></select></label>
         <label><span>${escapeHtml(t.profile)}</span><select name="profile_mode">${choices(available.modes, selectedMode, [selectedMode])}</select></label>
@@ -1072,7 +1077,7 @@ class RobbieVacuumBadge extends HTMLElement {
     return {
       language: String(this._hass?.language || "en").toLowerCase().startsWith("de") ? "de" : "en",
       vacuumEntityId: vacuumEntityId || "", available: Boolean(vacuum), state,
-      name: this._config.name || vacuum?.attributes?.friendly_name || vacuumEntityId || "",
+      name: this._config.name || status?.attributes?.robot_names?.[vacuumEntityId] || vacuum?.attributes?.friendly_name || vacuumEntityId || "",
       nextScheduled: nextRun?.scheduled || "", nextMission: nextRun?.mission || "",
       tapAction: this._config.tap_action || null,
       holdAction: this._config.hold_action || null,

@@ -28,6 +28,7 @@ from .const import (
     CONF_PRESENCE_ENTITIES,
     CONF_STARTER_MISSION,
     CONF_VACATION_ENTITY,
+    CONF_ROBOT_NAMES,
     CONF_VACUUMS,
     DEFAULT_DASHBOARD_PATH,
     DEFAULT_COMPLETION_HOLD_SECONDS,
@@ -54,7 +55,12 @@ from .models import (
     needs_dock_aftercare_reminder,
     vacuum_runtime_transition,
 )
-from .notifications import mission_announcement_at, mission_announcement_copy
+from .notifications import (
+    completion_notification_copy,
+    default_robot_display_name,
+    mission_announcement_at,
+    mission_announcement_copy,
+)
 from .storage import PlannerStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -688,10 +694,15 @@ class CleaningPlanner:
 
     def _friendly_vacuum_name(self, entity_id: str | None) -> str:
         state = self.hass.states.get(entity_id) if entity_id else None
-        return str(
-            state.attributes.get("friendly_name", entity_id or "Robbie")
+        configured = self.config.get(CONF_ROBOT_NAMES) or {}
+        if entity_id and isinstance(configured, dict):
+            if name := str(configured.get(entity_id) or "").strip():
+                return name
+        return default_robot_display_name(
+            entity_id or "",
+            str(state.attributes.get("friendly_name") or "")
             if state is not None
-            else entity_id or "Robbie"
+            else None,
         )
 
     def _format_run_metrics(self, entity_id: str | None) -> str:
@@ -742,22 +753,8 @@ class CleaningPlanner:
         if self.config.get(CONF_NOTIFY_COMPLETION, True) is False:
             return
         robot = self._friendly_vacuum_name(vacuum_entity_id)
-        run_name = mission.name if mission else robot
         metrics = self._format_run_metrics(vacuum_entity_id)
-        de = str(self.hass.config.language).lower().startswith("de")
-        title = (
-            f"{run_name}: Reinigung abgeschlossen"
-            if de
-            else f"{run_name}: cleaning completed"
-        )
-        message = (
-            f"{robot} hat die Reinigung abgeschlossen."
-            if de
-            else f"{robot} completed cleaning."
-        )
-        if metrics:
-            message = f"{message} {metrics}"
-        if (
+        needs_aftercare = bool(
             mission is not None
             and self.config.get(CONF_NOTIFY_MAINTENANCE, True) is not False
             and needs_dock_aftercare_reminder(
@@ -770,14 +767,14 @@ class CleaningPlanner:
                 if vacuum_entity_id
                 else set(),
             )
-        ):
-            message = (
-                f"{message} Home Assistant liefert keine Tankzustände; bitte "
-                "Frischwasser und Schmutzwasser an der Station prüfen."
-                if de
-                else f"{message} Home Assistant does not expose tank states; "
-                "check the dock's freshwater and wastewater containers."
-            )
+        )
+        title, message = completion_notification_copy(
+            robot=robot,
+            mission_name=mission.name if mission else None,
+            mode=mission.profile.mode if mission else None,
+            metrics=metrics,
+            needs_aftercare=needs_aftercare,
+        )
         await self._async_notify(
             title,
             message,

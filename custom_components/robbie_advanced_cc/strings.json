@@ -3,17 +3,22 @@
   "config": {
     "step": {
       "user": {
-        "title": "Step 1 of 5 · Robots",
+        "title": "Step 1 of 6 · Robots",
         "description": "Create one planner for an apartment, floor, or robot fleet.",
         "data": {"name": "Planner name", "vacuums": "Vacuum cleaners"}
       },
+      "robot_name": {
+        "title": "Step 2 of 6 · Robot display name",
+        "description": "Choose the name used for {vacuum} ({entity_id}) in cards, badges, and notifications.",
+        "data": {"robot_name": "Display name"}
+      },
       "presence": {
-        "title": "Step 2 of 5 · Conditions",
+        "title": "Step 3 of 6 · Conditions",
         "description": "Select people, trackers, occupancy sensors, or numeric counters such as the Home zone. Numeric zero means empty; values above zero mean somebody is home. A waiting mission starts automatically when every selected entity reports empty.",
         "data": {"presence_entities": "Presence / Home entities", "vacation_entity": "Vacation mode"}
       },
       "schedule": {
-        "title": "Step 3 of 5 · First schedule",
+        "title": "Step 4 of 6 · First schedule",
         "description": "Choose the robot and timing for the first run. The next step reads the live cleaning choices exposed by that robot. In the Advanced Card you can later create a different profile for every weekday. An optional Home Assistant Schedule helper overrides weekdays and time.",
         "data": {
           "create_starter_mission": "Create first mission",
@@ -26,7 +31,7 @@
         }
       },
       "profile": {
-        "title": "Step 4 of 5 · Robot profile",
+        "title": "Step 5 of 6 · Robot profile",
         "description": "Live choices detected for {vacuum} via {adapter}. Unsupported settings stay hidden and the available values follow the robot entities.",
         "data": {
           "areas": "Rooms / segments",
@@ -37,7 +42,7 @@
         }
       },
       "services": {
-        "title": "Step 5 of 5 · Connections",
+        "title": "Step 6 of 6 · Connections",
         "description": "Notifications work without configuration and appear in Home Assistant. The dashboard path must point to the view containing the Cleaning Control Card; notifications open that view, not a separate robot or Valetudo UI. Advanced users can also select a compatible central router script.",
         "data": {
           "notification_script": "Central notification router",
@@ -57,7 +62,7 @@
     "step": {
       "init": {
         "title": "Configure planner",
-        "description": "Change connections and conditions, create another mission, or select any existing mission to edit it.",
+        "description": "Change robot names, connections and conditions, create another mission, or select any existing mission to edit it.",
         "data": {"options_action": "What do you want to configure?"}
       },
       "connections": {
@@ -71,6 +76,11 @@
           "external_start_policy": "Direct robot starts (match_single_pending / keep_pending)",
           "dashboard_path": "Path to the view containing the Cleaning Control Card"
         }
+      },
+      "robot_names": {
+        "title": "Robot display name",
+        "description": "Choose the name used for {vacuum} ({entity_id}) in cards, badges, and notifications.",
+        "data": {"robot_name": "Display name"}
       },
       "mission_schedule": {
         "title": "Mission · Schedule & conditions",

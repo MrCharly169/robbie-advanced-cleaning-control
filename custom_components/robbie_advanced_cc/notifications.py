@@ -39,6 +39,19 @@ def humanize_identifier(value: str) -> str:
     return " ".join(text.split()).strip()
 
 
+def default_robot_display_name(
+    entity_id: str, friendly_name: str | None = None
+) -> str:
+    """Build a concise fallback name without overriding a configured alias."""
+    source = friendly_name or str(entity_id or "").split(".", 1)[-1]
+    robot = humanize_identifier(source) or "Robbie"
+    for suffix in (" Robot", " Vacuum", " Saugroboter"):
+        if robot.casefold().endswith(suffix.casefold()):
+            robot = robot[: -len(suffix)].rstrip()
+            break
+    return robot or "Robbie"
+
+
 def _mode_label(mode: str) -> str:
     labels = {
         "vacuum": "Vacuum only",
@@ -75,11 +88,7 @@ def mission_announcement_copy(
     occurrence: datetime,
 ) -> tuple[str, str]:
     """Build stable but varying English copy for one occurrence."""
-    robot = humanize_identifier(robot) or "Robbie"
-    for suffix in (" Robot", " Vacuum", " Saugroboter"):
-        if robot.casefold().endswith(suffix.casefold()):
-            robot = robot[: -len(suffix)].rstrip()
-            break
+    robot = str(robot or "").strip() or "Robbie"
     mission = _mission_label(mission_name, mode)
     readable_areas = [humanize_identifier(item) for item in areas if item]
     area = ", ".join(readable_areas) if readable_areas else "all areas"
@@ -98,3 +107,29 @@ def mission_announcement_copy(
         f"Area: {area}."
     )
     return title, f"{intros[variant]} {details}"
+
+
+def completion_notification_copy(
+    *,
+    robot: str,
+    mission_name: str | None,
+    mode: str | None,
+    metrics: str = "",
+    needs_aftercare: bool = False,
+) -> tuple[str, str]:
+    """Describe a completed run without exposing a technical mission label."""
+    robot = str(robot or "").strip() or "Robbie"
+    mission = (
+        _mission_label(mission_name, mode or "vacuum")
+        if mission_name
+        else "Manual cleaning"
+    )
+    details = [f"Mission: {mission}."]
+    if metrics:
+        details.append(f"Result: {metrics}.")
+    if needs_aftercare:
+        details.append(
+            "Home Assistant does not expose tank states; check the dock's "
+            "freshwater and wastewater containers."
+        )
+    return f"🤖 {robot} · Cleaning completed", " ".join(details)

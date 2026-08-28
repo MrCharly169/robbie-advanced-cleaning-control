@@ -8,6 +8,7 @@ NAME: Final = "Robbie Advanced Cleaning Control"
 PLATFORMS: Final = ("binary_sensor", "button", "sensor", "switch")
 
 CONF_VACUUMS: Final = "vacuums"
+CONF_ROBOT_NAMES: Final = "robot_names"
 CONF_PRESENCE_ENTITIES: Final = "presence_entities"
 CONF_VACATION_ENTITY: Final = "vacation_entity"
 CONF_NOTIFICATION_SCRIPT: Final = "notification_script"

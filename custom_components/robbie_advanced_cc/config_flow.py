@@ -20,6 +20,7 @@ from .const import (
     CONF_NOTIFICATION_ROUTE,
     CONF_NOTIFICATION_SCRIPT,
     CONF_PRESENCE_ENTITIES,
+    CONF_ROBOT_NAMES,
     CONF_STARTER_MISSION,
     CONF_TODO_ENTITY,
     CONF_VACATION_ENTITY,
@@ -30,6 +31,7 @@ from .const import (
     DOMAIN,
 )
 from .models import WEEKDAYS
+from .notifications import default_robot_display_name
 
 
 def _optional(key: str, value: Any = None) -> vol.Optional:
@@ -44,6 +46,22 @@ def _dashboard_path(value: Any) -> str:
     if not path.startswith("/") or path.startswith("//") or "://" in path:
         raise ValueError("dashboard_path must be an absolute Home Assistant path")
     return path
+
+
+def _robot_default(hass, entity_id: str) -> str:
+    state = hass.states.get(entity_id)
+    return default_robot_display_name(
+        entity_id,
+        str(state.attributes.get("friendly_name") or "") if state else None,
+    )
+
+
+def _robot_name_schema(current: str) -> vol.Schema:
+    return vol.Schema(
+        {
+            vol.Required("robot_name", default=current): selector.TextSelector()
+        }
+    )
 
 
 def _basics_schema(current: dict[str, Any] | None = None) -> vol.Schema:
@@ -196,6 +214,10 @@ def _options_start_schema(missions, language: str = "en") -> vol.Schema:
             "value": "connections",
             "label": "Verbindungen & Bedingungen" if de else "Connections & conditions",
         },
+        {
+            "value": "robots",
+            "label": "Roboternamen" if de else "Robot names",
+        },
         {"value": "new", "label": "+ Mission erstellen" if de else "+ Create mission"},
     ]
     choices.extend(
@@ -275,6 +297,7 @@ class RobbieAdvancedCcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
         self._starter: dict[str, Any] = {}
+        self._robot_name_index = 0
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
@@ -285,8 +308,36 @@ class RobbieAdvancedCcConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
             self._data = dict(user_input)
             self._data[CONF_VACUUMS] = vacuums
-            return await self.async_step_presence()
+            self._data[CONF_ROBOT_NAMES] = {}
+            self._robot_name_index = 0
+            return await self.async_step_robot_name()
         return self.async_show_form(step_id="user", data_schema=_basics_schema())
+
+    async def async_step_robot_name(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        vacuums = self._data[CONF_VACUUMS]
+        entity_id = vacuums[self._robot_name_index]
+        fallback = _robot_default(self.hass, entity_id)
+        names = self._data.setdefault(CONF_ROBOT_NAMES, {})
+        if user_input is not None:
+            names[entity_id] = str(user_input.get("robot_name") or "").strip() or fallback
+            self._robot_name_index += 1
+            if self._robot_name_index >= len(vacuums):
+                return await self.async_step_presence()
+            entity_id = vacuums[self._robot_name_index]
+            fallback = _robot_default(self.hass, entity_id)
+        state = self.hass.states.get(entity_id)
+        return self.async_show_form(
+            step_id="robot_name",
+            data_schema=_robot_name_schema(str(names.get(entity_id) or fallback)),
+            description_placeholders={
+                "vacuum": str(state.attributes.get("friendly_name") or entity_id)
+                if state
+                else entity_id,
+                "entity_id": entity_id,
+            },
+        )
 
     async def async_step_presence(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
@@ -370,6 +421,8 @@ class RobbieAdvancedCcOptionsFlow(OptionsFlowWithReload):
     def __init__(self) -> None:
         self._mission: dict[str, Any] = {}
         self._mission_draft: dict[str, Any] = {}
+        self._robot_names: dict[str, str] = {}
+        self._robot_name_index = 0
 
     @property
     def _planner(self):
@@ -380,6 +433,13 @@ class RobbieAdvancedCcOptionsFlow(OptionsFlowWithReload):
             action = str(user_input["options_action"])
             if action == "connections":
                 return await self.async_step_connections()
+            if action == "robots":
+                configured = self._planner.config.get(CONF_ROBOT_NAMES) or {}
+                self._robot_names = (
+                    dict(configured) if isinstance(configured, dict) else {}
+                )
+                self._robot_name_index = 0
+                return await self.async_step_robot_names()
             if action == "new":
                 self._mission = {
                     "id": uuid4().hex,
@@ -420,6 +480,7 @@ class RobbieAdvancedCcOptionsFlow(OptionsFlowWithReload):
             editable_keys = (
                 "name",
                 CONF_VACUUMS,
+                CONF_ROBOT_NAMES,
                 CONF_PRESENCE_ENTITIES,
                 CONF_VACATION_ENTITY,
                 CONF_NOTIFICATION_SCRIPT,
@@ -447,6 +508,14 @@ class RobbieAdvancedCcOptionsFlow(OptionsFlowWithReload):
                     errors={CONF_DASHBOARD_PATH: "invalid_dashboard_path"},
                 )
             title = str(options.pop("name", self.config_entry.title))
+            configured_names = options.get(CONF_ROBOT_NAMES) or {}
+            if not isinstance(configured_names, dict):
+                configured_names = {}
+            options[CONF_ROBOT_NAMES] = {
+                entity_id: str(configured_names.get(entity_id) or "").strip()
+                or _robot_default(self.hass, entity_id)
+                for entity_id in options[CONF_VACUUMS]
+            }
             for key in (CONF_PRESENCE_ENTITIES, CONF_VACATION_ENTITY, CONF_NOTIFICATION_SCRIPT, CONF_NOTIFICATION_ROUTE, CONF_TODO_ENTITY):
                 if options.get(key) is None:
                     options[key] = [] if key == CONF_PRESENCE_ENTITIES else ""
@@ -454,6 +523,43 @@ class RobbieAdvancedCcOptionsFlow(OptionsFlowWithReload):
                 self.hass.config_entries.async_update_entry(self.config_entry, title=title)
             return self.async_create_entry(title="", data=options)
         return self.async_show_form(step_id="connections", data_schema=_options_schema(current))
+
+    async def async_step_robot_names(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        vacuums = list(self._planner.vacuums)
+        if not vacuums:
+            return self.async_create_entry(
+                title="", data=dict(self.config_entry.options)
+            )
+        entity_id = vacuums[self._robot_name_index]
+        fallback = _robot_default(self.hass, entity_id)
+        if user_input is not None:
+            self._robot_names[entity_id] = (
+                str(user_input.get("robot_name") or "").strip() or fallback
+            )
+            self._robot_name_index += 1
+            if self._robot_name_index >= len(vacuums):
+                options = dict(self.config_entry.options)
+                options[CONF_ROBOT_NAMES] = {
+                    item: self._robot_names[item] for item in vacuums
+                }
+                return self.async_create_entry(title="", data=options)
+            entity_id = vacuums[self._robot_name_index]
+            fallback = _robot_default(self.hass, entity_id)
+        state = self.hass.states.get(entity_id)
+        return self.async_show_form(
+            step_id="robot_names",
+            data_schema=_robot_name_schema(
+                str(self._robot_names.get(entity_id) or fallback)
+            ),
+            description_placeholders={
+                "vacuum": str(state.attributes.get("friendly_name") or entity_id)
+                if state
+                else entity_id,
+                "entity_id": entity_id,
+            },
+        )
 
     async def async_step_mission_schedule(self, user_input=None) -> ConfigFlowResult:
         vacuums = list(self._planner.vacuums)

@@ -35,7 +35,7 @@ class NotificationTests(unittest.TestCase):
     def test_technical_mission_name_becomes_readable_humorous_copy(self):
         occurrence = datetime.fromisoformat("2026-08-26T06:00:00+02:00")
         title, message = notifications.mission_announcement_copy(
-            robot="Robbie Robot",
+            robot="Robbie",
             mission_id="vac-only",
             mission_name="VacOnly",
             mode="vacuum",
@@ -77,7 +77,7 @@ class NotificationTests(unittest.TestCase):
     def test_notification_copy_remains_english_and_deterministic(self):
         occurrence = datetime.fromisoformat("2026-08-26T06:00:00+02:00")
         kwargs = {
-            "robot": "Robbie Robot",
+            "robot": "Robbie",
             "mission_id": "vac-mop",
             "mission_name": "Vac&Mop",
             "mode": "vacuum_and_mop",
@@ -92,6 +92,49 @@ class NotificationTests(unittest.TestCase):
         self.assertIn("Area: all areas.", first[1])
         self.assertNotIn("nächste", first[0])
         self.assertNotIn("Bereich", first[1])
+
+    def test_default_robot_name_removes_only_generic_suffix(self):
+        self.assertEqual(
+            notifications.default_robot_display_name(
+                "vacuum.robbie_robot", "Robbie Robot"
+            ),
+            "Robbie",
+        )
+        self.assertEqual(
+            notifications.default_robot_display_name(
+                "vacuum.downstairs", "Downstairs Tango"
+            ),
+            "Downstairs Tango",
+        )
+
+    def test_completion_title_uses_dynamic_robot_not_technical_mission(self):
+        title, message = notifications.completion_notification_copy(
+            robot="Robby-One",
+            mission_name="VacOnly",
+            mode="vacuum",
+            metrics="1 h 47 min · 72.0 m²",
+        )
+        self.assertEqual(title, "🤖 Robby-One · Cleaning completed")
+        self.assertNotIn("VacOnly", title)
+        self.assertIn("Mission: Vacuum only.", message)
+        self.assertIn("Result: 1 h 47 min · 72.0 m².", message)
+
+    def test_config_card_and_badge_share_the_robot_name_mapping(self):
+        config_flow = (
+            ROOT / "custom_components" / "robbie_advanced_cc" / "config_flow.py"
+        ).read_text(encoding="utf-8")
+        sensor = (
+            ROOT / "custom_components" / "robbie_advanced_cc" / "sensor.py"
+        ).read_text(encoding="utf-8")
+        frontend = (
+            ROOT / "custom_components" / "robbie_advanced_cc" / "frontend"
+            / "cleaning-control.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("async_step_robot_name", config_flow)
+        self.assertIn("async_step_robot_names", config_flow)
+        self.assertIn('"robot_names": {', sensor)
+        self.assertIn("attributes?.robot_names?.[id]", frontend)
+        self.assertIn("attributes?.robot_names?.[vacuumEntityId]", frontend)
 
 
 if __name__ == "__main__":

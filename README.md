@@ -153,6 +153,8 @@ robot fleet. It asks for:
 
 - one or more existing `vacuum.*` entities;
 - optional presence entities (`person`, `device_tracker`, `binary_sensor`,
+- an editable display name for every selected robot, used consistently by the
+  Card, Badge and notifications;
   `input_boolean`, `zone`, numeric sensors/helpers and counters);
 - an optional vacation `input_boolean`;
 - an optional first mission, weekly time or existing `schedule.*` helper;
@@ -168,7 +170,8 @@ that contains the Robbie Cleaning Control Card, for example
 they never use a separate Valetudo or manufacturer UI as their target.
 
 After setup, use **Settings → Devices & services → Robbie Advanced Cleaning
-Control → Configure** to edit connections or persisted missions.
+Control → Configure** to edit robot display names, connections or persisted
+missions.
 
 ### Frontend resource
 
@@ -378,6 +381,11 @@ notifications). Valetudo current-statistics sensors add duration and cleaned
 area when available. The `completed` status remains visible for five minutes
 before Robbie returns to idle or another genuine waiting occurrence.
 
+Completion titles lead with the robot glyph and configured display name, for
+example `🤖 Robbie · Cleaning completed`; technical starter mission names such
+as `VacOnly` are converted to readable details such as `Mission: Vacuum only`.
+Existing installations automatically shorten generic friendly names such as
+`Robbie Robot` to `Robbie` until the user chooses another display name.
 Valetudo 2026.05+ Freshwater, Wastewater, Dustbag and Detergent dock-component
 sensors are discovered when the robot/firmware exposes them. Robbie also reads
 active `DustBinFullValetudoEvent` data from the Valetudo Events sensor. A new

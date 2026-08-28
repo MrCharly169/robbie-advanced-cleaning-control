@@ -159,6 +159,7 @@ card.hass = {
         active_mission_id: null,
         last_reason: "not_evaluated",
         managed_vacuums: ["vacuum.robot", "vacuum.cloud"],
+        robot_names: {"vacuum.robot": "Captain Robbie", "vacuum.cloud": "Cloudy"},
         profile_options: {
           "vacuum.robot": {
             areas: [{ value: "kitchen", label: "Kitchen" }, { value: "bathroom", label: "Bathroom" }],
@@ -214,6 +215,7 @@ flushFrame();
 assert.equal(card._visibleRenderCount, 1, "the initial Card state should render once");
 assert.equal(flushTimers(), 1, "the configured Card should consume its startup recovery timer");
 assert.match(card.shadowRoot.innerHTML, /Robbie Advanced CC/);
+assert.match(card.shadowRoot.innerHTML, /Captain Robbie/);
 assert.match(card.shadowRoot.innerHTML, /Sunday clean/);
 assert.match(card.shadowRoot.innerHTML, /data-card-mode="simple"/);
 assert.equal(card.getCardSize(), 4);
@@ -393,7 +395,7 @@ flushFrame();
 card._handleProfileChange({ stopPropagation() {} }, {
   value: "vacuum.cloud", matches: (selector) => selector === "[data-profile-vacuum]",
 });
-assert.match(card.shadowRoot.innerHTML, /Cloud Robot/);
+assert.match(card.shadowRoot.innerHTML, /Cloudy/);
 assert.match(card.shadowRoot.innerHTML, />Turbo</);
 assert.doesNotMatch(card.shadowRoot.innerHTML, /<select name="water">/);
 
@@ -437,7 +439,7 @@ automaticBadge.setConfig({ entity: "sensor.planner_status", tap_action: { action
 automaticBadge.hass = card._hass;
 flushFrame();
 assert.match(automaticBadge.shadowRoot.innerHTML, /data-mode="docked"/);
-assert.match(automaticBadge.shadowRoot.innerHTML, /Robbie/);
+assert.match(automaticBadge.shadowRoot.innerHTML, /Captain Robbie/);
 const attentionBadge = new Badge();
 attentionBadge.setConfig({ entity: "sensor.planner_status", display_mode: "attention" });
 attentionBadge.hass = card._hass;

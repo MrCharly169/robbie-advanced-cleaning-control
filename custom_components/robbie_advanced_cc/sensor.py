@@ -115,6 +115,10 @@ class PlannerStatusSensor(PlannerEntity, SensorEntity):
                 for entity_id in self.planner.vacuums
             },
             "mission_count": len(self.planner.missions),
+            "robot_names": {
+                entity_id: self.planner._friendly_vacuum_name(entity_id)
+                for entity_id in self.planner.vacuums
+            },
             "waiting_mission_ids": list(self.planner.pending_mission_ids),
             "waiting_occurrences": {
                 mission_id: value.isoformat()

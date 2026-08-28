@@ -158,6 +158,8 @@ oder Roboterflotte. Er fragt nach:
 - einer oder mehreren vorhandenen `vacuum.*`-Entitäten;
 - optionalen Anwesenheitsentitäten (`person`, `device_tracker`, `binary_sensor`,
   `input_boolean`, `zone`, numerische Sensoren/Helfer und Zähler);
+- einem frei änderbaren Anzeigenamen für jeden gewählten Roboter, der in Card,
+  Badge und Benachrichtigungen einheitlich verwendet wird;
 - einem optionalen Urlaubs-`input_boolean`;
 - einer optionalen ersten Mission, Wochenzeit oder einem vorhandenen
   `schedule.*`-Helfer;
@@ -172,9 +174,9 @@ Ansicht mit der Robbie Cleaning-Control-Card, zum Beispiel
 `/lovelace/cleaning`. Robbie-Benachrichtigungen öffnen immer dieses Control
 Center und niemals direkt eine separate Valetudo- oder Herstelleroberfläche.
 
-Nach der Einrichtung bearbeitest du Verbindungen und gespeicherte Missionen
-unter **Einstellungen → Geräte & Dienste → Robbie Advanced Cleaning Control →
-Konfigurieren**.
+Nach der Einrichtung bearbeitest du Roboternamen, Verbindungen und gespeicherte
+Missionen unter **Einstellungen → Geräte & Dienste → Robbie Advanced Cleaning
+Control → Konfigurieren**.
 
 ### Frontend-Ressource
 
@@ -390,6 +392,12 @@ Home-Assistant-Meldung. Verfügbare Valetudo-Statistiksensoren ergänzen Dauer u
 gereinigte Fläche. Der Status `completed` bleibt fünf Minuten sichtbar, bevor
 Robbie zu bereit oder zu einem tatsächlich wartenden Vorkommen wechselt.
 
+Der Titel beginnt mit Robotersymbol und konfiguriertem Anzeigenamen, zum
+Beispiel `🤖 Robbie · Cleaning completed`. Technische Startnamen wie `VacOnly`
+erscheinen nur noch lesbar als Missionsdetail, etwa `Mission: Vacuum only`.
+Bestehende Installationen kürzen allgemeine Friendly Names wie `Robbie Robot`
+automatisch zu `Robbie`, bis der Benutzer im Optionsassistenten einen anderen
+Namen vergibt.
 Robbie erkennt die von Valetudo 2026.05+ bereitgestellten Stationskomponenten
 Frischwasser, Schmutzwasser, Staubbeutel und Reinigungsmittel, soweit Modell und
 Firmware sie nach Home Assistant liefern. Zusätzlich wird ein aktives

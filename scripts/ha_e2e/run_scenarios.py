@@ -294,6 +294,20 @@ def create_entry(api: HomeAssistantApi) -> str:
             "vacuums": [VACUUM_VALETUDO, VACUUM_CLOUD],
         },
     )
+    configured_names = {
+        VACUUM_VALETUDO: "Robby Lab",
+        VACUUM_CLOUD: "Cloudy Lab",
+    }
+    for _ in configured_names:
+        if result.get("step_id") != "robot_name":
+            raise AssertionError(f"Robot name wizard step failed: {result}")
+        entity_id = result.get("description_placeholders", {}).get("entity_id")
+        if entity_id not in configured_names:
+            raise AssertionError(f"Robot name step exposed an unknown robot: {result}")
+        result = api.post(
+            f"/api/config/config_entries/flow/{result['flow_id']}",
+            {"robot_name": configured_names[entity_id]},
+        )
     if result.get("step_id") != "presence":
         raise AssertionError(f"Presence wizard step failed: {result}")
     result = api.post(
@@ -336,6 +350,12 @@ def validate_dynamic_profile_flow(api: HomeAssistantApi) -> None:
     result = api.post(
         f"/api/config/config_entries/flow/{result['flow_id']}",
         {"name": "Dynamic profile probe", "vacuums": [VACUUM_VALETUDO]},
+    )
+    if result.get("step_id") != "robot_name":
+        raise AssertionError(f"Dynamic robot name step failed: {result}")
+    result = api.post(
+        f"/api/config/config_entries/flow/{result['flow_id']}",
+        {"robot_name": "Selector Robby"},
     )
     result = api.post(
         f"/api/config/config_entries/flow/{result['flow_id']}",
@@ -445,6 +465,33 @@ def test_options_flow(api: HomeAssistantApi, entry_id: str) -> None:
         "DELETE",
         f"/api/config/config_entries/options/flow/{flow_id}",
     )
+
+    result = api.post("/api/config/config_entries/options/flow", {"handler": entry_id})
+    flow_id = result["flow_id"]
+    result = api.post(
+        f"/api/config/config_entries/options/flow/{flow_id}",
+        {"options_action": "robots"},
+    )
+    configured_names = {
+        VACUUM_VALETUDO: "Robby Options",
+        VACUUM_CLOUD: "Cloudy Options",
+    }
+    for _ in configured_names:
+        if result.get("step_id") != "robot_names":
+            raise AssertionError(f"Robot name options step failed: {result}")
+        entity_id = result.get("description_placeholders", {}).get("entity_id")
+        result = api.post(
+            f"/api/config/config_entries/options/flow/{flow_id}",
+            {"robot_name": configured_names[entity_id]},
+        )
+    if result.get("type") != "create_entry":
+        raise AssertionError(f"Robot names were not saved: {result}")
+    wait_for_entry(api, entry_id)
+    status = planner_status(api, entry_id)
+    if status.get("attributes", {}).get("robot_names") != configured_names:
+        raise AssertionError(
+            f"Robot names were not projected consistently: {status}"
+        )
 
 
 def edit_mission_options_flow(api: HomeAssistantApi, entry_id: str, mission_id: str) -> None:
@@ -658,7 +705,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     presence_wait = {
         **valetudo,
         "id": "presence_wait",
-        "name": "Wait until empty",
+        "name": "VacOnly",
         "profile": {"mode": "vacuum", "passes": 1},
         "guards": {"people_home": "wait"},
     }
@@ -751,12 +798,15 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     wait_for_state(
         api,
         "input_text.notify_title_capture",
-        lambda state: "completed" in state["state"].lower(),
+        lambda state: state["state"] == "🤖 Robby Lab · Cleaning completed",
     )
     wait_for_state(
         api,
         "input_text.notify_message_capture",
-        lambda state: "64.0 m²" in state["state"] and "1 h 22 min" in state["state"],
+        lambda state: "Mission: Vacuum only." in state["state"]
+        and "VacOnly" not in state["state"]
+        and "64.0 m²" in state["state"]
+        and "1 h 22 min" in state["state"],
     )
 
     # Valetudo 2026.05+ dock component states and active ValetudoEvents are

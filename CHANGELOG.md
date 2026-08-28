@@ -3,6 +3,15 @@
 ## Unreleased
 
 
+## 2026.8.8b1 - 2026-08-28
+
+- Replace technical mission names such as `VacOnly` in completion titles with
+  a robot-first title such as `🤖 Robbie · Cleaning completed`. Each managed
+  robot now receives an editable display name during setup and in Options;
+  existing friendly names ending in Robot, Vacuum or Saugroboter receive a
+  concise automatic fallback. Card, Badge and all planner notifications share
+  the same configured name.
+
 ## 2026.8.8b0 - 2026-08-25
 
 - Adopt ecosystem policy 1.7: author technical Home Assistant artifacts in
