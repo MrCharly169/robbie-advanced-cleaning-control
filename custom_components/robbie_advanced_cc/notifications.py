@@ -133,3 +133,13 @@ def completion_notification_copy(
             "freshwater and wastewater containers."
         )
     return f"🤖 {robot} · Cleaning completed", " ".join(details)
+
+
+def error_notification_copy(*, robot: str, message: str) -> tuple[str, str]:
+    """Describe one real robot error without leaking adapter terminology."""
+    robot = str(robot or "").strip() or "Robbie"
+    detail = humanize_identifier(message) or "Robot reported an error"
+    return (
+        f"🤖 {robot} · Cleaning error",
+        f"{detail}. Check the robot and resume the mission when it is safe.",
+    )

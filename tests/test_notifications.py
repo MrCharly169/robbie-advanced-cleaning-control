@@ -119,6 +119,36 @@ class NotificationTests(unittest.TestCase):
         self.assertIn("Mission: Vacuum only.", message)
         self.assertIn("Result: 1 h 47 min · 72.0 m².", message)
 
+    def test_robot_error_copy_is_specific_and_uses_dynamic_name(self):
+        title, message = notifications.error_notification_copy(
+            robot="Robby-One",
+            message="Main brush jammed",
+        )
+        self.assertEqual(title, "🤖 Robby-One · Cleaning error")
+        self.assertIn("Main brush jammed.", message)
+        self.assertIn("resume the mission", message)
+
+    def test_controller_debounces_errors_and_confirms_final_docking(self):
+        controller = (
+            ROOT / "custom_components" / "robbie_advanced_cc" / "controller.py"
+        ).read_text(encoding="utf-8")
+        valetudo = (
+            ROOT
+            / "custom_components"
+            / "robbie_advanced_cc"
+            / "adapters"
+            / "valetudo.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_ERROR_NOTIFICATION_DEBOUNCE_SECONDS", controller)
+        self.assertIn("_schedule_dock_completion_check", controller)
+        self.assertIn("dock_visit_resumable", controller)
+        self.assertIn(
+            "resumable is False and self._dock_completion_cancel is None",
+            controller,
+        )
+        self.assertIn('return str(state.state).casefold() == "resumable"', valetudo)
+        self.assertIn('if item.get("source") == "valetudo_error"', controller)
+
     def test_config_card_and_badge_share_the_robot_name_mapping(self):
         config_flow = (
             ROOT / "custom_components" / "robbie_advanced_cc" / "config_flow.py"

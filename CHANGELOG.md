@@ -3,6 +3,19 @@
 ## Unreleased
 
 
+## 2026.8.8b2 - 2026-08-30
+
+- Adopt ecosystem policy 1.8: Robbie notifications now carry the explicit
+  vacuum category, one robot title symbol and the router-provided Android
+  vacuum icon and color.
+
+- Treat Valetudo `docked` transitions with a native `resumable` status flag as
+  intermediate mop-washing service, keep the physical run active, and send the
+  completion notification only after final docking is confirmed.
+- Debounce the vacuum state and detailed adapter error update into one
+  robot-specific cleaning-error notification. Dock errors no longer also emit
+  a duplicate maintenance notification.
+
 ## 2026.8.8b1 - 2026-08-28
 
 - Replace technical mission names such as `VacOnly` in completion titles with

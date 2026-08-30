@@ -375,11 +375,15 @@ times such as 30 minutes remain exact; `0` disables the announcement.
 
 ### Completion and dock attention notifications
 
-When enabled, a real transition from cleaning to docked sends one completion
-notification through the configured router (or Home Assistant persistent
-notifications). Valetudo current-statistics sensors add duration and cleaned
-area when available. The `completed` status remains visible for five minutes
-before Robbie returns to idle or another genuine waiting occurrence.
+When enabled, a confirmed final transition from cleaning to docked sends one
+completion notification through the configured router (or Home Assistant
+persistent notifications). A short dock visit with Valetudo's native
+`resumable` status remains `dock_service`, so washing the mop and continuing the
+same run does not create an intermediate completion message. Integrations
+without a resumable signal receive the same short completion grace period.
+Valetudo current-statistics sensors add duration and cleaned area when
+available. The `completed` status remains visible for five minutes before
+Robbie returns to idle or another genuine waiting occurrence.
 
 Completion titles lead with the robot glyph and configured display name, for
 example `🤖 Robbie · Cleaning completed`; technical starter mission names such
@@ -392,10 +396,11 @@ active `DustBinFullValetudoEvent` data from the Valetudo Events sensor. A new
 empty/full/missing attention state sends one notification and remains persisted
 to prevent duplicates after restart. Missing entities are reported as
 unsupported; Robbie does not invent tank state from the generic dock status.
-Models such as the Dreame L10S Ultra expose tank and dustbag problems only as
-temporary Valetudo error states. Robbie translates those dock errors into the
-same immediate, deduplicated maintenance notifications while retaining unknown
-future dock messages verbatim.
+Models such as the Dreame L10S Ultra expose tank, dustbag and robot problems as
+temporary Valetudo error states. Robbie coalesces the vacuum state and detailed
+error sensor into one robot-specific error notification, while retaining
+unknown future messages verbatim. The same fault is not repeated by the dock
+maintenance channel.
 After a mop run without readable Freshwater/Wastewater components, the
 completion notification therefore includes a neutral reminder to check both
 dock containers.

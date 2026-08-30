@@ -152,6 +152,8 @@ def vacuum_runtime_transition(
     planner_state: str,
     vacuum_state: str,
     active_mission_id: str | None,
+    *,
+    dock_visit_resumable: bool = False,
 ) -> tuple[str, str, bool] | None:
     """Return a planner transition for a robot state change.
 
@@ -161,7 +163,13 @@ def vacuum_runtime_transition(
     """
     if vacuum_state == "cleaning":
         return ("running", "vacuum_cleaning", False)
-    if vacuum_state == "docked" and planner_state == "running":
+    if (
+        vacuum_state == "docked"
+        and planner_state in {"running", "dock_service"}
+        and dock_visit_resumable
+    ):
+        return ("dock_service", "dock_visit_resumable", False)
+    if vacuum_state == "docked" and planner_state in {"running", "dock_service"}:
         return ("completed", "mission_completed", True)
     if vacuum_state in {"error", "unavailable"} and active_mission_id is not None:
         return ("failed", f"vacuum_{vacuum_state}", False)

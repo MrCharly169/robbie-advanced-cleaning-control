@@ -86,6 +86,9 @@ class PackageTests(unittest.TestCase):
         for domain in ("zone", "sensor", "number", "input_number", "counter"):
             self.assertIn(f'"{domain}"', config_flow)
         self.assertIn('float(state.state) > 0', controller)
+        self.assertIn('"category": "vacuum"', controller)
+        self.assertIn('title.startswith("🤖")', controller)
+        self.assertIn('"title": f"🤖 {entry.title}', frontend)
 
     def test_release_package_is_installable(self):
         with tempfile.TemporaryDirectory() as temp:

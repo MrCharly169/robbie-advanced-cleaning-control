@@ -81,6 +81,19 @@ class ValetudoVacuumAdapter(GenericVacuumAdapter):
             None,
         )
 
+    def _status_flag_entity(self) -> str | None:
+        """Return Valetudo's native resumable-run flag when available."""
+        return self._sibling("sensor", "status_flag")
+
+    @property
+    def dock_visit_resumable(self) -> bool | None:
+        """Distinguish an intermediate mop wash from final docking."""
+        entity_id = self._status_flag_entity()
+        state = self.hass.states.get(entity_id) if entity_id else None
+        if state is None or state.state in {"unknown", "unavailable"}:
+            return None
+        return str(state.state).casefold() == "resumable"
+
     @property
     def capabilities(self) -> set[str]:
         result = set(super().capabilities)
@@ -171,6 +184,10 @@ class ValetudoVacuumAdapter(GenericVacuumAdapter):
         result.update(self._dock_component_entities())
         if events := self._events_entity():
             result.add(events)
+        if status_flag := self._status_flag_entity():
+            result.add(status_flag)
+        if dock_status := self._sibling("sensor", "dock_status"):
+            result.add(dock_status)
         for domain, suffix in (
             ("select", "mode"),
             ("select", "fan"),

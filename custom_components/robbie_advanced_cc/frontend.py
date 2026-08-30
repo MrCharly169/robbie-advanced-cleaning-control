@@ -112,7 +112,7 @@ Notifications always open this Cleaning Control path. If the Badge opens a separ
         "persistent_notification",
         "create",
         {
-            "title": f"{entry.title} · Dashboard setup",
+            "title": f"🤖 {entry.title} · Dashboard setup",
             "message": message,
             "notification_id": f"{DOMAIN}_setup_{entry.entry_id}",
         },

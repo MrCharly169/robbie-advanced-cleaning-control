@@ -155,6 +155,26 @@ class MissionModelTests(unittest.TestCase):
             ("completed", "mission_completed", True),
         )
 
+    def test_resumable_dock_visit_is_mop_service_not_completion(self):
+        self.assertEqual(
+            models.vacuum_runtime_transition(
+                "running",
+                "docked",
+                "mission-1",
+                dock_visit_resumable=True,
+            ),
+            ("dock_service", "dock_visit_resumable", False),
+        )
+        self.assertEqual(
+            models.vacuum_runtime_transition(
+                "dock_service",
+                "docked",
+                None,
+                dock_visit_resumable=False,
+            ),
+            ("completed", "mission_completed", True),
+        )
+
     def test_round_trip_retains_portable_contract(self):
         mission = self.mission(areas=["kitchen", "bathroom"])
         self.assertEqual(models.CleaningMission.from_dict(mission.as_dict()), mission)

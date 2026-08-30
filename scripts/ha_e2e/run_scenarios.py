@@ -20,6 +20,8 @@ VALETUDO_FAN = "select.valetudo_fixture_robot_fan"
 VALETUDO_WATER = "select.valetudo_fixture_robot_water"
 MOP_SENSOR = "binary_sensor.valetudo_fixture_robot_mop_attachment"
 ERROR_SENSOR = "sensor.valetudo_fixture_robot_error"
+DOCK_STATUS_SENSOR = "sensor.valetudo_fixture_robot_dock_status"
+STATUS_FLAG_SENSOR = "sensor.valetudo_fixture_robot_status_flag"
 FRESHWATER_SENSOR = "sensor.valetudo_fixture_robot_water_tank_clean_dock_component"
 WASTEWATER_SENSOR = "sensor.valetudo_fixture_robot_water_tank_dirty_dock_component"
 EVENTS_SENSOR = "sensor.valetudo_fixture_robot_events"
@@ -225,6 +227,17 @@ def wait_for_mission_count(api: HomeAssistantApi, entry_id: str, count: int) -> 
             return last
         time.sleep(1)
     raise AssertionError(f"Mission count did not become {count}: {last}")
+
+
+def wait_for_completed(api: HomeAssistantApi, entry_id: str) -> dict[str, Any]:
+    """Wait for the delayed final-docking confirmation."""
+    status = planner_status(api, entry_id)
+    return wait_for_state(
+        api,
+        status["entity_id"],
+        lambda state: state["state"] == "completed"
+        and state.get("attributes", {}).get("active_vacuum_entity_id") is None,
+    )
 
 
 def fixture_calls(api: HomeAssistantApi) -> list[dict[str, Any]]:
@@ -558,6 +571,8 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
         VALETUDO_WATER,
         MOP_SENSOR,
         CALL_SENSOR,
+        DOCK_STATUS_SENSOR,
+        STATUS_FLAG_SENSOR,
     ):
         wait_for_state(api, entity_id)
 
@@ -630,6 +645,11 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     )
     if VACUUM_CLOUD not in generic_error.get("attributes", {}).get("robot_errors", {}):
         raise AssertionError(f"Generic vacuum error was not projected: {generic_error}")
+    wait_for_state(
+        api,
+        "input_text.notify_message_capture",
+        lambda state: "Robot reported an error" in state["state"],
+    )
     set_fixture(api, VACUUM_CLOUD, "docked")
     wait_for_state(
         api,
@@ -672,6 +692,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     if any(call.get("service") == "set_fan_speed" for call in calls):
         raise AssertionError(f"Valetudo fan profile was sent twice: {calls}")
     set_fixture(api, VACUUM_VALETUDO, "docked")
+    wait_for_completed(api, entry_id)
 
     cloud = {
         **valetudo,
@@ -689,6 +710,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     assert_command(calls, "set_fan_speed", fan_speed="max")
     assert_command(calls, "clean_segments", segment_ids=["18"])
     set_fixture(api, VACUUM_CLOUD, "docked")
+    wait_for_completed(api, entry_id)
 
     set_fixture(api, MOP_SENSOR, "off")
     reset_calls(api)
@@ -733,6 +755,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     if manual_status.get("attributes", {}).get("last_allowed") is not True:
         raise AssertionError(f"Manual start was not recorded as allowed: {manual_status}")
     set_fixture(api, VACUUM_VALETUDO, "docked")
+    wait_for_completed(api, entry_id)
 
     # A scheduled/service evaluation without the explicit manual flag still
     # honors presence and arms the mission again.
@@ -786,6 +809,40 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     )
     if presence_wait["id"] in direct_running.get("attributes", {}).get("waiting_mission_ids", []):
         raise AssertionError(f"Direct vacuum start did not own queued work: {direct_running}")
+
+    # Valetudo reports a short docked interval while washing the mop. Its
+    # resumable status must keep the same physical run alive and must not emit
+    # a completion notification.
+    api.call_service(
+        "input_text",
+        "set_value",
+        {
+            "entity_id": "input_text.notify_title_capture",
+            "value": "No intermediate completion",
+        },
+    )
+    set_fixture(api, DOCK_STATUS_SENSOR, "cleaning")
+    set_fixture(api, STATUS_FLAG_SENSOR, "resumable")
+    set_fixture(api, VACUUM_VALETUDO, "docked")
+    wait_for_state(
+        api,
+        planner_status(api, entry_id)["entity_id"],
+        lambda state: state["state"] == "dock_service",
+    )
+    time.sleep(6)
+    if planner_status(api, entry_id)["state"] != "dock_service":
+        raise AssertionError("Resumable mop wash was reported as completed")
+    if api.get("/api/states/input_text.notify_title_capture")["state"] != "No intermediate completion":
+        raise AssertionError("Resumable mop wash emitted a completion notification")
+
+    set_fixture(api, VACUUM_VALETUDO, "cleaning")
+    set_fixture(api, STATUS_FLAG_SENSOR, "none")
+    set_fixture(api, DOCK_STATUS_SENSOR, "idle")
+    wait_for_state(
+        api,
+        planner_status(api, entry_id)["entity_id"],
+        lambda state: state["state"] == "running",
+    )
     set_fixture(api, VACUUM_VALETUDO, "docked")
     completed = wait_for_state(
         api,
@@ -864,7 +921,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     wait_for_state(
         api,
         "input_text.notify_message_capture",
-        lambda state: "Freshwater is empty" in state["state"],
+        lambda state: "Mop Dock Clean Water Tank empty" in state["state"],
     )
     wait_for_state(
         api,
@@ -944,6 +1001,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
         time.sleep(1)
     assert_command(fixture_calls(api), "clean_segments", segment_ids=["16", "17"])
     set_fixture(api, VACUUM_VALETUDO, "docked")
+    wait_for_completed(api, entry_id)
     api.call_service(DOMAIN, "remove_mission", {"entry_id": entry_id, "mission_id": presence_wait["id"]})
     wait_for_mission_count(api, entry_id, 2)
 
@@ -965,6 +1023,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
         time.sleep(1)
     assert_command(fixture_calls(api), "start")
     set_fixture(api, VACUUM_CLOUD, "docked")
+    wait_for_completed(api, entry_id)
     api.call_service("input_boolean", "turn_off", {"entity_id": "input_boolean.schedule_trigger"})
 
     api.call_service("input_boolean", "turn_on", {"entity_id": "input_boolean.vacation_mode"})

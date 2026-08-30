@@ -96,3 +96,12 @@ class VacuumAdapter(ABC):
     def run_metrics(self) -> dict[str, dict[str, Any]]:
         """Return optional current-run metrics for completion messages."""
         return {}
+
+    @property
+    def dock_visit_resumable(self) -> bool | None:
+        """Return whether a docked robot is expected to resume the same run.
+
+        ``None`` means that the integration does not expose a reliable signal.
+        The planner still applies a short completion grace period in that case.
+        """
+        return None

@@ -54,6 +54,18 @@ async def async_setup_platform(
             ),
             FixtureStateSensor(
                 store,
+                "Valetudo Fixture Robot Dock Status",
+                "dock_status",
+                "idle",
+            ),
+            FixtureStateSensor(
+                store,
+                "Valetudo Fixture Robot Status Flag",
+                "status_flag",
+                "none",
+            ),
+            FixtureStateSensor(
+                store,
                 "Valetudo Fixture Robot Current Statistics Time",
                 "current_statistics_time",
                 4920,
