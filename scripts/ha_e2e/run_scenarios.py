@@ -625,7 +625,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     wait_for_state(
         api,
         "input_text.notify_message_capture",
-        lambda state: "Auto-empty dock is blocked" in state["state"],
+        lambda state: "Auto empty dock is blocked" in state["state"],
     )
     set_fixture(api, ERROR_SENSOR, "No error")
     wait_for_state(
