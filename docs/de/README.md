@@ -384,6 +384,19 @@ wechselt auf reproduzierbare Weise zwischen mehreren humorvollen Texten und
 gewählte Sonderwerte wie 30 Minuten bleiben minutengenau; `0` schaltet die
 Ankündigung aus.
 
+Erwartete Planerentscheidungen bleiben bewusst still. Anwesenheits-Warten,
+Urlaub, Überspringen, Verschieben, deaktivierter Planer, nicht verfügbarer
+Roboter und unerfüllte Wischbedingungen aktualisieren Card, Badge und native
+Planer-Entities, lösen aber keine Push-Benachrichtigung aus. Interne Werte wie
+`people_home (wait)` erscheinen damit nicht mehr in Kundentexten.
+
+Der operative Benachrichtigungsvertrag umfasst nur:
+
+- die optionale Missionsankündigung am Vorabend;
+- genau eine bestätigte Abschlussmeldung, wenn aktiviert;
+- eine deduplizierte Meldung für einen echten Roboterfehler oder tatsächlichen
+  Stations-/Wartungsbedarf, wenn aktiviert.
+
 ### Abschluss- und Stationsmeldungen
 
 Wenn aktiviert, sendet der echte Übergang von Reinigung zu Station genau eine

@@ -373,6 +373,19 @@ rooms in readable language, rotates deterministic light-hearted wording and
 opens the configured Cleaning Control view when tapped. Explicit custom lead
 times such as 30 minutes remain exact; `0` disables the announcement.
 
+Expected planner control flow is deliberately silent. Presence waiting,
+Vacation, skip, postpone, Planner disabled, unavailable robots and unmet mop
+guards update the Card, Badge and native planner entities but never generate a
+push notification. This avoids treating a normal decision as an error and
+keeps internal identifiers such as `people_home (wait)` out of customer copy.
+
+The operational notification contract is therefore limited to:
+
+- one optional previous-evening mission announcement;
+- one confirmed final-cleaning completion, when enabled;
+- one deduplicated real robot error or dock/maintenance attention event, when
+  enabled.
+
 ### Completion and dock attention notifications
 
 When enabled, a confirmed final transition from cleaning to docked sends one

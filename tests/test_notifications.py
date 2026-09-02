@@ -74,6 +74,26 @@ class NotificationTests(unittest.TestCase):
         self.assertIn("await self._async_notify(", controller)
         self.assertNotIn('f"{mission.name}: next cleaning"', controller)
 
+    def test_expected_planner_decisions_never_send_technical_pushes(self):
+        controller = (
+            ROOT / "custom_components" / "robbie_advanced_cc" / "controller.py"
+        ).read_text(encoding="utf-8")
+        decision_branch = controller.split("if not decision.allowed:", 1)[1].split(
+            "self.state = STATE_PREPARING", 1
+        )[0]
+        self.assertNotIn("_async_notify", decision_branch)
+        self.assertNotIn(": not started", controller)
+        self.assertNotIn("Planner decision:", controller)
+        self.assertNotIn("racc_blocked_", controller)
+
+    def test_operational_titles_use_one_robot_first_format(self):
+        controller = (
+            ROOT / "custom_components" / "robbie_advanced_cc" / "controller.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('f"{robot} · Dock needs attention"', controller)
+        self.assertIn('f"{robot} · Station benötigt Aufmerksamkeit"', controller)
+        self.assertIn('title if title.startswith("🤖") else f"🤖 {title}"', controller)
+
     def test_notification_copy_remains_english_and_deterministic(self):
         occurrence = datetime.fromisoformat("2026-08-26T06:00:00+02:00")
         kwargs = {

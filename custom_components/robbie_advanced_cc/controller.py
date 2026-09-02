@@ -516,11 +516,6 @@ class CleaningPlanner:
                 self.state = STATE_SKIPPED if decision.resolution == "skip" else STATE_BLOCKED
                 await self._async_persist()
                 self._schedule_next()
-            await self._async_notify(
-                f"{mission.name}: not started",
-                f"Planner decision: {decision.reason} ({decision.resolution}).",
-                tag=f"racc_blocked_{mission.id}",
-            )
             return decision
 
         self.state = STATE_PREPARING
@@ -964,9 +959,9 @@ class CleaningPlanner:
         for vacuum_entity_id, items in grouped.items():
             robot = self._friendly_vacuum_name(vacuum_entity_id)
             title = (
-                f"{robot}: Station benötigt Aufmerksamkeit"
+                f"{robot} · Station benötigt Aufmerksamkeit"
                 if de
-                else f"{robot}: dock needs attention"
+                else f"{robot} · Dock needs attention"
             )
             message = "; ".join(
                 self._maintenance_item_text(item, de=de) for item in items

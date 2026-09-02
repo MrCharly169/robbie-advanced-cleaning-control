@@ -561,6 +561,33 @@ def assert_command(calls: list[dict[str, Any]], service: str, **data: Any) -> No
     raise AssertionError(f"Missing fixture command {service} {data}: {calls}")
 
 
+def set_notification_sentinel(api: HomeAssistantApi, token: str) -> None:
+    """Mark both routed notification fields before an expected silent action."""
+    for entity_id in (
+        "input_text.notify_title_capture",
+        "input_text.notify_message_capture",
+    ):
+        api.call_service(
+            "input_text",
+            "set_value",
+            {"entity_id": entity_id, "value": token},
+        )
+
+
+def assert_notification_silent(api: HomeAssistantApi, token: str) -> None:
+    """Prove that expected planner control flow did not emit a push."""
+    time.sleep(1)
+    for entity_id in (
+        "input_text.notify_title_capture",
+        "input_text.notify_message_capture",
+    ):
+        value = api.get(f"/api/states/{entity_id}")["state"]
+        if value != token:
+            raise AssertionError(
+                f"Expected silent planner decision changed {entity_id}: {value}"
+            )
+
+
 def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> None:
     token = onboard(api)
     for entity_id in (
@@ -713,6 +740,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     wait_for_completed(api, entry_id)
 
     set_fixture(api, MOP_SENSOR, "off")
+    set_notification_sentinel(api, "Silent mop guard")
     reset_calls(api)
     api.call_service(
         DOMAIN,
@@ -720,6 +748,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
         {"entry_id": entry_id, "mission_id": valetudo["id"], "manual": True},
     )
     assert_last_reason(api, entry_id, "mop_missing")
+    assert_notification_silent(api, "Silent mop guard")
     if fixture_calls(api):
         raise AssertionError("Mop guard allowed a device command")
     set_fixture(api, MOP_SENSOR, "on")
@@ -734,9 +763,11 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     add_mission(api, entry_id, presence_wait)
     wait_for_mission_count(api, entry_id, 3)
     api.call_service("input_number", "set_value", {"entity_id": "input_number.home_occupants", "value": 2})
+    set_notification_sentinel(api, "Silent presence wait")
     reset_calls(api)
     api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": presence_wait["id"]})
     assert_last_reason(api, entry_id, "people_home")
+    assert_notification_silent(api, "Silent presence wait")
     waiting = planner_status(api, entry_id)
     if presence_wait["id"] not in waiting.get("attributes", {}).get("waiting_mission_ids", []):
         raise AssertionError(f"Presence wait was not armed: {waiting}")
@@ -1043,6 +1074,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     if fixture_calls(api):
         raise AssertionError("Vacation lock allowed a native schedule command")
     api.call_service("input_boolean", "turn_off", {"entity_id": "input_boolean.schedule_trigger"})
+    set_notification_sentinel(api, "Silent vacation guard")
     reset_calls(api)
     api.call_service(
         DOMAIN,
@@ -1050,16 +1082,7 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
         {"entry_id": entry_id, "mission_id": valetudo["id"], "manual": True},
     )
     assert_last_reason(api, entry_id, "vacation_active")
-    wait_for_state(
-        api,
-        "input_text.notify_route_capture",
-        lambda state: state["state"] == "persistent_notification.create",
-    )
-    wait_for_state(
-        api,
-        "input_text.notify_click_capture",
-        lambda state: state["state"] == "/lovelace/cleaning",
-    )
+    assert_notification_silent(api, "Silent vacation guard")
     if fixture_calls(api):
         raise AssertionError("Vacation guard allowed a device command")
     api.call_service("input_boolean", "turn_off", {"entity_id": "input_boolean.vacation_mode"})

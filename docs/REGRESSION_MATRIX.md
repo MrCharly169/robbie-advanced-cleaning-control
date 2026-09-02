@@ -22,6 +22,7 @@
 | Dashboard editing | The local lab persists its dashboard through Lovelace Storage mode | `tests/test_package.py`, runtime E2E |
 | Card onboarding | The canonical module auto-registers once and the setup notification contains Card and Badge instructions | package/runtime E2E |
 | Notification navigation | Routed and persistent notifications target the configured Cleaning Control Card path; optional bindings survive a path-only options update | navigation/unit + runtime E2E |
+| Silent planner control flow | Presence wait, Vacation, skip, postpone, unavailable robot and unmet mop guards remain visible in planner entities/Card/Badge but never emit technical `not started` pushes | `tests/test_notifications.py`, runtime E2E |
 | Robot subview return | A separate robot UI uses Home Assistant's native `back_path` pointing to the Cleaning Control destination | documentation + live dashboard verification |
 | Per-day profiles | Every weekday can open a preselected editor with independent room, mode, fan, water and passes | `tests/test_card_runtime.js`, runtime E2E |
 | Badge runtime | Hybrid Custom Badge combines robot glyph, state marker and docked next run; mouse/keyboard delegate the native `tap_action` through `hass-action` | `tests/test_card_runtime.js` |

@@ -3,6 +3,15 @@
 ## Unreleased
 
 
+## 2026.8.8b3 - 2026-09-02
+
+- Stop sending notifications for expected planner decisions such as presence
+  waiting, Vacation, skip, postpone, unavailable robots and unmet mop guards.
+  These outcomes remain fully visible in Card, Badge and native planner
+  entities without exposing technical text such as `people_home (wait)`.
+- Standardize dock-attention titles to the same robot-first
+  `🤖 <name> · <event>` format used by completion and real error messages.
+
 ## 2026.8.8b2 - 2026-08-30
 
 - Adopt ecosystem policy 1.8: Robbie notifications now carry the explicit
