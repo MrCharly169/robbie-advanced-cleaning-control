@@ -129,6 +129,7 @@ vm.runInContext(source, sandbox);
 assert.ok(registry.has("robbie-advanced-cleaning-card"));
 assert.ok(registry.has("robbie-advanced-cleaning-card-editor"));
 assert.ok(registry.has("robbie-vacuum-badge"));
+assert.ok(registry.has("robbie-vacuum-badge-editor"));
 assert.equal(sandbox.window.customCards.length, 1);
 assert.equal(sandbox.window.customBadges.length, 1);
 
@@ -590,5 +591,22 @@ assert.equal(badge.lastEvent.detail.action, "double_tap");
 let keyPrevented = false;
 badge.handlers["ha-badge:keydown"]({ key: "Enter", preventDefault() { keyPrevented = true; } });
 assert.equal(keyPrevented, true);
+
+const BadgeEditor = registry.get("robbie-vacuum-badge-editor");
+const badgeEditor = new BadgeEditor();
+badgeEditor.setConfig({ entity: "sensor.planner_status", name: "Robbie" });
+badgeEditor.hass = card._hass;
+const stableBadgeForm = badgeEditor._form;
+const editorShellWrites = badgeEditor.shellWrites;
+stableBadgeForm.selectorOpen = true;
+stableBadgeForm.listScrollTop = 620;
+stableBadgeForm.focused = true;
+badgeEditor.hass = { ...card._hass, states: { ...card._hass.states, "sensor.unrelated": { state: "on" } } };
+badgeEditor.hass = { ...card._hass, states: { ...card._hass.states, "sensor.planner_status": { ...card._hass.states["sensor.planner_status"], state: "running" } } };
+assert.equal(badgeEditor._form, stableBadgeForm, "Badge editor must retain the native form root");
+assert.equal(badgeEditor.shellWrites, editorShellWrites, "hass updates must not rebuild the Badge editor shell");
+assert.equal(stableBadgeForm.selectorOpen, true);
+assert.equal(stableBadgeForm.listScrollTop, 620);
+assert.equal(stableBadgeForm.focused, true);
 
 console.log("Card runtime contract passed");

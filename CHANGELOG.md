@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2026.9.0b0 - 2026-09-02
+
+- Keep the native Vacuum Badge editor form mounted during Home Assistant
+  refreshes so open selectors, long-list scroll, focus and Dashboard scroll do
+  not jump back to the beginning.
+- Adopt ecosystem policy 1.9 for refresh-stable Custom Card, Badge and editor
+  interactions.
+
 
 ## 2026.8.8b3 - 2026-09-02
 

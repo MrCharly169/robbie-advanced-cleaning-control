@@ -1126,6 +1126,17 @@ class RobbieVacuumBadge extends HTMLElement {
 }
 
 class RobbieVacuumBadgeEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this._form = null;
+    this._help = null;
+    this._formLanguage = null;
+    this._handleFormChange = (event) => {
+      this._config = { ...this._config, ...(event.detail?.value || {}) };
+      this._emit();
+    };
+  }
   setConfig(config = {}) {
     const legacyPath = config.navigation_path || "/lovelace/cleaning";
     this._config = {
@@ -1133,33 +1144,37 @@ class RobbieVacuumBadgeEditor extends HTMLElement {
       tap_action: config.tap_action || { action: "navigate", navigation_path: legacyPath },
     };
     delete this._config.navigation_path;
-    this._render();
+    this._ensureStructure();
+    this._syncForm(true);
   }
-  set hass(value) { this._hass = value; this._render(); }
+  set hass(value) { this._hass = value; this._ensureStructure(); this._syncForm(false); }
   _emit() { this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: { ...this._config } }, bubbles: true, composed: true })); }
-  _render() {
-    if (!this._hass || !this._config) return;
-    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
-    const de = String(this._hass.language || "en").toLowerCase().startsWith("de");
-    this.shadowRoot.innerHTML = `<ha-form></ha-form><small>${de
-      ? "Roboterlogo, Zusatzsymbol, nächste Zeit und Farbe folgen dem Planerstatus. Entität, Interaktion und Sichtbarkeit werden mit Home Assistants nativen Editoren konfiguriert; dieses Badge besitzt keine eigenen Navigate-, Hidden- oder Zustandslisten."
-      : "Robot logo, marker, next time and color follow the planner status. Configure the entity, interaction and visibility with Home Assistant's native editors; this Badge has no separate Navigate, Hidden or state lists."}</small><style>:host{display:block;padding:4px 0}small{display:block;margin-top:12px;line-height:1.4;color:var(--secondary-text-color)}</style>`;
-    const form = this.shadowRoot.querySelector?.("ha-form");
-    if (!form) return;
-    form.hass = this._hass;
-    form.data = this._config;
-    form.schema = [
+  _ensureStructure() {
+    if (!this.shadowRoot || this._form) return;
+    this.shadowRoot.innerHTML = `<ha-form></ha-form><small></small><style>:host{display:block;padding:4px 0;overflow-anchor:none}small{display:block;margin-top:12px;line-height:1.4;color:var(--secondary-text-color)}</style>`;
+    this._form = this.shadowRoot.querySelector?.("ha-form") || null;
+    this._help = this.shadowRoot.querySelector?.("small") || null;
+    this._form?.addEventListener("value-changed", this._handleFormChange);
+  }
+  _syncForm(dataChanged) {
+    if (!this._form || !this._config) return;
+    const language = String(this._hass?.language || "en").toLowerCase();
+    const de = language.startsWith("de");
+    if (this._form.hass !== this._hass) this._form.hass = this._hass;
+    if (dataChanged || this._form.data == null) this._form.data = { ...this._config };
+    if (this._formLanguage === language) return;
+    this._formLanguage = language;
+    this._form.schema = [
       { name: "entity", required: true, selector: { entity: { domain: "sensor", integration: "robbie_advanced_cc" } } },
       { name: "name", selector: { text: {} } },
     ];
-    form.computeLabel = (schema) => ({
+    this._form.computeLabel = (schema) => ({
       entity: de ? "Planerstatus-Entität" : "Planner status entity",
       name: de ? "Name im Tooltip (optional)" : "Tooltip name (optional)",
     }[schema.name] || schema.name);
-    form.addEventListener("value-changed", (event) => {
-      this._config = { ...this._config, ...(event.detail?.value || {}) };
-      this._emit();
-    });
+    if (this._help) this._help.textContent = de
+      ? "Roboterlogo, Zusatzsymbol, nächste Zeit und Farbe folgen dem Planerstatus. Entität, Interaktion und Sichtbarkeit werden mit Home Assistants nativen Editoren konfiguriert; dieses Badge besitzt keine eigenen Navigate-, Hidden- oder Zustandslisten."
+      : "Robot logo, marker, next time and color follow the planner status. Configure the entity, interaction and visibility with Home Assistant's native editors; this Badge has no separate Navigate, Hidden or state lists.";
   }
 }
 

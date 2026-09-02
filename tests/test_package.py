@@ -24,10 +24,10 @@ def leaf_paths(value, prefix=""):
 
 
 class PackageTests(unittest.TestCase):
-    def test_manifest_owns_the_august_calver(self):
+    def test_manifest_owns_the_current_calver(self):
         manifest = json.loads((COMPONENT / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["domain"], "robbie_advanced_cc")
-        self.assertRegex(manifest["version"], r"^2026\.8\.\d+(?:b[0-9])?$")
+        self.assertRegex(manifest["version"], r"^2026\.\d{1,2}\.\d+(?:b[0-9])?$")
 
     def test_translations_have_identical_contract(self):
         english = json.loads((COMPONENT / "translations" / "en.json").read_text(encoding="utf-8"))
