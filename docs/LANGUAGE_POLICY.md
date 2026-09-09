@@ -15,5 +15,13 @@ Language is an explicit product decision, never an accidental mixture.
 - Adapter values remain the exact machine values accepted by the underlying
   integration and are not translated in service calls.
 
-English is the fallback when Home Assistant uses any language other than
-German.
+Cards and Badges follow the active Home Assistant app/profile language on each
+client. Explicit English and regional English tags select English; German,
+unsupported and missing language tags select German. The Home Assistant
+installation language and the browser language never override the active app
+profile. Unknown backend reason codes are shown only as a same-language generic
+message; raw codes remain available through diagnostics.
+
+Native entity names are shared Home Assistant registry metadata generated in the
+backend language; they do not switch for each app. Native state, selector and
+flow translations follow the viewing user's language. User names stay unchanged.

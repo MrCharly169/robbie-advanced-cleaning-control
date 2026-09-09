@@ -125,6 +125,10 @@ const source = fs.readFileSync(
   "utf8",
 );
 vm.runInContext(source, sandbox);
+for (const [value, expected] of [["en", "en"], ["EN_us", "en"], ["de", "de"], ["fr", "de"], ["pl", "de"], ["enochian", "de"], [undefined, "de"], ["", "de"]]) {
+  assert.equal(vm.runInContext(`customerPresentationLanguage(${JSON.stringify(value)})`, sandbox), expected);
+}
+assert.doesNotMatch(source, /hass\??\.config\??\.language|navigator\??\.language|\.startsWith\(["']de["']\)/);
 
 assert.ok(registry.has("robbie-advanced-cleaning-card"));
 assert.ok(registry.has("robbie-advanced-cleaning-card-editor"));
@@ -390,7 +394,27 @@ card.hass = {
 };
 flushFrame();
 assert.match(card.shadowRoot.innerHTML, />Fehler</);
-assert.match(card.shadowRoot.innerHTML, /Auto-empty dock is blocked/);
+assert.match(card.shadowRoot.innerHTML, /Der Roboter meldet einen Fehler/);
+assert.doesNotMatch(card.shadowRoot.innerHTML, /Auto-empty dock is blocked/);
+
+card.hass = {
+  ...staleFailureHass,
+  language: "fr",
+  states: {
+    ...staleFailureHass.states,
+    "sensor.planner_status": {
+      ...staleFailureHass.states["sensor.planner_status"],
+      attributes: {
+        ...staleFailureHass.states["sensor.planner_status"].attributes,
+        active_mission_id: "sunday",
+        last_reason: "future_internal_reason",
+      },
+    },
+  },
+};
+flushFrame();
+assert.match(card.shadowRoot.innerHTML, /Weitere Details sind in der Diagnose verfügbar/);
+assert.doesNotMatch(card.shadowRoot.innerHTML, /future_internal_reason/);
 card.hass = nonVacationHass;
 flushFrame();
 card._handleProfileChange({ stopPropagation() {} }, {

@@ -1,5 +1,9 @@
 const DOMAIN = "robbie_advanced_cc";
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+// Customer-visible text follows the active app/profile language. Only explicit
+// English tags select English; missing and unsupported tags use German.
+const customerPresentationLanguage = (value) =>
+  String(value ?? "de").trim().toLowerCase().split(/[-_]/)[0] === "en" ? "en" : "de";
 
 const COPY = {
   en: {
@@ -21,6 +25,7 @@ const COPY = {
     waiting_vacation_inactive: "Paused by Vacation mode", waiting_mop_attached: "Waiting for the mop attachment",
     waiting_planner_enabled: "Planner or run is disabled", reason_vacuum_error: "The robot reported an error",
     reason_vacuum_unavailable: "The robot became unavailable during the run", reason_adapter_start_failed: "The robot command failed",
+    reason_unknown: "More details are available in diagnostics", unknown: "Unknown",
     modeVacuum: "Vacuum", modeMop: "Mop", modeVacuumMop: "Vacuum + Mop",
     days: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
   },
@@ -44,6 +49,7 @@ const COPY = {
     waiting_vacation_inactive: "Durch Urlaubsmodus pausiert", waiting_mop_attached: "Wartet auf das Wischmodul",
     waiting_planner_enabled: "Planer oder Lauf ist deaktiviert", reason_vacuum_error: "Der Roboter meldet einen Fehler",
     reason_vacuum_unavailable: "Der Roboter war während des Laufs nicht erreichbar", reason_adapter_start_failed: "Der Roboterbefehl ist fehlgeschlagen",
+    reason_unknown: "Weitere Details sind in der Diagnose verfügbar", unknown: "Unbekannt",
     modeVacuum: "Saugen", modeMop: "Wischen", modeVacuumMop: "Saugen + Wischen",
     days: ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
   },
@@ -238,7 +244,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
   }
 
   getCardSize() { return this._displayMode === "advanced" ? 9 : 4; }
-  _copy() { return COPY[this._hass?.language?.startsWith("de") ? "de" : "en"]; }
+  _copy() { return COPY[customerPresentationLanguage(this._hass?.language)]; }
   _entity(id) { return id ? this._hass?.states?.[id] : undefined; }
   _vacuumName(id, status = this._plannerStatus()) {
     return status?.attributes?.robot_names?.[id]
@@ -304,7 +310,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
         .map(([id, state]) => [id, state.attributes?.friendly_name || id])
       : [];
     return {
-      language: this._hass?.language?.startsWith("de") ? "de" : "en",
+      language: customerPresentationLanguage(this._hass?.language),
       config: {
         entry_id: this._config?.entry_id || "", status_entity: this._config?.status_entity || "",
         title: this._config?.title || "", mode: this._config?.mode || "simple",
@@ -372,7 +378,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     if (!value) return this._copy().noMission;
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return this._copy().noMission;
-    return new Intl.DateTimeFormat(this._hass?.language || "en", short
+    return new Intl.DateTimeFormat(customerPresentationLanguage(this._hass?.language), short
       ? { weekday: "short", hour: "2-digit", minute: "2-digit" }
       : { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
   }
@@ -403,14 +409,13 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
     let detail = "";
     if (state === "waiting" && waitingCondition) detail = t[`waiting_${waitingCondition.key}`] || "";
     if (runtimeState === "failed" && (activeMission || hasRobotError)) {
-      detail = robotError?.message
+      detail = (robotError ? t.reason_vacuum_error : "")
         || t[`reason_${status?.attributes?.last_reason}`]
-        || status?.attributes?.last_reason
-        || t.reason_vacuum_error;
+        || t.reason_unknown;
     }
     const labelKey = state === "blocked" ? "blockedState" : state;
     return {
-      state, label: t[labelKey] || state, detail,
+      state, label: t[labelKey] || t.unknown, detail,
       icon: (map[state] || ["mdi:robot-vacuum", "muted"])[0],
       tone: (map[state] || ["", "muted"])[1],
     };
@@ -977,7 +982,7 @@ class RobbieVacuumBadge extends HTMLElement {
   }
 
   _labels() {
-    const de = String(this._hass?.language || "en").toLowerCase().startsWith("de");
+    const de = customerPresentationLanguage(this._hass?.language) === "de";
     const states = de ? {
       docked: "In Station", idle: "Schläft", cleaning: "Reinigt", returning: "Rückfahrt",
       paused: "Pausiert", waiting: "Wartet", vacation: "Urlaub", error: "Fehler", unavailable: "Nicht verfügbar",
@@ -1020,8 +1025,8 @@ class RobbieVacuumBadge extends HTMLElement {
     const daysAway = Math.round((calendarDay(date) - calendarDay(now)) / 86400000);
     if (daysAway < 0) return { short: "", full: "" };
 
-    const locale = this._hass?.language || "en";
-    const german = String(locale).toLowerCase().startsWith("de");
+    const locale = customerPresentationLanguage(this._hass?.language);
+    const german = locale === "de";
     const full = new Intl.DateTimeFormat(locale, {
       weekday: "long", day: "numeric", month: "long",
       ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
@@ -1075,7 +1080,7 @@ class RobbieVacuumBadge extends HTMLElement {
     const state = plannerRuntime || raw;
     const nextRun = status?.attributes?.next_runs?.[vacuumEntityId];
     return {
-      language: String(this._hass?.language || "en").toLowerCase().startsWith("de") ? "de" : "en",
+      language: customerPresentationLanguage(this._hass?.language),
       vacuumEntityId: vacuumEntityId || "", available: Boolean(vacuum), state,
       name: this._config.name || status?.attributes?.robot_names?.[vacuumEntityId] || vacuum?.attributes?.friendly_name || vacuumEntityId || "",
       nextScheduled: nextRun?.scheduled || "", nextMission: nextRun?.mission || "",
@@ -1158,8 +1163,8 @@ class RobbieVacuumBadgeEditor extends HTMLElement {
   }
   _syncForm(dataChanged) {
     if (!this._form || !this._config) return;
-    const language = String(this._hass?.language || "en").toLowerCase();
-    const de = language.startsWith("de");
+    const language = String(this._hass?.language || "de").toLowerCase();
+    const de = customerPresentationLanguage(language) === "de";
     if (this._form.hass !== this._hass) this._form.hass = this._hass;
     if (dataChanged || this._form.data == null) this._form.data = { ...this._config };
     if (this._formLanguage === language) return;

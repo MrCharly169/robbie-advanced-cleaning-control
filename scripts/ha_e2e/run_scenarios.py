@@ -513,7 +513,7 @@ def edit_mission_options_flow(api: HomeAssistantApi, entry_id: str, mission_id: 
     flow_id = result["flow_id"]
     result = api.post(
         f"/api/config/config_entries/options/flow/{flow_id}",
-        {"options_action": mission_id},
+        {"options_action": "edit", "mission_id": mission_id},
     )
     if result.get("step_id") != "mission_schedule":
         raise AssertionError(f"Mission schedule editor did not open: {result}")
