@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+
+## 2026.9.1b0 - 2026-09-09
+
+- Keep Card, Badge, editor and failure copy in one language per Home Assistant
+  client. Raw robot messages and unknown backend reason codes remain diagnostic
+  data instead of leaking English or machine tokens into German presentation.
+- Move options-flow action labels to native Home Assistant translations while
+  keeping user-provided mission names unchanged; adopt ecosystem policy 1.19
+  and exercise the translated Edit action in the real HA options-flow test.
+
 ## 2026.9.0b0 - 2026-09-02
 
 - Keep the native Vacuum Badge editor form mounted during Home Assistant

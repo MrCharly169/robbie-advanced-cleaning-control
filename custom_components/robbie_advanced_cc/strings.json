@@ -63,7 +63,7 @@
       "init": {
         "title": "Configure planner",
         "description": "Change robot names, connections and conditions, create another mission, or select any existing mission to edit it.",
-        "data": {"options_action": "What do you want to configure?"}
+        "data": {"options_action": "What do you want to configure?", "mission_id": "Mission to edit"}
       },
       "connections": {
         "title": "Connections & conditions",
@@ -108,8 +108,19 @@
     },
     "error": {
       "no_vacuums": "Select at least one vacuum cleaner.",
+      "mission_not_selected": "Select the mission you want to edit.",
       "mission_not_found": "The selected mission no longer exists.",
       "invalid_dashboard_path": "Enter an absolute Home Assistant path beginning with /, for example /lovelace/cleaning."
+    }
+  },
+  "selector": {
+    "options_action": {
+      "options": {
+        "connections": "Connections and conditions",
+        "robots": "Robot names",
+        "new": "Create mission",
+        "edit": "Edit mission"
+      }
     }
   },
   "entity": {

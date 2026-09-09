@@ -64,6 +64,19 @@ class PackageTests(unittest.TestCase):
         self.assertNotIn("Navigation path", badge_editor)
         self.assertNotIn("<select", badge_editor)
 
+    def test_customer_language_is_native_and_never_mixed(self):
+        frontend = (COMPONENT / "frontend" / "cleaning-control.js").read_text(
+            encoding="utf-8"
+        )
+        flow = (COMPONENT / "config_flow.py").read_text(encoding="utf-8")
+        self.assertIn("customerPresentationLanguage", frontend)
+        self.assertNotIn("hass?.config?.language", frontend)
+        self.assertNotIn("navigator.language", frontend)
+        self.assertNotIn('.startsWith("de")', frontend)
+        self.assertNotIn("hass.config.language", flow)
+        self.assertIn('translation_key="options_action"', flow)
+        self.assertIn('vol.Optional("mission_id")', flow)
+
     def test_planner_status_is_a_native_enum(self):
         sensor = (COMPONENT / "sensor.py").read_text(encoding="utf-8")
         constants = (COMPONENT / "const.py").read_text(encoding="utf-8")

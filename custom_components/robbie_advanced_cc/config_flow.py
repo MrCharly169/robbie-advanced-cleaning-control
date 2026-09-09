@@ -207,36 +207,29 @@ def _options_schema(current: dict[str, Any]) -> vol.Schema:
     )
 
 
-def _options_start_schema(missions, language: str = "en") -> vol.Schema:
-    de = str(language).lower().startswith("de")
-    choices = [
-        {
-            "value": "connections",
-            "label": "Verbindungen & Bedingungen" if de else "Connections & conditions",
-        },
-        {
-            "value": "robots",
-            "label": "Roboternamen" if de else "Robot names",
-        },
-        {"value": "new", "label": "+ Mission erstellen" if de else "+ Create mission"},
-    ]
-    choices.extend(
-        {
-            "value": mission.id,
-            "label": f"{'Bearbeiten' if de else 'Edit'} · {mission.name}",
-        }
-        for mission in missions
-    )
-    return vol.Schema(
-        {
-            vol.Required("options_action", default="connections"): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=choices,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
+def _options_start_schema(missions) -> vol.Schema:
+    """Build a native-localized action choice plus language-neutral mission names."""
+    fields: dict[Any, Any] = {
+        vol.Required("options_action", default="connections"): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["connections", "robots", "new", "edit"],
+                mode=selector.SelectSelectorMode.DROPDOWN,
+                translation_key="options_action",
             )
-        }
-    )
+        )
+    }
+    mission_choices = [
+        {"value": mission.id, "label": mission.name}
+        for mission in missions
+    ]
+    if mission_choices:
+        fields[vol.Optional("mission_id")] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=mission_choices,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        )
+    return vol.Schema(fields)
 
 
 def _mission_schedule_schema(
@@ -451,22 +444,25 @@ class RobbieAdvancedCcOptionsFlow(OptionsFlowWithReload):
                     "announce_before_minutes": 1440,
                 }
             else:
-                mission = self._planner.mission_by_id(action)
+                mission_id = str(user_input.get("mission_id") or "")
+                mission = self._planner.mission_by_id(mission_id)
                 if mission is None:
                     return self.async_show_form(
                         step_id="init",
-                        data_schema=_options_start_schema(
-                            self._planner.missions, self.hass.config.language
-                        ),
-                        errors={"base": "mission_not_found"},
+                        data_schema=_options_start_schema(self._planner.missions),
+                        errors={
+                            "base": (
+                                "mission_not_selected"
+                                if not mission_id
+                                else "mission_not_found"
+                            )
+                        },
                     )
                 self._mission = mission.as_dict()
             return await self.async_step_mission_schedule()
         return self.async_show_form(
             step_id="init",
-            data_schema=_options_start_schema(
-                self._planner.missions, self.hass.config.language
-            ),
+            data_schema=_options_start_schema(self._planner.missions),
         )
 
     async def async_step_connections(self, user_input=None) -> ConfigFlowResult:
