@@ -1,6 +1,7 @@
 """Persistent, explainable cleaning planner runtime."""
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, timedelta
@@ -87,6 +88,8 @@ class CleaningPlanner:
         self.active_run_external = False
         self.run_started_at: datetime | None = None
         self.skip_mission_id: str | None = None
+        self._run_lock = asyncio.Lock()
+        self._skipping_active = False
         self.postponed: dict[str, datetime] = {}
         self.pending_mission_ids: list[str] = []
         self.pending_occurrences: dict[str, datetime] = {}
@@ -142,6 +145,12 @@ class CleaningPlanner:
     async def async_setup(self) -> None:
         self.missions, persisted = await self.store.async_load()
         self.skip_mission_id = persisted.get("skip_mission_id")
+        skipped_run = persisted.get("skipping_active") or {}
+        if skipped_run.get("vacuum_entity_id") in self.vacuums:
+            self._skipping_active = True
+            self.active_vacuum_entity_id = skipped_run["vacuum_entity_id"]
+            self.active_mission_id = skipped_run.get("mission_id")
+            self.state = STATE_DOCK_SERVICE
         self.pending_mission_ids = [
             mission_id
             for mission_id in persisted.get("pending_mission_ids", [])
@@ -183,6 +192,8 @@ class CleaningPlanner:
             persisted["starter_seeded"] = True
             await self._async_persist(starter_seeded=True)
         self._refresh_state_listener()
+        if self._skipping_active:
+            self._schedule_dock_completion_check(self.active_vacuum_entity_id)
         self._schedule_next()
         await self._async_refresh_maintenance_notifications()
         await self._async_refresh_robot_error_notifications()
@@ -462,6 +473,18 @@ class CleaningPlanner:
         manual: bool = False,
         occurrence: datetime | None = None,
     ) -> MissionDecision:
+        # Serialize dispatch and Skip: a late start response must never undo a
+        # cancellation or start the robot again after return_to_base.
+        async with self._run_lock:
+            return await self._async_run(mission_id, manual=manual, occurrence=occurrence)
+
+    async def _async_run(
+        self,
+        mission_id: str | None = None,
+        *,
+        manual: bool = False,
+        occurrence: datetime | None = None,
+    ) -> MissionDecision:
         if mission_id is None:
             next_item = self.next_mission()
             if next_item is None:
@@ -476,8 +499,19 @@ class CleaningPlanner:
                 self._set_decision(decision, STATE_BLOCKED)
                 return decision
 
+        if self._skipping_active:
+            # Never overwrite the identity of the run being cancelled.
+            if mission.id != self.active_mission_id:
+                if mission.id not in self.pending_mission_ids:
+                    self.pending_mission_ids.append(mission.id)
+                if occurrence is not None:
+                    self.pending_occurrences[mission.id] = occurrence
+                await self._async_persist()
+            return MissionDecision(False, "wait", "vacuum_busy")
+
         if self.skip_mission_id == mission.id:
             self.skip_mission_id = None
+            self._remove_pending_occurrence(mission.id)
             decision = MissionDecision(False, "skip", "skip_once_consumed")
             self._set_decision(decision, STATE_SKIPPED)
             await self._async_persist()
@@ -546,6 +580,60 @@ class CleaningPlanner:
         return decision
 
     async def async_skip_next(self) -> bool:
+        """Skip the active run, oldest waiting occurrence, or next planned run."""
+        requested_active = self.active_vacuum_entity_id
+        async with self._run_lock:
+            if requested_active and self.active_vacuum_entity_id != requested_active:
+                # It finished or failed while Skip waited for its start call.
+                # Do not silently transfer this request to a future occurrence.
+                return False
+            return await self._async_skip_next()
+
+    async def _async_run_pending(self, mission_id: str) -> None:
+        async with self._run_lock:
+            # Presence events can have captured their queue before Skip removed
+            # an occurrence. Recheck under the same lock used by dispatch.
+            if mission_id in self.pending_mission_ids:
+                await self._async_run(mission_id)
+
+    def _remove_pending_occurrence(self, mission_id: str) -> None:
+        if mission_id in self.pending_mission_ids:
+            self.pending_mission_ids.remove(mission_id)
+        self.pending_occurrences.pop(mission_id, None)
+        self.postponed.pop(mission_id, None)
+
+    async def _async_skip_next(self) -> bool:
+        if self.active_vacuum_entity_id is not None:
+            if self._skipping_active and self.state != STATE_FAILED:
+                return True
+            vacuum = self.active_vacuum_entity_id
+            self._skipping_active = True
+            try:
+                await adapter_for(self.hass, vacuum).async_return_to_base()
+            except Exception:
+                self._skipping_active = False
+                # Keep the active identity so the operator can retry Skip.
+                raise
+            if self.active_mission_id:
+                self._remove_pending_occurrence(self.active_mission_id)
+            self.state = STATE_DOCK_SERVICE
+            self.last_reason = "skip_returning"
+            await self._async_persist()
+            self._schedule_dock_completion_check(vacuum)
+            self._notify_listeners()
+            return True
+        if self.pending_mission_ids:
+            mission_id = self.pending_mission_ids[0]
+            self._remove_pending_occurrence(mission_id)
+            if self.skip_mission_id == mission_id:
+                self.skip_mission_id = None
+            self._set_decision(
+                MissionDecision(False, "skip", "skip_once_consumed"), STATE_SKIPPED
+            )
+            self._schedule_completion_release()
+            await self._async_persist()
+            self._schedule_next()
+            return True
         next_item = self.next_mission()
         if next_item is None:
             return False
@@ -670,6 +758,10 @@ class CleaningPlanner:
             self.missions,
             {
                 "skip_mission_id": self.skip_mission_id,
+                "skipping_active": {
+                    "vacuum_entity_id": self.active_vacuum_entity_id,
+                    "mission_id": self.active_mission_id,
+                } if self._skipping_active else None,
                 "enabled": self.enabled,
                 "pending_mission_ids": self.pending_mission_ids,
                 "pending_occurrences": {
@@ -695,7 +787,7 @@ class CleaningPlanner:
         @callback
         def release_completed(_now: datetime) -> None:
             self._completion_cancel = None
-            if self.state == STATE_COMPLETED:
+            if self.state in {STATE_COMPLETED, STATE_SKIPPED}:
                 self.state = (
                     STATE_WAITING if self.pending_mission_ids else STATE_IDLE
                 )
@@ -733,11 +825,32 @@ class CleaningPlanner:
     async def _async_confirm_docked_completion(
         self, vacuum_entity_id: str
     ) -> None:
+        async with self._run_lock:
+            await self._async_confirm_docked_completion_locked(vacuum_entity_id)
+
+    async def _async_confirm_docked_completion_locked(
+        self, vacuum_entity_id: str
+    ) -> None:
         """Complete only when docking is not a resumable mop-service visit."""
         if self.active_vacuum_entity_id != vacuum_entity_id:
             return
         vacuum_state = self.hass.states.get(vacuum_entity_id)
         if vacuum_state is None or vacuum_state.state != "docked":
+            return
+        if self._skipping_active:
+            # A cancelled run has no remaining cleaning work, including a
+            # resumable mop-service visit. Never send a success notification.
+            self._skipping_active = False
+            self.active_mission_id = None
+            self.active_vacuum_entity_id = None
+            self.active_run_external = False
+            self.run_started_at = None
+            self._set_decision(
+                MissionDecision(False, "skip", "skip_once_consumed"), STATE_SKIPPED
+            )
+            self._schedule_completion_release()
+            await self._async_persist()
+            self._schedule_next()
             return
         adapter = adapter_for(self.hass, vacuum_entity_id)
         transition = vacuum_runtime_transition(
@@ -1119,9 +1232,9 @@ class CleaningPlanner:
                 resumable = adapter_for(
                     self.hass, active_vacuum
                 ).dock_visit_resumable
-                if resumable is True:
+                if resumable is True and not self._skipping_active:
                     self._cancel_dock_completion_check()
-                elif resumable is False and self._dock_completion_cancel is None:
+                elif (resumable is False or self._skipping_active) and self._dock_completion_cancel is None:
                     self._schedule_dock_completion_check(active_vacuum)
         if self.vacation_active and entity_id not in self.vacuums:
             # Native schedule and presence helper transitions are deliberately
@@ -1141,9 +1254,21 @@ class CleaningPlanner:
         ):
             if not any(self._entity_is_home(item) for item in self.presence_entities):
                 for mission_id in tuple(self.pending_mission_ids):
-                    await self.async_run(mission_id)
+                    await self._async_run_pending(mission_id)
                 return
         if entity_id in self.vacuums and new_state is not None:
+            if self._skipping_active and entity_id == self.active_vacuum_entity_id:
+                if new_state.state == "docked":
+                    self._schedule_dock_completion_check(entity_id)
+                elif new_state.state in {"error", "unavailable"}:
+                    self._cancel_dock_completion_check()
+                    self.state = STATE_FAILED
+                    self.last_reason = f"vacuum_{new_state.state}"
+                else:
+                    self.state = STATE_DOCK_SERVICE
+                    self.last_reason = "skip_returning"
+                self._notify_listeners()
+                return
             if new_state.state == "cleaning":
                 self._cancel_dock_completion_check()
                 if self.active_vacuum_entity_id is None:

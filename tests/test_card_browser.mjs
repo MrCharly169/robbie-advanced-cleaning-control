@@ -219,6 +219,40 @@ try {
   assert.equal(afterSave.calls[0][2].mission.name, "Saved browser run");
   assert.equal(afterSave.calls[0][2].mission.vacuum_entity_id, "vacuum.robot");
 
+  await page.locator("robbie-advanced-cleaning-card").locator("[data-close-dialog]").click();
+  await page.evaluate(() => {
+    const viewport = document.createElement("meta");
+    viewport.name = "viewport";
+    viewport.content = "width=device-width,initial-scale=1";
+    document.head.append(viewport);
+    document.body.style.cssText = "background:#111827;color:#f9fafb;--primary-text-color:#f9fafb;--secondary-text-color:#cbd5e1;--ha-card-background:#1f2937";
+    document.querySelector("#spacer").style.height = "16px";
+  });
+  // The result of Skip stays readable in both supported app languages.
+  for (const [language, label, width] of [["de", "Übersprungen", 390], ["en", "Skipped", 1280]]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate((language) => {
+      const card = document.querySelector("robbie-advanced-cleaning-card");
+      const status = card._hass.states["sensor.planner_status"];
+      card.hass = {
+        ...card._hass, language,
+        states: { ...card._hass.states, "sensor.planner_status": {
+          ...status, state: "skipped", attributes: {
+            ...status.attributes, active_mission_id: null,
+            waiting_mission_ids: [], last_reason: "skip_once_consumed",
+          },
+        } },
+      };
+      document.querySelector("#dashboard").scrollTop = 0;
+    }, language);
+    await page.waitForFunction((label) => {
+      const card = document.querySelector("robbie-advanced-cleaning-card");
+      return card.shadowRoot.textContent.includes(label);
+    }, label);
+    fs.mkdirSync(new URL("../artifacts/skip-current-run/", import.meta.url), { recursive: true });
+    await page.screenshot({ path: new URL(`../artifacts/skip-current-run/${language}.png`, import.meta.url).pathname });
+  }
+
   console.log("Card browser regression passed");
 } finally {
   await browser.close();

@@ -798,6 +798,41 @@ def run_bootstrap(api: HomeAssistantApi, state_file: Path, output_dir: Path) -> 
     if presence_wait["id"] not in waiting.get("attributes", {}).get("waiting_mission_ids", []):
         raise AssertionError(f"Presence wait was not re-armed: {waiting}")
 
+    # Skip the due occurrence, not the next calendar slot; presence changes
+    # must not resurrect the removed waiting work.
+    api.call_service(DOMAIN, "skip_next", {"entry_id": entry_id})
+    assert_last_reason(api, entry_id, "skip_once_consumed")
+    if presence_wait["id"] in planner_status(api, entry_id)["attributes"].get("waiting_mission_ids", []):
+        raise AssertionError("Skip left the current occurrence waiting")
+    reset_calls(api)
+    api.call_service("input_number", "set_value", {"entity_id": "input_number.home_occupants", "value": 0})
+    time.sleep(0.3)
+    if fixture_calls(api):
+        raise AssertionError("Presence resurrected a skipped occurrence")
+
+    # A later occurrence of the same recurring mission still starts. Skip it
+    # while cleaning, return home once, and finish without a success push.
+    api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": presence_wait["id"]})
+    assert_command(fixture_calls(api), "clean_segments", segment_ids=["16", "17"])
+    set_notification_sentinel(api, "Skipped run is not successful cleaning")
+    reset_calls(api)
+    api.call_service(DOMAIN, "skip_next", {"entry_id": entry_id})
+    api.call_service(DOMAIN, "skip_next", {"entry_id": entry_id})
+    calls = fixture_calls(api)
+    assert_command(calls, "return_to_base", entity_id=VACUUM_VALETUDO)
+    if len([call for call in calls if call.get("service") == "return_to_base"]) != 1:
+        raise AssertionError("Repeated Skip returned home more than once")
+    if planner_status(api, entry_id)["attributes"].get("active_mission_id") != presence_wait["id"]:
+        raise AssertionError("Skip cleared active tracking before docking")
+    set_fixture(api, VACUUM_VALETUDO, "docked")
+    wait_for_state(api, planner_status(api, entry_id)["entity_id"], lambda state: state["state"] == "skipped")
+    assert_notification_silent(api, "Skipped run is not successful cleaning")
+    if planner_status(api, entry_id)["attributes"].get("active_mission_id"):
+        raise AssertionError("Skipped run remained active after docking")
+    api.call_service("input_number", "set_value", {"entity_id": "input_number.home_occupants", "value": 2})
+    api.call_service(DOMAIN, "run_next", {"entry_id": entry_id, "mission_id": presence_wait["id"]})
+    assert_last_reason(api, entry_id, "people_home")
+
     # Editing the weekly schedule invalidates only the already-due occurrence
     # when today/time no longer match. The recurring mission remains editable
     # and future days are recalculated immediately.

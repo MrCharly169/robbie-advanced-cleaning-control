@@ -352,7 +352,7 @@ mission object and service calls.
 | Vacation is on | Global vacation state suppresses announcements and scheduled execution. When vacation ends, Robbie schedules the next eligible occurrence; it does not run a vacation backlog. |
 | Vacuum unavailable | The default guard postpones the mission by 60 minutes. The decision reason remains visible. |
 | Mop explicitly reported missing | Mop and vacuum-plus-mop missions use the configured mop guard (block by default). Unknown mop state is not treated as confirmed missing. |
-| **Skip once** | Arms the next mission ID, persists it and consumes it on exactly one occurrence without a device command. |
+| **Skip once** | Skips the active run first (returns the robot to its dock), otherwise the oldest waiting occurrence, otherwise the next planned occurrence. Future repetitions remain scheduled. The active run is marked skipped only after docking; it does not send a cleaning-success notification. |
 | **Postpone** | Stores a replacement time. The Card uses 60 minutes; the service accepts 1–1440 minutes. |
 | Direct start through the native vacuum/Valetudo UI | When exactly one due waiting mission targets that robot, the default policy associates and consumes that occurrence. `keep_pending` leaves it queued instead. Ambiguous matches are never guessed. |
 | **Mark waiting run handled** | Removes only the due waiting occurrence and keeps the recurring weekly mission. The Advanced Card exposes this action on waiting missions. |

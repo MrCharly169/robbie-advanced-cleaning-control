@@ -7,6 +7,7 @@ on:
     paths:
       - "custom_components/**"
       - "e2e/ha/**"
+      - "tests/test_controller_skip.py"
       - "scripts/ha_e2e/**"
       - ".github/workflows/ha-e2e.yml"
 

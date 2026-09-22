@@ -53,7 +53,8 @@ run_next:
       selector:
         boolean:
 skip_next:
-  name: Skip next mission
+  name: Skip current or next mission
+  description: Skip the active run and return to the dock, otherwise skip the oldest waiting occurrence or the next planned run.
   fields:
     entry_id:
       required: true

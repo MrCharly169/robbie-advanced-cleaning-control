@@ -4,13 +4,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 IMAGE="${HA_E2E_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.8.1}"
 PORT="${HA_E2E_PORT:-18123}"
+ENGINE="${HA_E2E_ENGINE:-docker}"
 CONTAINER="racc-e2e-${GITHUB_RUN_ID:-local}-$$"
 CONFIG="$(mktemp -d)"
 STATE="$CONFIG/runner-state.json"
 ARTIFACTS="${HA_E2E_ARTIFACT_DIR:-$ROOT/artifacts/ha-e2e}"
 
 cleanup() {
-  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  "$ENGINE" rm -f "$CONTAINER" >/dev/null 2>&1 || true
   if ! rm -rf "$CONFIG" 2>/dev/null; then
     sudo rm -rf "$CONFIG" 2>/dev/null || true
   fi
@@ -25,7 +26,11 @@ cp -R "$ROOT/e2e/ha/fixture/custom_components/robbie_advanced_cc_test_fixture" \
   "$CONFIG/custom_components/"
 mkdir -p "$ARTIFACTS"
 
-docker run -d --name "$CONTAINER" \
+# Exercise controller concurrency with the same HA runtime as the HTTP lab.
+"$ENGINE" run --rm --network none -v "$ROOT:/workspace:ro" -w /workspace \
+  --entrypoint python "$IMAGE" -m unittest discover -s tests -p test_controller_skip.py -v
+
+"$ENGINE" run -d --name "$CONTAINER" \
   -p "127.0.0.1:$PORT:8123" \
   -v "$CONFIG:/config" \
   "$IMAGE" >/dev/null
@@ -39,7 +44,7 @@ python3 "$ROOT/scripts/ha_e2e/run_scenarios.py" \
 node "$ROOT/scripts/ha_e2e/configure_dashboard.mjs" \
   --base-url "http://127.0.0.1:$PORT" \
   --state-file "$STATE" \
-  --card-mode advanced \
+  --card-mode simple \
   --check-onboarding true
 
 python3 "$ROOT/scripts/ha_e2e/wait_for_config_entry.py" \
@@ -50,7 +55,12 @@ python3 "$ROOT/scripts/ha_e2e/wait_for_config_entry.py" \
   --state "$STATE" \
   --wait-seconds 60
 
-docker restart "$CONTAINER" >/dev/null
+if [[ "${HA_E2E_BROWSER:-0}" == "1" ]]; then
+  "${HA_E2E_BROWSER_NODE:-node}" "$ROOT/scripts/ha_e2e/check_browser.mjs" \
+    "http://127.0.0.1:$PORT" "$STATE" "$ARTIFACTS/native-browser"
+fi
+
+"$ENGINE" restart "$CONTAINER" >/dev/null
 
 python3 "$ROOT/scripts/ha_e2e/run_scenarios.py" \
   --base-url "http://127.0.0.1:$PORT" \
@@ -58,7 +68,7 @@ python3 "$ROOT/scripts/ha_e2e/run_scenarios.py" \
   --state-file "$STATE" \
   --output-dir "$ARTIFACTS"
 
-LOGS="$(docker logs "$CONTAINER" 2>&1)"
+LOGS="$("$ENGINE" logs "$CONTAINER" 2>&1)"
 printf '%s\n' "$LOGS"
 if grep -Eiq "Setup failed for custom integration 'robbie_advanced_cc'|Error setting up entry .*robbie_advanced_cc|Failed to load services.yaml for integration: robbie_advanced_cc|Unable to install package" <<<"$LOGS"; then
   exit 1

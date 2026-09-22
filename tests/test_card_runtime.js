@@ -138,6 +138,19 @@ assert.equal(sandbox.window.customCards.length, 1);
 assert.equal(sandbox.window.customBadges.length, 1);
 
 const Card = registry.get("robbie-advanced-cleaning-card");
+const languageProbe = new Card();
+languageProbe._hass = {language:"de",config:{language:"en"}};
+assert.equal(languageProbe._copy().cancel, "Abbrechen");
+languageProbe._hass = {language:"en",config:{language:"de"}};
+assert.equal(languageProbe._copy().cancel, "Cancel");
+languageProbe._hass.language = "fr";
+assert.equal(languageProbe._copy().cancel, "Abbrechen");
+languageProbe._hass={config:{language:"en"}};assert.equal(languageProbe._copy().cancel,"Abbrechen");
+for (const [language, returning, skipped] of [["de", "Rückfahrt zur Station", "Übersprungen"], ["en", "Returning to dock", "Skipped"]]) {
+  languageProbe._hass = {language};
+  assert.equal(languageProbe._statusInfo({state:"dock_service",attributes:{last_reason:"skip_returning"}}, null).label, returning);
+  assert.equal(languageProbe._statusInfo({state:"skipped",attributes:{}}, null).label, skipped);
+}
 const serviceCalls = [];
 const scheduledAfterDays = (days, hour = 6) => {
   const date = new Date();

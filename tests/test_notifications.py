@@ -163,7 +163,7 @@ class NotificationTests(unittest.TestCase):
         self.assertIn("_schedule_dock_completion_check", controller)
         self.assertIn("dock_visit_resumable", controller)
         self.assertIn(
-            "resumable is False and self._dock_completion_cancel is None",
+            "(resumable is False or self._skipping_active) and self._dock_completion_cancel is None",
             controller,
         )
         self.assertIn('return str(state.state).casefold() == "resumable"', valetudo)

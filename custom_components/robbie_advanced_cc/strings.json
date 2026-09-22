@@ -134,5 +134,6 @@
       "run_next": {"name": "Run next mission"}, "skip_next": {"name": "Skip next mission"},
       "postpone_next": {"name": "Postpone next mission"}
     }
-  }
+  },
+  "services": {"skip_next": {"name": "Skip current or next run", "description": "Skip the active run and return the robot to its dock, otherwise skip the oldest waiting occurrence or the next planned run."}}
 }

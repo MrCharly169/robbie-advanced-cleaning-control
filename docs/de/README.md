@@ -360,7 +360,7 @@ Das vollständige Missionsobjekt und Services zeigt das
 | Urlaub ist aktiv | Der globale Urlaubsstatus unterdrückt Ankündigungen und geplante Ausführung. Nach Urlaubsende plant Robbie das nächste berechtigte Vorkommen; es gibt keinen Urlaubs-Rückstau. |
 | Roboter nicht verfügbar | Der Standard-Guard verschiebt um 60 Minuten. Der Entscheidungsgrund bleibt sichtbar. |
 | Wischaufsatz ausdrücklich als fehlend gemeldet | Wisch- und Saug-/Wischmissionen verwenden den konfigurierten Wisch-Guard (standardmäßig blockieren). Ein unbekannter Status gilt nicht als bestätigt fehlend. |
-| **Einmal überspringen** | Merkt sich die nächste Missions-ID neustartfest und verbraucht genau ein Vorkommen ohne Gerätebefehl. |
+| **Einmal überspringen** | Überspringt zuerst den aktiven Lauf (Roboter fährt zur Station), sonst das älteste wartende Vorkommen, sonst den nächsten geplanten Lauf. Spätere Wiederholungen bleiben bestehen. Ein aktiver Lauf wird erst nach dem Andocken als übersprungen abgeschlossen; er erzeugt keine Erfolgsmeldung zur Reinigung. |
 | **Verschieben** | Speichert eine Ersatzzeit. Die Card verwendet 60 Minuten; der Service akzeptiert 1–1440 Minuten. |
 | Direkter Start über native Vacuum-Entität/Valetudo | Zielt genau eine fällige wartende Mission auf diesen Roboter, ordnet der Standard dieses Vorkommen zu und verbraucht es. `keep_pending` lässt es wartend; mehrdeutige Zuordnungen werden nie geraten. |
 | **Wartenden Lauf als erledigt markieren** | Entfernt nur das fällige wartende Vorkommen und behält die wiederkehrende Wochenmission. Die Advanced Card zeigt diese Aktion bei wartenden Missionen. |

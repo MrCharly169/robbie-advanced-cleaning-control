@@ -20,7 +20,7 @@ const COPY = {
     mop_attached: "Mop attached", home_empty: "Nobody home", allow: "Start anyway", wait: "Wait until empty",
     skipPolicy: "Skip run", noConditions: "No additional conditions", configure: "Configure the planner status entity.",
     idle: "Sleeping", announced: "Planned", preparing: "Starting", running: "Cleaning", waiting: "Waiting",
-    blockedState: "Blocked", failed: "Error", postponed: "Postponed", completed: "Completed", unavailable: "Unavailable",
+    blockedState: "Blocked", failed: "Error", postponed: "Postponed", completed: "Completed", skipped: "Skipped", dock_service: "Dock service", returning: "Returning to dock", unavailable: "Unavailable",
     waiting_home_empty: "Waiting until nobody is home", waiting_vacuum_available: "Waiting for the robot",
     waiting_vacation_inactive: "Paused by Vacation mode", waiting_mop_attached: "Waiting for the mop attachment",
     waiting_planner_enabled: "Planner or run is disabled", reason_vacuum_error: "The robot reported an error",
@@ -44,7 +44,7 @@ const COPY = {
     wait: "Auf leeres Zuhause warten", skipPolicy: "Lauf auslassen", noConditions: "Keine zusätzlichen Bedingungen",
     configure: "Bitte die Planerstatus-Entität auswählen.",
     idle: "Schläft", announced: "Geplant", preparing: "Startet", running: "Reinigt", waiting: "Wartet",
-    blockedState: "Blockiert", failed: "Fehler", postponed: "Verschoben", completed: "Abgeschlossen", unavailable: "Nicht verfügbar",
+    blockedState: "Blockiert", failed: "Fehler", postponed: "Verschoben", completed: "Abgeschlossen", skipped: "Übersprungen", dock_service: "Stationspflege", returning: "Rückfahrt zur Station", unavailable: "Nicht verfügbar",
     waiting_home_empty: "Wartet, bis niemand zu Hause ist", waiting_vacuum_available: "Wartet auf den Roboter",
     waiting_vacation_inactive: "Durch Urlaubsmodus pausiert", waiting_mop_attached: "Wartet auf das Wischmodul",
     waiting_planner_enabled: "Planer oder Lauf ist deaktiviert", reason_vacuum_error: "Der Roboter meldet einen Fehler",
@@ -405,6 +405,7 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
       vacation: ["mdi:palm-tree", "vacation"],
       announced: ["mdi:calendar-clock", "muted"], idle: ["mdi:robot-vacuum-variant", "calm"],
       completed: ["mdi:check-circle-outline", "calm"],
+      dock_service: ["mdi:home-import-outline", "active"], skipped: ["mdi:skip-next", "muted"],
     };
     let detail = "";
     if (state === "waiting" && waitingCondition) detail = t[`waiting_${waitingCondition.key}`] || "";
@@ -413,7 +414,8 @@ class RobbieAdvancedCleaningCard extends HTMLElement {
         || t[`reason_${status?.attributes?.last_reason}`]
         || t.reason_unknown;
     }
-    const labelKey = state === "blocked" ? "blockedState" : state;
+    const labelKey = state === "dock_service" && status?.attributes?.last_reason === "skip_returning"
+      ? "returning" : state === "blocked" ? "blockedState" : state;
     return {
       state, label: t[labelKey] || t.unknown, detail,
       icon: (map[state] || ["mdi:robot-vacuum", "muted"])[0],

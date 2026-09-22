@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 2026.9.2b0 - 2026-09-22
+
+- Skip the active cleaning run first, otherwise the oldest waiting occurrence,
+  otherwise the next planned run. Future repetitions stay scheduled.
+- Return active robots to their dock and finalize as skipped only after docking,
+  without a cleaning-success notification. Preserve cancellation across restart.
+- Serialize start/skip commands and recheck presence retries so delayed callbacks
+  cannot restart a skipped occurrence. Keep failed return commands retryable.
+- Translate skipped results and action descriptions in English/German; preserve
+  all app-language fixes from 2026.9.1b0 and ecosystem policy 1.19.1.
+- Extend real HA and browser regressions for waiting/active cancellation.
+
 
 ## 2026.9.1b0 - 2026-09-09
 

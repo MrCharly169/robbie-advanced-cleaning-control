@@ -98,6 +98,13 @@ const dashboard = {
     ],
   }],
 };
+// Modern HA redirects the legacy Overview route to its generated Home panel.
+// Keep an explicit native storage dashboard for real frontend acceptance.
+const dashboards = await call("lovelace/dashboards/list");
+if (!dashboards.some((item) => item.url_path === "robbie-lab")) {
+  await call("lovelace/dashboards/create", {url_path: "robbie-lab", title: "Robbie Lab", icon: "mdi:robot-vacuum", show_in_sidebar: true, require_admin: false});
+}
+await call("lovelace/config/save", { url_path: "robbie-lab", config: dashboard });
 await call("lovelace/config/save", { config: dashboard });
 const saved = await call("lovelace/config");
 if (saved?.views?.[0]?.cards?.[0]?.type !== "custom:robbie-advanced-cleaning-card") {
