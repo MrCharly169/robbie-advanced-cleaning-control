@@ -59,6 +59,7 @@ try {
  await page.screenshot({path:path.join(outputDir,'en-recipients-multiple.png')});
  await page.getByRole('button',{name:'Submit',exact:true}).click();
  await page.getByRole('button',{name:'Submit',exact:true}).waitFor({state:'hidden'});
+ await page.reload();
  await page.getByRole('button',{name:'Configure',exact:true}).first().click();
  await page.getByRole('button',{name:'Submit',exact:true}).click();
  await page.waitForTimeout(500);
@@ -69,7 +70,7 @@ try {
  await page.evaluate(()=>document.querySelector('home-assistant').hass.callWS({type:'frontend/set_user_data',key:'language',value:{language:'de'}}));
  await page.reload();
  await page.getByRole('button',{name:'Konfigurieren',exact:true}).first().click();
- await page.getByRole('button',{name:'Absenden',exact:true}).click();
+ await page.getByRole('button',{name:await page.evaluate(()=>document.querySelector('home-assistant').hass.localize('ui.common.submit')),exact:true}).click();
  await page.waitForTimeout(500);
  recipients=await markRoute();
  assert.deepEqual(await recipients.evaluate(e=>e.value),['input_text.notify_route_test','input_text.notify_route_second']);
