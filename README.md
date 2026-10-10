@@ -566,3 +566,6 @@ layout. Runtime, adapter and planner behavior is documented in:
 - [Regression matrix](docs/REGRESSION_MATRIX.md)
 - [Release history](CHANGELOG.md)
 - [Suggested GitHub metadata and manual settings](docs/GITHUB_METADATA.md)
+
+
+Notification recipients accept multiple route helpers in Connections. Existing single-route configurations remain supported. Each distinct resolved destination receives one notification; unavailable selected routes never redirect to a default recipient. If none of the selected routes is available, Home Assistant retains a persistent notification.

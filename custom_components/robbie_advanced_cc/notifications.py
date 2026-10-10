@@ -143,3 +143,10 @@ def error_notification_copy(*, robot: str, message: str) -> tuple[str, str]:
         f"🤖 {robot} · Cleaning error",
         f"{detail}. Check the robot and resume the mission when it is safe.",
     )
+
+
+def notification_route_entities(value: str | list[str] | None) -> list[str]:
+    """Normalize legacy single bindings and current multi-recipient bindings."""
+    if isinstance(value, str):
+        value = [value]
+    return list(dict.fromkeys(item for item in (value or []) if item))

@@ -31,7 +31,7 @@ from .const import (
     DOMAIN,
 )
 from .models import WEEKDAYS
-from .notifications import default_robot_display_name
+from .notifications import default_robot_display_name, notification_route_entities
 
 
 def _optional(key: str, value: Any = None) -> vol.Optional:
@@ -164,8 +164,8 @@ def _services_schema(current: dict[str, Any] | None = None) -> vol.Schema:
             _optional(CONF_NOTIFICATION_SCRIPT, current.get(CONF_NOTIFICATION_SCRIPT)): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain="script")
             ),
-            _optional(CONF_NOTIFICATION_ROUTE, current.get(CONF_NOTIFICATION_ROUTE)): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["input_text", "input_select", "select"])
+            _optional(CONF_NOTIFICATION_ROUTE, notification_route_entities(current.get(CONF_NOTIFICATION_ROUTE))): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["input_text", "input_select", "select"], multiple=True)
             ),
             _optional(CONF_TODO_ENTITY, current.get(CONF_TODO_ENTITY)): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain="todo")

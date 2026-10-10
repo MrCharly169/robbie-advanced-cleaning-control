@@ -16,6 +16,7 @@ const errors=[];
 try {
  const context=await browser.newContext({colorScheme:'dark'});
  await context.addInitScript(({url,token})=>{
+  window.__errors=[];window.addEventListener('error',event=>window.__errors.push({message:event.message,filename:event.filename,line:event.lineno,error:JSON.stringify(event.error)}));
   window.__rejections=[];window.addEventListener('unhandledrejection',event=>window.__rejections.push(JSON.stringify(event.reason)));
   localStorage.setItem('hassTokens',JSON.stringify({hassUrl:url,access_token:token,token_type:'Bearer',expires_in:86400,expires:Date.now()+86400000,clientId:url+'/'}));
  },{url,token});
@@ -32,6 +33,51 @@ try {
  await page.waitForTimeout(4000);
  await page.screenshot({path:path.join(outputDir,'initial.png')});
  console.log('Native browser initial:', new URL(page.url()).pathname, (await page.locator('body').innerText()).slice(0,900));
+ await page.goto(url+'/config/integrations/integration/robbie_advanced_cc');
+ await page.waitForTimeout(2000);
+ await page.getByRole('button',{name:'Configure',exact:true}).first().click();
+ await page.getByRole('button',{name:'Submit',exact:true}).click();
+ await page.waitForTimeout(800);
+ const markRoute=async()=>{
+  await page.locator('ha-selector-entity').evaluateAll(es=>{
+   const field=es.find(e=>['Notification recipients (route helpers)','Benachrichtigungsempfänger (Routen-Helper)'].includes(e.label));
+   if(!field?.selector?.entity?.multiple)throw Error('Native multi-recipient selector missing');
+   field.setAttribute('data-recipient-test','');
+  });
+  return page.locator('[data-recipient-test]');
+ };
+ let recipients=await markRoute();
+ assert.deepEqual(await recipients.evaluate(e=>e.value),['input_text.notify_route_test']);
+ await recipients.getByRole('button',{name:'Add entity',exact:true}).click();
+ await recipients.locator('input').last().fill('Notification Route Second');
+ await page.screenshot({path:path.join(outputDir,'recipient-picker-open.png')});
+ console.log('Picker matches:',await page.getByText('Notification Route Second',{exact:true}).count());
+ await page.getByText('Notification Route Second',{exact:true}).click();
+ await page.waitForFunction(e=>e.value?.includes('input_text.notify_route_second'),await recipients.elementHandle());
+ assert.deepEqual(await recipients.evaluate(e=>e.value),['input_text.notify_route_test','input_text.notify_route_second']);
+ await recipients.scrollIntoViewIfNeeded();
+ await page.screenshot({path:path.join(outputDir,'en-recipients-multiple.png')});
+ await page.getByRole('button',{name:'Submit',exact:true}).click();
+ await page.getByRole('button',{name:'Submit',exact:true}).waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'Configure',exact:true}).first().click();
+ await page.getByRole('button',{name:'Submit',exact:true}).click();
+ await page.waitForTimeout(500);
+ recipients=await markRoute();
+ assert.deepEqual(await recipients.evaluate(e=>e.value),['input_text.notify_route_test','input_text.notify_route_second']);
+ await page.getByRole('button',{name:'Close',exact:true}).click();
+ await page.setViewportSize({width:390,height:844});
+ await page.evaluate(()=>document.querySelector('home-assistant').hass.callWS({type:'frontend/set_user_data',key:'language',value:{language:'de'}}));
+ await page.reload();
+ await page.getByRole('button',{name:'Konfigurieren',exact:true}).first().click();
+ await page.getByRole('button',{name:'Absenden',exact:true}).click();
+ await page.waitForTimeout(500);
+ recipients=await markRoute();
+ assert.deepEqual(await recipients.evaluate(e=>e.value),['input_text.notify_route_test','input_text.notify_route_second']);
+ await recipients.scrollIntoViewIfNeeded();
+ await page.screenshot({path:path.join(outputDir,'de-recipients-multiple.png')});
+ await page.getByRole('button',{name:'Schließen',exact:true}).click();
+ await page.evaluate(()=>document.querySelector('home-assistant').hass.callWS({type:'frontend/set_user_data',key:'language',value:{language:'en'}}));
+ await page.goto(url+'/robbie-lab/cleaning');
  const card=page.locator('robbie-advanced-cleaning-card');
  await card.waitFor({timeout:60000});
  await page.locator('#ha-launch-screen').waitFor({state:'hidden'});
@@ -77,8 +123,8 @@ try {
  const final=await api('/api/states/'+status.entity_id);assert.equal(final.attributes.active_mission_id,null);
  await service('robbie_advanced_cc','postpone_next',{entry_id,minutes:37});
  await service('robbie_advanced_cc','skip_next',{entry_id});
- console.log('Browser diagnostics:',JSON.stringify({errors,wsFailures,rejections:await page.evaluate(()=>window.__rejections)}));
+ console.log('Browser diagnostics:',JSON.stringify({errors,wsFailures,rejections:await page.evaluate(()=>window.__rejections),browserErrors:await page.evaluate(()=>window.__errors)}));
  assert.deepEqual(errors,[]);
- await fs.writeFile(path.join(outputDir,'result.json'),JSON.stringify({native_frontend:true,ha_version:await page.evaluate(()=>document.querySelector('home-assistant').hass.config.version),viewports:[390,1280],states:['waiting','skipped','running','returning'],page_errors:errors,simulated_hardware:true,passed:true},null,2));
+ await fs.writeFile(path.join(outputDir,'result.json'),JSON.stringify({native_frontend:true,multiple_recipients_saved_and_reopened:true,ha_version:await page.evaluate(()=>document.querySelector('home-assistant').hass.config.version),viewports:[390,1280],states:['waiting','skipped','running','returning'],page_errors:errors,simulated_hardware:true,passed:true},null,2));
  console.log('Native HA browser acceptance passed');
 } finally {await browser.close();}

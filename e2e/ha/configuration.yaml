@@ -17,6 +17,7 @@ homeassistant:
     - type: homeassistant
 
 api:
+recorder:
 frontend:
 http:
 
@@ -60,6 +61,9 @@ input_number:
 input_text:
   notify_route_test:
     name: Notification Route Test
+    initial: persistent_notification.create
+  notify_route_second:
+    name: Notification Route Second
     initial: persistent_notification.create
   notify_route_capture:
     name: Notification Route Capture

@@ -58,6 +58,7 @@ from .models import (
     vacuum_runtime_transition,
 )
 from .notifications import (
+    notification_route_entities,
     completion_notification_copy,
     default_robot_display_name,
     error_notification_copy,
@@ -1171,18 +1172,28 @@ class CleaningPlanner:
                     },
                 }
             }
-            if route_entity_id := self.config.get(CONF_NOTIFICATION_ROUTE):
-                route_state = self.hass.states.get(route_entity_id)
-                if route_state and route_state.state not in {
-                    "",
-                    "unknown",
-                    "unavailable",
-                }:
-                    data["route"] = route_state.state
-            await self.hass.services.async_call(
-                "script", configured.split(".", 1)[1], data, blocking=False
+            route_entities = notification_route_entities(
+                self.config.get(CONF_NOTIFICATION_ROUTE)
             )
-            return
+            routes: list[str | None] = []
+            for entity_id in route_entities:
+                state = self.hass.states.get(entity_id)
+                if state and state.state not in {"", "unknown", "unavailable"}:
+                    if state.state not in routes:
+                        routes.append(state.state)
+            # Preserve router defaults only when no recipient was selected.
+            # An unavailable selected route must not redirect to another person.
+            if not route_entities:
+                routes = [None]
+            for route in routes:
+                recipient_data = dict(data)
+                if route is not None:
+                    recipient_data["route"] = route
+                await self.hass.services.async_call(
+                    "script", configured.split(".", 1)[1], recipient_data, blocking=False
+                )
+            if routes:
+                return
         await self.hass.services.async_call(
             "persistent_notification",
             "create",

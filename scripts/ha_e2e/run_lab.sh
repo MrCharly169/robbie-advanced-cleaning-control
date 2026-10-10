@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE="${HA_E2E_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.8.1}"
+IMAGE="${HA_E2E_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.9.4}"
 PORT="${HA_E2E_PORT:-18123}"
 ENGINE="${HA_E2E_ENGINE:-docker}"
 CONTAINER="racc-e2e-${GITHUB_RUN_ID:-local}-$$"
@@ -28,7 +28,7 @@ mkdir -p "$ARTIFACTS"
 
 # Exercise controller concurrency with the same HA runtime as the HTTP lab.
 "$ENGINE" run --rm --network none -v "$ROOT:/workspace:ro" -w /workspace \
-  --entrypoint python "$IMAGE" -m unittest discover -s tests -p test_controller_skip.py -v
+  --entrypoint python "$IMAGE" -m unittest discover -s tests -p 'test_controller_*.py' -v
 
 "$ENGINE" run -d --name "$CONTAINER" \
   -p "127.0.0.1:$PORT:8123" \

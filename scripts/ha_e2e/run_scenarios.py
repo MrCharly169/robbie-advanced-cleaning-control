@@ -342,7 +342,7 @@ def create_entry(api: HomeAssistantApi) -> str:
         f"/api/config/config_entries/flow/{result['flow_id']}",
         {
             "notification_script": "script.robbie_notification_router_test",
-            "notification_route": "input_text.notify_route_test",
+            "notification_route": ["input_text.notify_route_test"],
             "dashboard_path": "/lovelace/cleaning",
         },
     )
@@ -423,7 +423,7 @@ def test_options_flow(api: HomeAssistantApi, entry_id: str) -> None:
             "presence_entities": ["input_number.home_occupants"],
             "vacation_entity": "input_boolean.vacation_mode",
             "notification_script": "script.robbie_notification_router_test",
-            "notification_route": "input_text.notify_route_test",
+            "notification_route": ["input_text.notify_route_test"],
             "dashboard_path": "/lovelace/cleaning",
         },
     )
@@ -469,7 +469,7 @@ def test_options_flow(api: HomeAssistantApi, entry_id: str) -> None:
         "presence_entities": ["input_number.home_occupants"],
         "vacation_entity": "input_boolean.vacation_mode",
         "notification_script": "script.robbie_notification_router_test",
-        "notification_route": "input_text.notify_route_test",
+        "notification_route": ["input_text.notify_route_test"],
     }
     for key, value in expected.items():
         if values.get(key) != value:

@@ -570,3 +570,6 @@ Struktur. Technische Details:
 - [Regressionsmatrix](../REGRESSION_MATRIX.md)
 - [Release-Verlauf](../../CHANGELOG.md)
 - [Vorgeschlagene GitHub-Metadaten und manuelle Einstellungen](../GITHUB_METADATA.md)
+
+
+Unter Verbindungen können mehrere Benachrichtigungsempfänger über ihre Routen-Helper ausgewählt werden. Bestehende Einzelrouten bleiben erhalten. Jedes unterschiedliche aufgelöste Ziel erhält eine Nachricht. Nicht verfügbare ausgewählte Routen werden nicht auf einen anderen Empfänger umgeleitet; ist keine verfügbar, bleibt eine dauerhafte Meldung in Home Assistant.
